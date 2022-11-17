@@ -456,6 +456,17 @@ impl Position {
         return moves;
     }
 
+    fn hyp_quint(o: u64, s: u64, m: &[u64; 64]) -> u64 {
+        let m = m[s.trailing_zeros() as usize];
+        let mut forward: u64 = o & m;
+        let mut reverse: u64 = forward.reverse_bits();
+        forward = forward.wrapping_sub(2 * s);
+        reverse = reverse.wrapping_sub(2 * s.reverse_bits());
+        forward ^= reverse.reverse_bits();
+        forward &= m;
+        return forward;
+    }
+
     pub fn generate_moves(&self, maps: &Maps) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let f_pieces: &[u64; 7];
