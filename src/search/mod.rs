@@ -1,3 +1,5 @@
+mod precompute;
+mod bittools;
 use precompute::Maps;
 
 const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -26,156 +28,6 @@ const FILE_H: u64 = 0x8080808080808080;
 const W_CASTLE: [u64; 4] = [0x60, 0x40, 0xe, 0x4];
 const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000000000000, 0x400000000000000];
 
-mod precompute {
-    fn generate_knight_maps() -> [u64; 64] {
-        let mut maps: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            let mut map: u64 = 0;
-            let origin: u64 = 1 << i;
-            map |= (origin ^ super::FILE_H) << 17; // NNE
-            map |= (origin ^ (super::FILE_G | super::FILE_H)) << 10; // NEE
-            map |= (origin ^ (super::FILE_G | super::FILE_H)) >> 6; // SEE
-            map |= (origin ^ super::FILE_H) >> 15; // SSE
-            map |= (origin ^ super::FILE_A) >> 17; // SSW
-            map |= (origin ^ (super::FILE_A | super::FILE_B)) >> 10;// SWW
-            map |= (origin ^ (super::FILE_A | super::FILE_B)) << 6; // NWW
-            map |= (origin ^ super::FILE_A) << 15; // NNW
-            maps[i] = map;
-        }
-        return maps;
-    }
-    
-    fn generate_king_maps() -> [u64; 64] {
-        let mut maps: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            let mut map: u64 = 0;
-            let origin: u64 = 1 << i;
-            map |= origin << 8; // N
-            map |= (origin ^ super::FILE_H) << 9; // NE
-            map |= (origin ^ super::FILE_H) << 1; // E
-            map |= (origin ^ super::FILE_H) >> 7; // SE
-            map |= origin >> 8; // S
-            map |= (origin ^ super::FILE_A) >> 9; // SW
-            map |= (origin ^ super::FILE_A) >> 1; // W
-            map |= (origin ^ super::FILE_A) << 7; // NW
-            maps[i] = map;
-        }
-        return maps;
-    }
-    
-    fn generate_rank_masks() -> [u64; 64] {
-        let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            match i / 8 {
-                0 => masks[i] = super::RANK_1,
-                1 => masks[i] = super::RANK_2,
-                2 => masks[i] = super::RANK_3,
-                3 => masks[i] = super::RANK_4,
-                4 => masks[i] = super::RANK_5,
-                5 => masks[i] = super::RANK_6,
-                6 => masks[i] = super::RANK_7,
-                7 => masks[i] = super::RANK_8,
-                _ => (),
-            }
-        }
-        return masks;
-    }
-    
-    fn generate_file_masks() -> [u64; 64] {
-        let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            match i % 8 {
-                0 => masks[i] = super::FILE_A,
-                1 => masks[i] = super::FILE_B,
-                2 => masks[i] = super::FILE_C,
-                3 => masks[i] = super::FILE_D,
-                4 => masks[i] = super::FILE_E,
-                5 => masks[i] = super::FILE_F,
-                6 => masks[i] = super::FILE_G,
-                7 => masks[i] = super::FILE_H,
-                _ => (),
-            }
-        }
-        return masks;
-    }
-    
-    fn generate_diagonal_masks() -> [u64; 64] {
-        let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            let mut mask: u64 = 1 << i;
-            let from_left = i % 8;
-            let from_right = 7 - from_left;
-            for l in 1..from_left+1 {
-                let l_trans = i + l * -9;
-                if l_trans >= 0 {
-                    mask |= 1 << (l_trans);
-                } else {
-                    break;
-                }
-            }
-            for r in 1..from_right+1 {
-                let r_trans = i + r * 9;
-                if r_trans < 64 {
-                    mask |= 1 << (r_trans);
-                } else {
-                    break;
-                }
-            }
-            masks[i as usize] = mask;
-       }
-        return masks;
-    }
-    
-    fn generate_antidiagonal_masks() -> [u64; 64] {
-        let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
-            let mut mask: u64 = 1 << i;
-            let from_left = i % 8;
-            let from_right = 7 - from_left;
-            for l in 1..from_left+1 {
-                let l_trans = i + l * 7;
-                if l_trans < 64 {
-                    mask |= 1 << (l_trans);
-                } else {
-                    break;
-                }
-            }
-            for r in 1..from_right+1 {
-                let r_trans = i + r * -7;
-                if r_trans >= 0 {
-                    mask |= 1 << (r_trans);
-                } else {
-                    break;
-                }
-            }
-            masks[i as usize] = mask;
-       }
-        return masks;
-    }
-    
-    pub struct Maps {
-        pub knight: [u64; 64],
-        pub king: [u64; 64],
-        pub rank: [u64; 64],
-        pub file: [u64; 64],
-        pub diag: [u64; 64],
-        pub adiag: [u64; 64],
-    }
-
-    impl Maps {
-        pub fn new() -> Maps {
-            return Maps {
-                knight: generate_knight_maps(),
-                king: generate_king_maps(),
-                rank: generate_rank_masks(),
-                file: generate_file_masks(),
-                diag: generate_diagonal_masks(),
-                adiag: generate_antidiagonal_masks(),
-            }
-        }
-    }
-
-}
 
 enum ASCIIBases {
     LowerA = 97, UpperA = 65, Zero = 48,
@@ -185,7 +37,7 @@ trait EnumIter <T> {
     fn iterator() -> Vec<T>;
 }
 
-pub enum PromotionPiece {
+enum PromotionPiece {
     None, Rook, Knight, Bishop, Queen,
 }
 
@@ -223,26 +75,6 @@ impl EnumIter<Piece> for Piece {
         return vec![Pawn, Rook, Knight, Bishop, Queen, King];
     }
 }
-
-// Bitscan functions
-fn get_lsb(n: &u64) -> u64 {
-    1 << n.trailing_zeros()
-}
-
-fn ilsb(n: &u64) -> usize {
-    return n.trailing_zeros() as usize;
-}
-
-fn forward_scan(mut n: u64) -> Vec<u64> {
-    let mut scan_result: Vec<u64> = Vec::new();
-    while n != 0 {
-        let lsb = get_lsb(&n);
-        scan_result.push(lsb);
-        n ^= lsb;
-    }
-    scan_result
-}
-
 
 struct Move {
     target: u64,
@@ -393,18 +225,6 @@ impl Position {
         return forward;
     }
 
-    fn north_one(bb: u64) -> u64 {
-        return bb << 8;
-    }
-
-    fn nort_east(bb: u64) -> u64 {
-        return (bb ^ FILE_H) << 9;
-    }
-
-    fn nort_west(bb: u64) -> u64 {
-        return (bb ^ FILE_A) << 7;
-    }
-
     // Methods to generate the target maps for pawn moves
 
     fn get_wpawn_sgl_pushes(&self) -> u64 {
@@ -509,8 +329,8 @@ impl Position {
             }
             promotion_rank = RANK_1;
         }
-        let target_vec = forward_scan(targets);
-        let src_vec = forward_scan(srcs);
+        let target_vec = bittools::forward_scan(targets);
+        let src_vec = bittools::forward_scan(srcs);
         for i in 0..target_vec.len() {
             let src = src_vec[i];
             let target = target_vec[i];
@@ -551,10 +371,10 @@ impl Position {
                 moved_piece = Piece::King;
             }
         }
-        let src_vec = forward_scan(srcs);
+        let src_vec = bittools::forward_scan(srcs);
         for src in src_vec {
-            let targets = map[ilsb(&src)] ^ f_pieces[Piece::Any as usize];
-            let target_vec = forward_scan(targets);
+            let targets = map[bittools::ilsb(&src)] ^ f_pieces[Piece::Any as usize];
+            let target_vec = bittools::forward_scan(targets);
             for target in target_vec {
                 moves.push(
                     Move::new(
@@ -595,14 +415,14 @@ impl Position {
                 moved_piece = Piece::Queen;
             }
         }
-        let src_vec = forward_scan(srcs);
+        let src_vec = bittools::forward_scan(srcs);
         for src in src_vec {
             let mut targets: u64 = 0;
             for mask in &masks {
                 targets |= Position::hyp_quint(self.occ, src, mask);
             }
             targets ^= f_pieces[Piece::Any as usize];
-            let target_vec = forward_scan(targets);
+            let target_vec = bittools::forward_scan(targets);
             for target in target_vec {
                 moves.push(
                     Move::new(
