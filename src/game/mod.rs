@@ -1,80 +1,39 @@
-mod precompute;
-mod bittools;
-use precompute::Maps;
+use crate::evaluator;
+use crate::mechanics::bittools;
+use crate::mechanics::Piece;
+use crate::mechanics::PromotionPiece;
+use crate::mechanics::PawnMove;
+use crate::mechanics::JumpingPiece;
+use crate::mechanics::SlidingPiece;
+use crate::mechanics::SpecialMove;
+use crate::mechanics::ASCIIBases;
+use crate::mechanics::Maps;
 
 const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 // Declare rank masks
-const RANK_1: u64 = 0x00000000000000ff;
-const RANK_2: u64 = 0x000000000000ff00;
-const RANK_3: u64 = 0x0000000000ff0000;
-const RANK_4: u64 = 0x00000000ff000000;
-const RANK_5: u64 = 0x000000ff00000000;
-const RANK_6: u64 = 0x0000ff0000000000;
-const RANK_7: u64 = 0x00ff000000000000;
-const RANK_8: u64 = 0xff00000000000000;
+pub const RANK_1: u64 = 0x00000000000000ff;
+pub const RANK_2: u64 = 0x000000000000ff00;
+pub const RANK_3: u64 = 0x0000000000ff0000;
+pub const RANK_4: u64 = 0x00000000ff000000;
+pub const RANK_5: u64 = 0x000000ff00000000;
+pub const RANK_6: u64 = 0x0000ff0000000000;
+pub const RANK_7: u64 = 0x00ff000000000000;
+pub const RANK_8: u64 = 0xff00000000000000;
 
 // Declare file masks
-const FILE_A: u64 = 0x0101010101010101;
-const FILE_B: u64 = 0x0202020202020202;
-const FILE_C: u64 = 0x0404040404040404;
-const FILE_D: u64 = 0x0808080808080808;
-const FILE_E: u64 = 0x1010101010101010;
-const FILE_F: u64 = 0x2020202020202020;
-const FILE_G: u64 = 0x4040404040404040;
-const FILE_H: u64 = 0x8080808080808080;
+pub const FILE_A: u64 = 0x0101010101010101;
+pub const FILE_B: u64 = 0x0202020202020202;
+pub const FILE_C: u64 = 0x0404040404040404;
+pub const FILE_D: u64 = 0x0808080808080808;
+pub const FILE_E: u64 = 0x1010101010101010;
+pub const FILE_F: u64 = 0x2020202020202020;
+pub const FILE_G: u64 = 0x4040404040404040;
+pub const FILE_H: u64 = 0x8080808080808080;
 
 // Castle masks [KingsideMask, KingsideTarget, QueensideMask, QueensideTarget]
-const W_CASTLE: [u64; 4] = [0x60, 0x40, 0xe, 0x4];
-const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000000000000, 0x400000000000000];
-
-
-enum ASCIIBases {
-    LowerA = 97, UpperA = 65, Zero = 48,
-}
-
-trait EnumIter <T> {
-    fn iterator() -> Vec<T>;
-}
-
-enum PromotionPiece {
-    None, Rook, Knight, Bishop, Queen,
-}
-
-impl EnumIter<PromotionPiece> for PromotionPiece {
-    fn iterator() -> Vec<PromotionPiece> {
-        use PromotionPiece::*;
-        return vec![Rook, Knight, Bishop, Queen];
-    }
-}
-
-enum SpecialMove {
-    None, Promotion, EnPassant, Castling,
-}
-
-enum PawnMove {
-    SinglePush, DoublePush, CaptureLeft, CaptureRight,
-}
-
-enum JumpingPiece {
-    Knight, King,
-}
-
-enum SlidingPiece {
-    Bishop, Rook, Queen,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum Piece {
-    Any, Pawn, Rook, Knight, Bishop, Queen, King
-}
-
-impl EnumIter<Piece> for Piece {
-    fn iterator() -> Vec<Piece> {
-        use Piece::*;
-        return vec![Pawn, Rook, Knight, Bishop, Queen, King];
-    }
-}
+pub const W_CASTLE: [u64; 4] = [0x60, 0x40, 0xe, 0x4];
+pub const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000000000000, 0x400000000000000];
 
 struct Move {
     target: u64,
@@ -119,7 +78,6 @@ impl Move {
         }
 
 }
-
 pub struct Position {
     w_pieces: [u64; 7],
     b_pieces: [u64; 7],
@@ -212,17 +170,6 @@ impl Position {
             b_kingside_castle, w_queenside_castle, b_queenside_castle,
             en_passant_target_sq, halfmove_clock, fullmove_clock
         }
-    }
-
-    fn hyp_quint(o: u64, s: u64, m: &[u64; 64]) -> u64 {
-        let m = m[s.trailing_zeros() as usize];
-        let mut forward: u64 = o & m;
-        let mut reverse: u64 = forward.reverse_bits();
-        forward = forward.wrapping_sub(2 * s);
-        reverse = reverse.wrapping_sub(2 * s.reverse_bits());
-        forward ^= reverse.reverse_bits();
-        forward &= m;
-        return forward;
     }
 
     // Methods to generate the target maps for pawn moves
@@ -419,7 +366,7 @@ impl Position {
         for src in src_vec {
             let mut targets: u64 = 0;
             for mask in &masks {
-                targets |= Position::hyp_quint(self.occ, src, mask);
+                targets |= search_engine::hyp_quint(self.occ, src, mask);
             }
             targets ^= f_pieces[Piece::Any as usize];
             let target_vec = bittools::forward_scan(targets);
@@ -509,7 +456,7 @@ impl Position {
         return moves;
     }
 
-    fn generate_moves(&self, maps: &Maps) -> Vec<Move> {
+    pub fn generate_moves(&self, maps: &Maps) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let f_pieces: &[u64; 7];
         let o_pieces: &[u64; 7];
@@ -554,21 +501,7 @@ impl Position {
         return moves;
     }
 
-    pub fn perft(&mut self, depth: i8, maps: &Maps) -> i32 {
-        let mut nodes = 0;
-        if depth == 0 {
-            return 1;
-        }
-        let moves = self.generate_moves(maps);
-        for mv in moves {
-            self.make_move(&mv);
-            nodes += self.perft(depth-1, maps);
-            self.unmake_move(&mv);
-        }
-        return nodes;
-    }
-
-    fn make_move(&mut self, mv: &Move) {
+    pub fn make_move(&mut self, mv: &Move) {
         let f_pieces;
         let o_pieces;
 
@@ -611,8 +544,33 @@ impl Position {
         }
     }
 
-    fn unmake_move(&self, mv: &Move) {
+    pub fn unmake_move(&self, mv: &Move) {
 
     }
     
+}
+
+pub struct Score {
+    value: i64,
+}
+
+impl Score {
+    pub fn new() -> Score {
+        let val: i64 = 0;
+        return Score {value: val};
+    }
+}
+pub struct State {
+    position: Position,
+    score: Score,
+}
+
+// This initializes the game context
+impl State {
+
+    pub fn new_from_fen(fen: Option<String>) -> State {
+        let position = Position::new_from_fen(fen);
+        let score = evaluator::evaluate(position);
+        return State {position, score};
+    }
 }
