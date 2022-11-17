@@ -1,4 +1,4 @@
-use super::game;
+use crate::game;
 use crate::mechanics::Maps;
 
 fn hyp_quint(o: u64, s: u64, m: &[u64; 64]) -> u64 {
