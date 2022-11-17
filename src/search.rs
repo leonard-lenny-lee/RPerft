@@ -1,4 +1,5 @@
-use std::slice::Iter;
+use precompute::Maps;
+
 const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 // Declare rank masks
@@ -25,17 +26,9 @@ const FILE_H: u64 = 0x8080808080808080;
 const W_CASTLE: [u64; 4] = [0x60, 0x40, 0xe, 0x4];
 const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000000000000, 0x400000000000000];
 
-// Declare precomputed lookup maps
-const KNIGHT_MAPS: [u64; 64] = precompute::generate_knight_maps();
-const KING_MAPS: [u64; 64] = precompute::generate_king_maps();
-const RANK_MASKS: [u64; 64] = precompute::generate_rank_masks();
-const FILE_MASKS: [u64; 64] = precompute::generate_file_masks();
-const DIAG_MASKS: [u64; 64] = precompute::generate_diagonal_masks();
-const ADIAG_MASKS: [u64; 64] = precompute::generate_antidiagonal_masks();
-
 mod precompute {
-    pub fn generate_knight_maps() -> [u64; 64] {
-        let mut maps: [u64; 64];
+    fn generate_knight_maps() -> [u64; 64] {
+        let mut maps: [u64; 64] = [0; 64];
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin: u64 = 1 << i;
@@ -52,8 +45,8 @@ mod precompute {
         return maps;
     }
     
-    pub fn generate_king_maps() -> [u64; 64] {
-        let mut maps: [u64; 64];
+    fn generate_king_maps() -> [u64; 64] {
+        let mut maps: [u64; 64] = [0; 64];
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin: u64 = 1 << i;
@@ -70,8 +63,8 @@ mod precompute {
         return maps;
     }
     
-    pub fn generate_rank_masks() -> [u64; 64] {
-        let mut masks: [u64; 64];
+    fn generate_rank_masks() -> [u64; 64] {
+        let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             match i / 8 {
                 0 => masks[i] = super::RANK_1,
@@ -88,8 +81,8 @@ mod precompute {
         return masks;
     }
     
-    pub fn generate_file_masks() -> [u64; 64] {
-        let mut masks: [u64; 64];
+    fn generate_file_masks() -> [u64; 64] {
+        let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             match i % 8 {
                 0 => masks[i] = super::FILE_A,
@@ -106,8 +99,8 @@ mod precompute {
         return masks;
     }
     
-    pub fn generate_diagonal_masks() -> [u64; 64] {
-        let mut masks: [u64; 64];
+    fn generate_diagonal_masks() -> [u64; 64] {
+        let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             let mut mask: u64 = 1 << i;
             let from_left = i % 8;
@@ -133,8 +126,8 @@ mod precompute {
         return masks;
     }
     
-    pub fn generate_antidiagonal_masks() -> [u64; 64] {
-        let mut masks: [u64; 64];
+    fn generate_antidiagonal_masks() -> [u64; 64] {
+        let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             let mut mask: u64 = 1 << i;
             let from_left = i % 8;
@@ -159,6 +152,29 @@ mod precompute {
        }
         return masks;
     }
+    
+    pub struct Maps {
+        pub knight: [u64; 64],
+        pub king: [u64; 64],
+        pub rank: [u64; 64],
+        pub file: [u64; 64],
+        pub diag: [u64; 64],
+        pub adiag: [u64; 64],
+    }
+
+    impl Maps {
+        pub fn new() -> Maps {
+            return Maps {
+                knight: generate_knight_maps(),
+                king: generate_king_maps(),
+                rank: generate_rank_masks(),
+                file: generate_file_masks(),
+                diag: generate_diagonal_masks(),
+                adiag: generate_antidiagonal_masks(),
+            }
+        }
+    }
+
 }
 
 enum ASCIIBases {
@@ -166,7 +182,7 @@ enum ASCIIBases {
 }
 
 trait EnumIter <T> {
-    fn iterator() -> Iter<'static, T>;
+    fn iterator() -> Vec<T>;
 }
 
 pub enum PromotionPiece {
@@ -174,10 +190,9 @@ pub enum PromotionPiece {
 }
 
 impl EnumIter<PromotionPiece> for PromotionPiece {
-    fn iterator() -> Iter<'static, PromotionPiece> {
+    fn iterator() -> Vec<PromotionPiece> {
         use PromotionPiece::*;
-        static PIECES: [PromotionPiece; 4] = [Rook, Knight, Bishop, Queen];
-        return PIECES.iter();
+        return vec![Rook, Knight, Bishop, Queen];
     }
 }
 
@@ -197,15 +212,15 @@ enum SlidingPiece {
     Bishop, Rook, Queen,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum Piece {
     Any, Pawn, Rook, Knight, Bishop, Queen, King
 }
 
 impl EnumIter<Piece> for Piece {
-    fn iterator() -> Iter<'static, Piece> {
+    fn iterator() -> Vec<Piece> {
         use Piece::*;
-        static PIECES: [Piece; 6] = [Pawn, Rook, Knight, Bishop, Queen, King];
-        return PIECES.iter();
+        return vec![Pawn, Rook, Knight, Bishop, Queen, King];
     }
 }
 
@@ -240,7 +255,7 @@ struct Move {
 }
 
 impl Move {
-    fn new(target_sq: u64, src_sq: u64, moved_piece: Piece, 
+    fn new(target_sq: u64, src_sq: u64, moved_piece: &Piece, 
         promotion_piece: PromotionPiece, special_move_flag: SpecialMove, 
         position: &Position) -> Move {
             let o_pieces;
@@ -250,22 +265,20 @@ impl Move {
                 o_pieces = &position.w_pieces;
             }
             let is_capture = o_pieces[0] & target_sq != 0;
-            let captured_piece;
+            let mut captured_piece = Piece::Any;
             if is_capture {
                 for piece in Piece::iterator() {
-                    if o_pieces[*piece as usize] & target_sq != 0 {
+                    if o_pieces[piece as usize] & target_sq != 0 {
                         // Identified which piece has been captured
-                        captured_piece = *piece;
+                        captured_piece = piece;
                         break;
                     }
                 }
-            } else {
-                captured_piece = Piece::Any;
             }
             return Move {
                 target: target_sq,
                 src: src_sq,
-                moved_piece: moved_piece,
+                moved_piece: *moved_piece,
                 promotion_piece: promotion_piece,
                 special_move_flag: special_move_flag,
                 is_capture: is_capture,
@@ -378,6 +391,18 @@ impl Position {
         forward ^= reverse.reverse_bits();
         forward &= m;
         return forward;
+    }
+
+    fn north_one(bb: u64) -> u64 {
+        return bb << 8;
+    }
+
+    fn nort_east(bb: u64) -> u64 {
+        return (bb ^ FILE_H) << 9;
+    }
+
+    fn nort_west(bb: u64) -> u64 {
+        return (bb ^ FILE_A) << 7;
     }
 
     // Methods to generate the target maps for pawn moves
@@ -494,7 +519,7 @@ impl Position {
                     Move::new(
                         target,
                         src, 
-                        Piece::Pawn,
+                        &Piece::Pawn,
                         PromotionPiece::None, 
                         SpecialMove::None,
                         self)
@@ -507,33 +532,35 @@ impl Position {
         return moves;
     }
 
-    fn generate_jumping_moves(&self, piece: JumpingPiece, f_pieces: &[u64; 7]) -> Vec<Move> {
+    fn generate_jumping_moves(
+        &self, piece: JumpingPiece, f_pieces: &[u64; 7], maps: &Maps
+    ) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let srcs;
-        let maps;
+        let map;
         let moved_piece;
         match piece {
             JumpingPiece::Knight => {
                 srcs = f_pieces[Piece::Knight as usize];
-                maps = &KNIGHT_MAPS;
+                map = &maps.knight;
                 moved_piece = Piece::Knight;
             },
             JumpingPiece::King => {
                 srcs = f_pieces[Piece::King as usize];
-                maps = &KING_MAPS;
+                map = &maps.king;
                 moved_piece = Piece::King;
             }
         }
         let src_vec = forward_scan(srcs);
         for src in src_vec {
-            let targets = maps[ilsb(&src)] ^ f_pieces[Piece::Any as usize];
+            let targets = map[ilsb(&src)] ^ f_pieces[Piece::Any as usize];
             let target_vec = forward_scan(targets);
             for target in target_vec {
                 moves.push(
                     Move::new(
                         target,
                         src,
-                        moved_piece,
+                        &moved_piece,
                         PromotionPiece::None,
                         SpecialMove::None,
                         self,
@@ -544,7 +571,9 @@ impl Position {
         return moves;
     }
 
-    fn generate_sliding_moves(&self, piece: SlidingPiece, f_pieces: &[u64; 7]) -> Vec<Move> {
+    fn generate_sliding_moves(
+        &self, piece: SlidingPiece, f_pieces: &[u64; 7], maps: &Maps
+    ) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let srcs: u64;
         let masks: Vec<&[u64; 64]>;
@@ -552,24 +581,24 @@ impl Position {
         match piece {
             SlidingPiece::Bishop => {
                 srcs = f_pieces[Piece::Bishop as usize];
-                masks = vec![&DIAG_MASKS, &ADIAG_MASKS];
+                masks = vec![&maps.diag, &maps.adiag];
                 moved_piece = Piece::Bishop;
             },
             SlidingPiece::Rook => {
                 srcs = f_pieces[Piece::Rook as usize];
-                masks = vec![&FILE_MASKS, &RANK_MASKS];
+                masks = vec![&maps.file, &maps.rank];
                 moved_piece = Piece::Rook;
             },
             SlidingPiece::Queen => {
                 srcs = f_pieces[Piece::Queen as usize];
-                masks = vec![&DIAG_MASKS, &ADIAG_MASKS, &FILE_MASKS, &RANK_MASKS];
+                masks = vec![&maps.diag, &maps.adiag, &maps.file, &maps.rank];
                 moved_piece = Piece::Queen;
             }
         }
         let src_vec = forward_scan(srcs);
         for src in src_vec {
             let mut targets: u64 = 0;
-            for mask in masks {
+            for mask in &masks {
                 targets |= Position::hyp_quint(self.occ, src, mask);
             }
             targets ^= f_pieces[Piece::Any as usize];
@@ -579,7 +608,7 @@ impl Position {
                     Move::new(
                         target,
                         src,
-                        moved_piece,
+                        &moved_piece,
                         PromotionPiece::None,
                         SpecialMove::None,
                         self,
@@ -599,8 +628,8 @@ impl Position {
                 Move::new(
                     target,
                     src,
-                    Piece::Pawn,
-                    *piece,
+                    &Piece::Pawn,
+                    piece,
                     SpecialMove::Promotion,
                     self,                    
                 )
@@ -629,7 +658,7 @@ impl Position {
                     Move::new(
                         target,
                         src,
-                        Piece::Pawn,
+                        &Piece::Pawn,
                         PromotionPiece::None,
                         SpecialMove::EnPassant,
                         self,
@@ -649,7 +678,7 @@ impl Position {
                     Move::new(
                         m[i*2+1],
                         src,
-                        Piece::King,
+                        &Piece::King,
                         PromotionPiece::None,
                         SpecialMove::Castling,
                         self,
@@ -660,7 +689,7 @@ impl Position {
         return moves;
     }
 
-    pub fn generate_moves(&self) -> Vec<Move> {
+    fn generate_moves(&self, maps: &Maps) -> Vec<Move> {
         let mut moves: Vec<Move> = Vec::new();
         let f_pieces: &[u64; 7];
         let o_pieces: &[u64; 7];
@@ -686,15 +715,15 @@ impl Position {
         // Pawn right captures
         moves.append(&mut self.generate_pawn_moves(PawnMove::CaptureRight));
         // Knight moves
-        moves.append(&mut self.generate_jumping_moves(JumpingPiece::Knight, f_pieces));
+        moves.append(&mut self.generate_jumping_moves(JumpingPiece::Knight, f_pieces, maps));
         // King moves
-        moves.append(&mut self.generate_jumping_moves(JumpingPiece::King, f_pieces));
+        moves.append(&mut self.generate_jumping_moves(JumpingPiece::King, f_pieces, maps));
         // Bishop moves
-        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Bishop, f_pieces));
+        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Bishop, f_pieces, maps));
         // Rook moves
-        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Rook, f_pieces));
+        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Rook, f_pieces, maps));
         // Queen moves
-        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Queen, f_pieces));
+        moves.append(&mut self.generate_sliding_moves(SlidingPiece::Queen, f_pieces, maps));
         // Castling
         moves.append(&mut self.generate_castling_moves(castle_masks, &castle_rights, f_pieces));
 
@@ -705,15 +734,15 @@ impl Position {
         return moves;
     }
 
-    pub fn perft(&self, depth: i8) -> i32 {
+    pub fn perft(&mut self, depth: i8, maps: &Maps) -> i32 {
         let mut nodes = 0;
         if depth == 0 {
             return 1;
         }
-        let moves = self.generate_moves();
+        let moves = self.generate_moves(maps);
         for mv in moves {
             self.make_move(&mv);
-            nodes += self.perft(depth-1);
+            nodes += self.perft(depth-1, maps);
             self.unmake_move(&mv);
         }
         return nodes;
