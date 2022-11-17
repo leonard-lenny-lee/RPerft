@@ -1,5 +1,8 @@
 
-mod search;
+mod search_engine;
+mod context;
+mod mechanics;
+mod evaluator;
 
 fn draw_bitboard(n: u64) {
     let mut out = String::new();
@@ -15,8 +18,15 @@ fn draw_bitboard(n: u64) {
     }
     println!("{}", out);
 }
-
+    
+fn init(fen: Option<String>) -> context::GameContext {
+    let ctx = context::GameContext::new_from_fen(fen);
+    return ctx;
+}
 fn main() {
+    
+    let fen = "";
+    let ctx = init(fen);
     let x:u64 = 1<<60;
     draw_bitboard(x<<6);
 }
