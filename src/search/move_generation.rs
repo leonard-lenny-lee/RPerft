@@ -118,7 +118,8 @@ fn generate_pawn_moves(position: &Position, move_type: PawnMove) -> Vec<Move> {
 }
 
 fn generate_jumping_moves(
-    position: &Position, piece: JumpingPiece, f_pieces: &[u64; 7], maps: &Maps
+    position: &Position, piece: JumpingPiece, f_pieces: &[u64; 7], maps: &Maps,
+    unsafe_squares: u64
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = Vec::new();
     let srcs;
@@ -142,13 +143,7 @@ fn generate_jumping_moves(
         // Remove unsafe squares i.e. squares attacked by opponent pieces from
         // the available target sqaures for the king
         if matches!(piece, JumpingPiece::King) {
-            let color;
-            if position.white_to_move {
-                color = Color::Black
-            } else {
-                color = Color::White
-            }
-            targets ^= position.get_unsafe_squares_for(color, maps)
+            targets ^= unsafe_squares
         }
         let target_vec = bittools::forward_scan(targets);
         for target in target_vec {
@@ -291,16 +286,31 @@ pub fn generate_moves(position: &Position, maps: &Maps) -> Vec<Move> {
     let o_pieces: &[u64; 7];
     let castle_masks: &[u64; 4];
     let castle_rights;
+    let color;
     if position.white_to_move {
         f_pieces = &position.w_pieces;
         o_pieces = &position.b_pieces;
         castle_masks = &W_CASTLE;
         castle_rights = [position.w_kingside_castle, position.w_queenside_castle];
+        color = Color::White;
     } else {
         f_pieces = &position.b_pieces;
         o_pieces = &position.w_pieces;
         castle_masks = &B_CASTLE;
         castle_rights = [position.b_kingside_castle, position.b_kingside_castle];
+        color = Color::Black;
+    }
+    let (unsafe_squares, attackers) = position.get_unsafe_squares_for(color, maps);
+    // Number of pieces placing the king in check
+    let n_of_attackers = attackers.count_ones();
+    let mut capture_mask: u64 = 0xffffffffffffffff;
+    let mut push_mask: u64 = 0xffffffffffffffff;
+    if n_of_attackers == 1 {
+        // This means the king is in single check so moves are only legal if
+        // 1. It moves the king out of check
+        // 2. The attacking piece is captured
+        // 3. The attacking piece is blocked, if the piece is a sliding piece
+        capture_mask = attackers;
     }
     // Pawn single pushes
     moves.append(&mut generate_pawn_moves(position, PawnMove::SinglePush));
@@ -311,9 +321,9 @@ pub fn generate_moves(position: &Position, maps: &Maps) -> Vec<Move> {
     // Pawn right captures
     moves.append(&mut generate_pawn_moves(position, PawnMove::CaptureRight));
     // Knight moves
-    moves.append(&mut generate_jumping_moves(position, JumpingPiece::Knight, f_pieces, maps));
+    moves.append(&mut generate_jumping_moves(position, JumpingPiece::Knight, f_pieces, maps, unsafe_squares));
     // King moves
-    moves.append(&mut generate_jumping_moves(position, JumpingPiece::King, f_pieces, maps));
+    moves.append(&mut generate_jumping_moves(position, JumpingPiece::King, f_pieces, maps, unsafe_squares));
     // Bishop moves
     moves.append(&mut generate_sliding_moves(position, SlidingPiece::Bishop, f_pieces, maps));
     // Rook moves

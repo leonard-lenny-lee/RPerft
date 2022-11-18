@@ -31,6 +31,11 @@ pub fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
     return forward;
 }
 
+pub fn create_ray_mask(n_1: u64, n_2: u64) {
+    // TODO write ray mask generation function
+    assert!(n_1.count_ones() == 1 && n_2.count_ones() == 1);
+}
+
 pub fn north_one(bb: u64) -> u64 {
     bb << 8
 }
