@@ -1,72 +1,13 @@
-/// Contains the Map struct and associated methods to generate the maps.
-// TODO implement singleton to allow one instantiation of a Map struct, using
-// only the new() constructor.
+/// Contains the Map struct and associated methods to generate the maps. It 
+/// should only be instantiated once at program startup and passed by reference
+/// to other part of the program. The maps struct contains all the precalculated
+/// masks/maps to speed up move generation and other calculation operations at 
+/// runtime. TODO implement singleton to allow only one instantiation of a Map
+/// struct and only via the new() constructor static method.
 
 use std::collections::HashMap;
-pub mod bittools;
-use crate::game::RANK_1;
-use crate::game::RANK_2;
-use crate::game::RANK_3;
-use crate::game::RANK_4;
-use crate::game::RANK_5;
-use crate::game::RANK_6;
-use crate::game::RANK_7;
-use crate::game::RANK_8;
-use crate::game::FILE_A;
-use crate::game::FILE_B;
-use crate::game::FILE_C;
-use crate::game::FILE_D;
-use crate::game::FILE_E;
-use crate::game::FILE_F;
-use crate::game::FILE_G;
-use crate::game::FILE_H;
+use crate::common::*;
 
-pub enum ASCIIBases {
-    LowerA = 97, UpperA = 65, Zero = 48,
-}
-
-trait EnumIter <T> {
-    fn iterator() -> Vec<T>;
-}
-
-pub enum PromotionPiece {
-    None, Rook, Knight, Bishop, Queen,
-}
-
-impl EnumIter<PromotionPiece> for PromotionPiece {
-    fn iterator() -> Vec<PromotionPiece> {
-        use PromotionPiece::*;
-        return vec![Rook, Knight, Bishop, Queen];
-    }
-}
-
-pub enum SpecialMove {
-    None, Promotion, EnPassant, Castling,
-}
-
-pub enum PawnMove {
-    SinglePush, DoublePush, CaptureLeft, CaptureRight,
-}
-
-pub enum JumpingPiece {
-    Knight, King,
-}
-
-pub enum SlidingPiece {
-    Bishop, Rook, Queen,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Piece {
-    Any, Pawn, Rook, Knight, Bishop, Queen, King
-}
-
-impl EnumIter<Piece> for Piece {
-    fn iterator() -> Vec<Piece> {
-        use Piece::*;
-        return vec![Pawn, Rook, Knight, Bishop, Queen, King];
-    }
-}
 pub struct Maps {
     pub knight: [u64; 64],
     pub dknight: HashMap<u64, u64>,

@@ -1,8 +1,9 @@
 
-mod search_engine;
-mod game;
-mod mechanics;
-mod evaluator;
+mod global;
+mod common;
+mod position;
+mod search;
+mod evaluation;
 
 fn draw_bitboard(n: u64) {
     let mut out = String::new();
@@ -19,14 +20,14 @@ fn draw_bitboard(n: u64) {
     println!("{}", out);
 }
     
-fn init(fen: Option<String>) -> game::State {
-    let ctx = game::State::new_from_fen(fen);
+fn init(fen: Option<String>) -> global::State {
+    let ctx = global::State::new_from_fen(fen);
     return ctx;
 }
 fn main() {
     
-    let fen = "";
-    let state = init(fen);
+    // let fen = "";
+    // let state = init(fen);
     let x:u64 = 1<<60;
-    draw_bitboard(x<<6);
+    draw_bitboard(common::FILE_A);
 }
