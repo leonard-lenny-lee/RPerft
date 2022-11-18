@@ -138,7 +138,18 @@ fn generate_jumping_moves(
     }
     let src_vec = bittools::forward_scan(srcs);
     for src in src_vec {
-        let targets = map[bittools::ilsb(&src)] ^ f_pieces[Piece::Any as usize];
+        let mut targets = map[bittools::ilsb(&src)] ^ f_pieces[Piece::Any as usize];
+        // Remove unsafe squares i.e. squares attacked by opponent pieces from
+        // the available target sqaures for the king
+        if matches!(piece, JumpingPiece::King) {
+            let color;
+            if position.white_to_move {
+                color = Color::Black
+            } else {
+                color = Color::White
+            }
+            targets ^= position.get_unsafe_squares_for(color, maps)
+        }
         let target_vec = bittools::forward_scan(targets);
         for target in target_vec {
             moves.push(

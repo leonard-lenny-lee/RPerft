@@ -1,4 +1,5 @@
 
+
 mod global;
 mod common;
 mod position;
@@ -19,9 +20,9 @@ fn draw_bitboard(n: u64) {
     }
     println!("{}", out);
 }
-    
+
 fn init(fen: Option<String>) -> global::State {
-    let ctx = global::State::new_from_fen(fen);
+    let ctx = global::State::new_from_fen(common::DEFAULT_FEN.to_string());
     return ctx;
 }
 fn main() {

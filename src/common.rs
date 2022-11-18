@@ -57,8 +57,22 @@ pub enum JumpingPiece {
     Knight, King,
 }
 
+impl JumpingPiece {
+    pub fn iterator() -> Vec<JumpingPiece> {
+        use JumpingPiece::*;
+        return vec![Knight, King];
+    }
+}
+
 pub enum SlidingPiece {
     Bishop, Rook, Queen,
+}
+
+impl SlidingPiece {
+    pub fn iterator() -> Vec<SlidingPiece> {
+        use SlidingPiece::*;
+        return vec![Bishop, Rook, Queen]
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -71,4 +85,8 @@ impl Piece {
         use Piece::*;
         return vec![Pawn, Rook, Knight, Bishop, Queen, King];
     }
+}
+
+pub enum Color {
+    White, Black
 }

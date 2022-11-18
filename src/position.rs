@@ -4,6 +4,7 @@
 
 use super::common::*;
 use super::search::move_generation::Move;
+use super::global::maps::Maps;
 
 pub struct Position {
     pub w_pieces: [u64; 7],
@@ -22,8 +23,7 @@ pub struct Position {
 
 impl Position {
 
-    pub fn new_from_fen(fen: Option<String>) -> Position {
-        let fen: String = fen.unwrap_or(String::from(DEFAULT_FEN));
+    pub fn new_from_fen(fen: String) -> Position {
         let split_fen: Vec<&str> = fen.split(" ").collect();
         assert!(split_fen.len() == 6);
         let board = split_fen[0];
@@ -104,8 +104,10 @@ impl Position {
             en_passant_target_sq, halfmove_clock, fullmove_clock
         }
     }
+}
 
-    // Methods to generate the target maps for pawn moves
+/// Methods to generate the target maps for pawn moves
+impl Position {
 
     pub fn get_wpawn_sgl_pushes(&self) -> u64 {
         self.w_pieces[1] << 8 & self.free
@@ -160,6 +162,47 @@ impl Position {
         assert!(!self.white_to_move);
         (self.b_pieces[1] ^ FILE_H) >> 7 & self.en_passant_target_sq
     }
+
+}
+
+/// Methods to generate unsafe squares for the king.
+impl Position {
+
+    pub fn get_unsafe_squares_for(&self, color: Color, maps: &Maps) -> u64 {
+        let piece_set;
+        match color {
+            Color::White => piece_set = &self.b_pieces,
+            Color::Black => piece_set = &self.w_pieces,
+        }
+        let mut unsafe_squares: u64 = 0;
+        // Pawn right captures
+        unsafe_squares |= bittools::sout_east(piece_set[Piece::Pawn as usize]);
+        // Pawn left captures
+        unsafe_squares |= bittools::sout_west(piece_set[Piece::Pawn as usize]);
+        // Horizontal and vertical sliding pieces
+        let hv_pieces = piece_set[Piece::Rook as usize] | piece_set[Piece::Queen as usize];
+        for hv_piece in bittools::forward_scan(hv_pieces) {
+            unsafe_squares |= bittools::hyp_quint(self.occ, hv_piece, &maps.rank);
+            unsafe_squares |= bittools::hyp_quint(self.occ, hv_piece, &maps.file);
+        }
+        // Diagonal and antidiagonal sliding pieces
+        let da_pieces = piece_set[Piece::Bishop as usize] | piece_set[Piece::Queen as usize];
+        for da_piece in bittools::forward_scan(da_pieces) {
+            unsafe_squares |= bittools::hyp_quint(self.occ, da_piece, &maps.diag);
+            unsafe_squares |= bittools::hyp_quint(self.occ, da_piece, &maps.adiag);
+        }
+        // Knights
+        unsafe_squares |= maps.dknight.get(&piece_set[Piece::Knight as usize]).unwrap();
+        // Kings
+        unsafe_squares |= maps.king[bittools::ilsb(&piece_set[Piece::King as usize])];
+
+        return unsafe_squares;
+    }
+
+}
+
+/// Methods to make and unmake a move
+impl Position{
 
     pub fn make_move(&mut self, mv: &Move) {
         let f_pieces;
