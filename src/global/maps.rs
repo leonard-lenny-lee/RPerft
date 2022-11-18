@@ -1,8 +1,12 @@
-/// Contains the Map struct and associated methods to generate the maps.
-// TODO implement singleton to allow one instantiation of a Map struct, using
-// only the new() constructor.
+/// Contains the Map struct and associated methods to generate the maps. It 
+/// should only be instantiated once at program startup and passed by reference
+/// to other part of the program. The maps struct contains all the precalculated
+/// masks/maps to speed up move generation and other calculation operations at 
+/// runtime. TODO implement singleton to allow only one instantiation of a Map
+/// struct and only via the new() constructor static method.
 
 use std::collections::HashMap;
+use crate::common::*;
 
 pub struct Maps {
     pub knight: [u64; 64],
@@ -32,14 +36,14 @@ impl Maps {
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin = 1 << i;
-            map |= super::bittools::no_no_ea(origin);
-            map |= super::bittools::no_ea_ea(origin);
-            map |= super::bittools::so_ea_ea(origin);
-            map |= super::bittools::so_so_ea(origin);
-            map |= super::bittools::so_so_we(origin);
-            map |= super::bittools::so_we_we(origin);
-            map |= super::bittools::no_we_we(origin);
-            map |= super::bittools::no_no_we(origin);
+            map |= bittools::no_no_ea(origin);
+            map |= bittools::no_ea_ea(origin);
+            map |= bittools::so_ea_ea(origin);
+            map |= bittools::so_so_ea(origin);
+            map |= bittools::so_so_we(origin);
+            map |= bittools::so_we_we(origin);
+            map |= bittools::no_we_we(origin);
+            map |= bittools::no_no_we(origin);
             maps[i] = map;
         }
         return maps;   
@@ -51,14 +55,14 @@ impl Maps {
             for j in 0..64 {
                 let mut map: u64 = 0;
                 let origin = 1 << i | 1 << j;
-                map |= super::bittools::no_no_ea(origin);
-                map |= super::bittools::no_ea_ea(origin);
-                map |= super::bittools::so_ea_ea(origin);
-                map |= super::bittools::so_so_ea(origin);
-                map |= super::bittools::so_so_we(origin);
-                map |= super::bittools::so_we_we(origin);
-                map |= super::bittools::no_we_we(origin);
-                map |= super::bittools::no_no_we(origin);
+                map |= bittools::no_no_ea(origin);
+                map |= bittools::no_ea_ea(origin);
+                map |= bittools::so_ea_ea(origin);
+                map |= bittools::so_so_ea(origin);
+                map |= bittools::so_so_we(origin);
+                map |= bittools::so_we_we(origin);
+                map |= bittools::no_we_we(origin);
+                map |= bittools::no_no_we(origin);
                 maps.insert(origin, map);
             }
         }
@@ -70,14 +74,14 @@ impl Maps {
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin: u64 = 1 << i;
-            map |= super::bittools::north_one(origin);
-            map |= super::bittools::nort_east(origin);
-            map |= super::bittools::east_one(origin);
-            map |= super::bittools::sout_east(origin);
-            map |= super::bittools::south_one(origin);
-            map |= super::bittools::sout_west(origin);
-            map |= super::bittools::west_one(origin);
-            map |= super::bittools::nort_west(origin);
+            map |= bittools::north_one(origin);
+            map |= bittools::nort_east(origin);
+            map |= bittools::east_one(origin);
+            map |= bittools::sout_east(origin);
+            map |= bittools::south_one(origin);
+            map |= bittools::sout_west(origin);
+            map |= bittools::west_one(origin);
+            map |= bittools::nort_west(origin);
             maps[i] = map;
         }
         return maps;
@@ -87,14 +91,14 @@ impl Maps {
         let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             match i / 8 {
-                0 => masks[i] = super::RANK_1,
-                1 => masks[i] = super::RANK_2,
-                2 => masks[i] = super::RANK_3,
-                3 => masks[i] = super::RANK_4,
-                4 => masks[i] = super::RANK_5,
-                5 => masks[i] = super::RANK_6,
-                6 => masks[i] = super::RANK_7,
-                7 => masks[i] = super::RANK_8,
+                0 => masks[i] = RANK_1,
+                1 => masks[i] = RANK_2,
+                2 => masks[i] = RANK_3,
+                3 => masks[i] = RANK_4,
+                4 => masks[i] = RANK_5,
+                5 => masks[i] = RANK_6,
+                6 => masks[i] = RANK_7,
+                7 => masks[i] = RANK_8,
                 _ => (),
             }
         }
@@ -105,14 +109,14 @@ impl Maps {
         let mut masks: [u64; 64] = [0; 64];
         for i in 0..64 {
             match i % 8 {
-                0 => masks[i] = super::FILE_A,
-                1 => masks[i] = super::FILE_B,
-                2 => masks[i] = super::FILE_C,
-                3 => masks[i] = super::FILE_D,
-                4 => masks[i] = super::FILE_E,
-                5 => masks[i] = super::FILE_F,
-                6 => masks[i] = super::FILE_G,
-                7 => masks[i] = super::FILE_H,
+                0 => masks[i] = FILE_A,
+                1 => masks[i] = FILE_B,
+                2 => masks[i] = FILE_C,
+                3 => masks[i] = FILE_D,
+                4 => masks[i] = FILE_E,
+                5 => masks[i] = FILE_F,
+                6 => masks[i] = FILE_G,
+                7 => masks[i] = FILE_H,
                 _ => (),
             }
         }
