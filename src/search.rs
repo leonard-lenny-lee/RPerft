@@ -1,2 +1,2 @@
-pub mod search;
+pub mod depth_search;
 pub mod move_generation;
