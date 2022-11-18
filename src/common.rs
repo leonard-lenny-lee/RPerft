@@ -3,6 +3,8 @@
 
 pub mod bittools;
 
+pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
 // Rank Masks
 pub const RANK_1: u64 = 0x00000000000000ff;
 pub const RANK_2: u64 = 0x000000000000ff00;

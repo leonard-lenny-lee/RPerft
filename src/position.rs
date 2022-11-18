@@ -1,7 +1,9 @@
+/// Contains the Position struct, which holds the all the bitboards and data
+/// to describe the current position, as well as methods to derive other
+/// bitboards required for move generation and evaluation
+
 use super::common::*;
 use super::search::move_generation::Move;
-
-const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub struct Position {
     pub w_pieces: [u64; 7],
@@ -21,44 +23,50 @@ pub struct Position {
 impl Position {
 
     pub fn new_from_fen(fen: Option<String>) -> Position {
-        let fen = fen.unwrap_or(String::from(DEFAULT_FEN));
+        let fen: String = fen.unwrap_or(String::from(DEFAULT_FEN));
         let split_fen: Vec<&str> = fen.split(" ").collect();
         assert!(split_fen.len() == 6);
         let board = split_fen[0];
         // Initialise bitboard
         let mut w_pieces: [u64; 7] = [0; 7];
         let mut b_pieces: [u64; 7] = [0; 7];
-        // Fill bitboards
-        let split_board = board.split("/");
-        for (y, rank) in split_board.enumerate() {
-            for (x, piece) in rank.chars().enumerate() {
-                if piece.is_alphabetic() {
-                    let mask: u64 = 1 << ((7 - y) * 8 + x);
-                    match piece {
-                        'P' => w_pieces[Piece::Pawn as usize] |= mask,
-                        'p' => b_pieces[Piece::Pawn as usize] |= mask,
-                        'R' => w_pieces[Piece::Rook as usize] |= mask,
-                        'r' => b_pieces[Piece::Rook as usize] |= mask,
-                        'N' => w_pieces[Piece::Knight as usize] |= mask,
-                        'n' => b_pieces[Piece::Knight as usize] |= mask,
-                        'B' => w_pieces[Piece::Bishop as usize] |= mask,
-                        'b' => b_pieces[Piece::Bishop as usize] |= mask,
-                        'Q' => w_pieces[Piece::Queen as usize] |= mask,
-                        'q' => b_pieces[Piece::Queen as usize] |= mask,
-                        'K' => w_pieces[Piece::King as usize] |= mask,
-                        'k' => b_pieces[Piece::King as usize] |= mask,
-                        _ => (),
-                    }
-                    if piece.is_uppercase() {
-                        w_pieces[Piece::Any as usize] |= mask
-                    } else {
-                        b_pieces[Piece::Any as usize] |= mask
-                    }
-                } else {
-                    continue
+        // FILL BITBOARD ROUTINE
+        // Split the FEN string at "/"
+        let mut split_board: Vec<&str> = board.split("/").collect();
+        assert!(split_board.len() == 8);
+        // Reverse vector so that 0 index is now at square A1
+        split_board.reverse();
+        let rev_board = &split_board.join("")[..];
+        let mut i = 0;
+        for char in rev_board.chars() {
+            let mask: u64 = 1 << i;
+            if char.is_alphabetic() {
+                // If the character is alphabetic, then it represents a piece;
+                // populate the relevant bitboard
+                match char {
+                    'P' => w_pieces[Piece::Pawn as usize] |= mask,
+                    'p' => b_pieces[Piece::Pawn as usize] |= mask,
+                    'R' => w_pieces[Piece::Rook as usize] |= mask,
+                    'r' => b_pieces[Piece::Rook as usize] |= mask,
+                    'N' => w_pieces[Piece::Knight as usize] |= mask,
+                    'n' => b_pieces[Piece::Knight as usize] |= mask,
+                    'B' => w_pieces[Piece::Bishop as usize] |= mask,
+                    'b' => b_pieces[Piece::Bishop as usize] |= mask,
+                    'Q' => w_pieces[Piece::Queen as usize] |= mask,
+                    'q' => b_pieces[Piece::Queen as usize] |= mask,
+                    'K' => w_pieces[Piece::King as usize] |= mask,
+                    'k' => b_pieces[Piece::King as usize] |= mask,
+                    _ => panic!("Invalid character {} found in FEN", char),
                 }
+                i += 1;
+            } else {
+                assert!(char.is_numeric());
+                // Character represents empty squares so skip over the matching
+                // number of index positions.
+                i += char.to_digit(10).unwrap();
             }
         }
+        assert!(i == 63);
         let occ = w_pieces[0] | b_pieces[0];
         let free = !occ;
         // Populate other fields
