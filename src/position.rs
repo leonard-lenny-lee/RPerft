@@ -58,6 +58,11 @@ impl Position {
                     'k' => b_pieces[Piece::King as usize] |= mask,
                     _ => panic!("Invalid character {} found in FEN", char),
                 }
+                if char.is_uppercase() {
+                    w_pieces[Piece::Any as usize] |= mask
+                } else {
+                    b_pieces[Piece::Any as usize] |= mask
+                }
                 i += 1;
             } else {
                 assert!(char.is_numeric());
@@ -66,11 +71,14 @@ impl Position {
                 i += char.to_digit(10).unwrap();
             }
         }
-        assert!(i == 63);
+        assert!(i == 64);
         let occ = w_pieces[0] | b_pieces[0];
         let free = !occ;
         // Populate other fields
         let white_to_move: bool = split_fen[1] == "w";
+        if !white_to_move {
+            assert!(split_fen[1] == "b");
+        }
         let mut w_kingside_castle: bool = false;
         let mut b_kingside_castle: bool = false;
         let mut w_queenside_castle: bool = false;
@@ -89,10 +97,14 @@ impl Position {
         let epts: Vec<char> = split_fen[3].chars().collect();
         if epts[0] != '-' {
             assert!(epts.len() == 2);
+            assert!(epts[0].is_alphabetic());
             let file = epts[0] as u8;
+            assert!(epts[1].is_numeric());
             let rank = epts[1] as u8;
+            assert!(file <= 8);
+            assert!(rank <= 8);
             en_passant_target_sq = 1 << ((file - ASCIIBases::LowerA as u8)
-                + (rank - ASCIIBases::Zero as u8) * 8);
+                + (rank - ASCIIBases::Zero as u8 - 1) * 8);
         }
         // Calculate clocks
         let halfmove_clock: i8 = split_fen[4].parse().unwrap();

@@ -2,6 +2,21 @@
 
 use super::{FILE_A, FILE_B, FILE_G, FILE_H};
 
+pub fn draw_bitboard(n: u64) {
+    let mut out = String::new();
+    for i in 0..64 {
+        if i % 8 == 0 {
+            out.push_str("\n")
+        }
+        if ((1 << (7 - i / 8) * 8 + (i % 8)) & n) != 0 {
+            out.push('1')
+        } else {
+            out.push('0')
+        }
+    }
+    println!("{}", out);
+}
+
 pub fn get_lsb(n: &u64) -> u64 {
     1 << n.trailing_zeros()
 }

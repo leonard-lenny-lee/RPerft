@@ -75,7 +75,7 @@ impl SlidingPiece {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum Piece {
     Any, Pawn, Rook, Knight, Bishop, Queen, King
 }
