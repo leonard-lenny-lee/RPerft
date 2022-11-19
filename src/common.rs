@@ -35,7 +35,7 @@ pub enum ASCIIBases {
 }
 
 pub enum PromotionPiece {
-    None, Rook, Knight, Bishop, Queen,
+    None = 0, Rook = 2, Knight = 3, Bishop = 4, Queen = 5,
 }
 
 impl PromotionPiece {

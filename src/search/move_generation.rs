@@ -317,7 +317,7 @@ fn generate_en_passant_moves(
 }
 
 fn generate_castling_moves(
-    position: &Position,m: &[u64; 4], r: &[bool; 2], f_pieces: &[u64; 7], 
+    position: &Position, m: &[u64; 4], r: &[bool; 2], f_pieces: &[u64; 7], 
     unsafe_squares: u64
 ) -> Vec<Move> {
     let mut moves: Vec<Move> = Vec::new();
@@ -342,19 +342,16 @@ fn generate_castling_moves(
 pub fn generate_moves(position: &Position, maps: &Maps) -> Vec<Move> {
     let mut moves: Vec<Move> = Vec::new();
     let f_pieces: &[u64; 7];
-    let o_pieces: &[u64; 7];
     let castle_masks: &[u64; 4];
     let castle_rights;
     let color;
     if position.white_to_move {
         f_pieces = &position.w_pieces;
-        o_pieces = &position.b_pieces;
         castle_masks = &W_CASTLE;
         castle_rights = [position.w_kingside_castle, position.w_queenside_castle];
         color = Color::White;
     } else {
         f_pieces = &position.b_pieces;
-        o_pieces = &position.w_pieces;
         castle_masks = &B_CASTLE;
         castle_rights = [position.b_kingside_castle, position.b_kingside_castle];
         color = Color::Black;
