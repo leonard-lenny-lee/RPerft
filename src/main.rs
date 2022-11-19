@@ -29,6 +29,7 @@ fn main() {
     
     // let fen = "";
     // let state = init(fen);
-    let x:u64 = 1<<60;
-    draw_bitboard(common::FILE_A);
+    let x: u64 = 1 << 12 | 1 << 25;
+    let y: u64 = 1 << 22 | 1 << 30;
+    draw_bitboard(common::bittools::no_we_ofill(x, y));
 }
