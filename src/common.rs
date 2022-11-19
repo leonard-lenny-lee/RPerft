@@ -54,7 +54,7 @@ pub enum PawnMove {
 }
 
 pub enum JumpingPiece {
-    Knight, King,
+    Knight = 3, King = 6,
 }
 
 impl JumpingPiece {
@@ -65,7 +65,7 @@ impl JumpingPiece {
 }
 
 pub enum SlidingPiece {
-    Bishop, Rook, Queen,
+    Rook = 2, Bishop = 4, Queen = 5,
 }
 
 impl SlidingPiece {
@@ -81,7 +81,8 @@ pub enum Piece {
 }
 
 impl Piece {
-    pub fn iterator() -> Vec<Piece> {
+
+    pub fn iter_pieces() -> Vec<Piece> {
         use Piece::*;
         return vec![Pawn, Rook, Knight, Bishop, Queen, King];
     }

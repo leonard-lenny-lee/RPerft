@@ -168,7 +168,7 @@ impl Position {
 /// Methods to generate unsafe squares for the king.
 impl Position {
 
-    pub fn get_unsafe_squares_for(&self, color: Color, maps: &Maps) -> (u64, u64) {
+    pub fn get_unsafe_squares_for(&self, color: &Color, maps: &Maps) -> (u64, u64) {
         let piece_set;
         let occ;
         // Remove the king from the occupancy bitboard for sliding piece move 
@@ -233,6 +233,56 @@ impl Position {
         return (unsafe_squares, attackers);
     }
 
+    pub fn get_pinned_pieces_for(&self, color: &Color, maps: &Maps) -> u64 {
+        let opp_piece_set;
+        let fr_piece_set;
+        match color {
+            Color::White => {
+                opp_piece_set = &self.b_pieces;
+                fr_piece_set = &self.w_pieces;
+            }
+            Color::Black => {
+                opp_piece_set = &self.w_pieces;
+                fr_piece_set = &self.b_pieces;
+            }
+        }
+        let king = fr_piece_set[Piece::King as usize];
+        let mut pinned_pieces: u64 = 0;
+        let king_h_rays = bittools::hyp_quint(self.occ, king, &maps.rank);
+        let king_v_rays = bittools::hyp_quint(self.occ, king, &maps.file);
+        let king_d_rays = bittools::hyp_quint(self.occ, king, &maps.diag);
+        let king_a_rays = bittools::hyp_quint(self.occ, king, &maps.adiag);
+
+        let hv_pieces = opp_piece_set[Piece::Rook as usize] | opp_piece_set[Piece::Queen as usize];
+        // Calculate horizontal and vertical pins
+        for hv_piece in bittools::forward_scan(hv_pieces) {
+            let h_piece_ray = bittools::hyp_quint(self.occ, hv_piece, &maps.rank);
+            // If the king and opponent piece rays align on the same friendly
+            // piece, the piece must be pinned along the combined ray
+            if h_piece_ray & king_h_rays & fr_piece_set[0] != 0 {
+                pinned_pieces |= hv_piece;
+            }
+            let v_piece_ray = bittools::hyp_quint(self.occ, hv_piece, &maps.file);
+            if v_piece_ray & king_v_rays & fr_piece_set[0] != 0 {
+                pinned_pieces |= hv_piece;
+            }
+        }
+        // Calculate diagonal and antidiagonal pins
+        let da_pieces = opp_piece_set[Piece::Bishop as usize] | opp_piece_set[Piece::Queen as usize];
+        for da_piece in bittools::forward_scan(da_pieces) {
+            let d_piece_ray = bittools::hyp_quint(self.occ, da_piece, &maps.diag);
+            if d_piece_ray & king_d_rays & fr_piece_set[0] != 0 {
+                pinned_pieces |= da_piece;
+            }
+            let a_piece_ray = bittools::hyp_quint(self.occ, da_piece, &maps.adiag);
+            if a_piece_ray & king_a_rays & fr_piece_set[0] != 0 {
+                pinned_pieces |= da_piece;
+            }
+        }
+        return pinned_pieces
+
+    }
+
     pub fn get_color_at(&self, n: u64) -> Color {
         let color;
         if n & self.w_pieces[0] != 0 {
@@ -247,7 +297,7 @@ impl Position {
 
     pub fn get_piece_at(&self, n: u64) -> Piece {
         let mut result = Piece::Any;
-        for piece in Piece::iterator() {
+        for piece in Piece::iter_pieces() {
             if (self.w_pieces[piece as usize] | self.b_pieces[piece as usize]) & n != 0 {
                 result = piece;
                 break

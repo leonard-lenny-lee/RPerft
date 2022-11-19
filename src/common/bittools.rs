@@ -69,6 +69,44 @@ pub fn create_push_mask(attacker: u64, king: u64) -> u64 {
     return push_mask ^ attacker;
 }
 
+pub fn ray_axis(origin: u64, piece: u64) -> u64 {
+    assert!(origin.count_ones() == 1 && piece.count_ones() == 1);
+    assert!(origin != piece);
+    // Calculate direction
+    let origin_sq = origin.trailing_zeros();
+    let piece_sq = piece.trailing_zeros();
+    let ray;
+    if origin_sq > piece_sq {
+        // must be pointing W, SW, S or SE
+        let diff = origin_sq - piece_sq;
+        if diff % 9 == 0 {
+            ray = so_we_fill(origin)
+        } else if diff % 8 == 0 {
+            ray = sout_fill(origin)
+        } else if diff % 7 == 0 {
+            ray = so_ea_fill(origin)
+        } else {
+            // Assert they are on the same rank
+            assert!(origin_sq / 8 == piece_sq / 8);
+            ray = west_fill(origin)
+        }
+    } else {
+        // Attacker must be attacking E, NE, N or NW
+        let diff = piece_sq - origin_sq;
+        if diff % 9 == 0 {
+            ray = no_ea_fill(origin)
+        } else if diff % 8 == 0 {
+            ray = nort_fill(origin)
+        } else if diff % 7 == 0 {
+            ray = no_we_fill(origin)
+        } else {
+            assert!(origin_sq / 8 == piece_sq / 8);
+            ray = east_fill(origin)
+        }
+    }
+    return ray ^ origin;
+}
+
 pub fn nort_fill(mut bb: u64) -> u64 {
     bb |= bb << 8;
     bb |= bb << 16;
@@ -80,6 +118,66 @@ pub fn sout_fill(mut bb: u64) -> u64 {
     bb |= bb >> 8;
     bb |= bb >> 16;
     bb |= bb >> 32;
+    return bb
+}
+
+pub fn east_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_A;
+    let m_2 = m_1 & (m_1 << 1);
+    let m_3 = m_2 & (m_2 << 2);
+    bb |= m_1 & (bb << 1);
+    bb |= m_2 & (bb << 2);
+    bb |= m_3 & (bb << 4);
+    return bb
+}
+
+pub fn no_ea_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_A;
+    let m_2 = m_1 & (m_1 << 9);
+    let m_3 = m_2 & (m_2 << 18);
+    bb |= m_1 & (bb << 9);
+    bb |= m_2 & (bb << 18);
+    bb |= m_3 & (bb << 36);
+    return bb
+}
+
+pub fn so_ea_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_A;
+    let m_2 = m_1 & (m_1 >> 7);
+    let m_3 = m_2 & (m_2 >> 14);
+    bb |= m_1 & (bb >> 7);
+    bb |= m_2 & (bb >> 14);
+    bb |= m_3 & (bb >> 28);
+    return bb
+}
+
+pub fn west_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_H;
+    let m_2 = m_1 & (m_1 >> 1);
+    let m_3 = m_2 & (m_2 >> 2);
+    bb |= m_1 & (bb >> 1);
+    bb |= m_2 & (bb >> 2);
+    bb |= m_3 & (bb >> 4);
+    return bb
+}
+
+pub fn so_we_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_H;
+    let m_2 = m_1 & (m_1 >> 9);
+    let m_3 = m_2 & (m_2 >> 18);
+    bb |= m_1 & (bb >> 9);
+    bb |= m_2 & (bb >> 18);
+    bb |= m_3 & (bb >> 36);
+    return bb
+}
+
+pub fn no_we_fill(mut bb: u64) -> u64 {
+    let m_1 = !FILE_H;
+    let m_2 = m_1 & (m_1 << 7);
+    let m_3 = m_2 & (m_2 << 14);
+    bb |= m_1 & (bb << 7);
+    bb |= m_2 & (bb << 14);
+    bb |= m_3 & (bb << 28);
     return bb
 }
 
