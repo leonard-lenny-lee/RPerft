@@ -7,7 +7,8 @@ fn main() {
     
     // let fen = "";
     // let state = init(fen);
-    let x: u64 = 1 << 27;
-    let y: u64 = 1 << 9;
-    common::bittools::draw_bitboard(common::bittools::ray_axis(x, y));
+    let pos = position::Position::new_from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1".to_string());
+    let maps = global::maps::Maps::new();
+    let result = search::depth_search::perft(pos, 1, &maps);
+    println!("{}", result);
 }

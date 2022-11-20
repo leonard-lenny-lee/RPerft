@@ -3,9 +3,9 @@
 /// bitboards required for move generation and evaluation
 
 use super::common::*;
-use super::search::move_generation::Move;
 use super::global::maps::Maps;
 
+#[derive(Clone, Copy)]
 pub struct Position {
     pub w_pieces: [u64; 7],
     pub b_pieces: [u64; 7],
@@ -101,8 +101,6 @@ impl Position {
             let file = epts[0] as u8;
             assert!(epts[1].is_numeric());
             let rank = epts[1] as u8;
-            assert!(file <= 8);
-            assert!(rank <= 8);
             en_passant_target_sq = 1 << ((file - ASCIIBases::LowerA as u8)
                 + (rank - ASCIIBases::Zero as u8 - 1) * 8);
         }
@@ -131,11 +129,11 @@ impl Position {
     }
     
     pub fn get_wpawn_left_captures(&self) -> u64 {
-        (self.w_pieces[1] ^ FILE_A) << 7 & self.b_pieces[0]
+        bittools::nort_west(self.w_pieces[1]) & self.b_pieces[0]
     }
     
     pub fn get_wpawn_right_captures(&self) -> u64 {
-        (self.w_pieces[1] ^ FILE_H) << 9 & self.b_pieces[0]
+        bittools::nort_east(self.w_pieces[1]) & self.b_pieces[0]
     }
 
     pub fn get_wpawn_left_en_passant(&self) -> u64 {
@@ -326,110 +324,4 @@ impl Position {
         matches!(self.get_piece_at(n), Piece::Rook | Piece::Bishop | Piece::Queen) 
     }
 
-}
-
-/// Methods to make and unmake a move
-impl Position {
-
-    pub fn make_move(&mut self, mv: &Move) {
-        let f_pieces;
-        let o_pieces;
-        if self.white_to_move {
-            f_pieces = &mut self.w_pieces;
-            o_pieces = &mut self.b_pieces;
-        } else {
-            f_pieces = &mut self.b_pieces;
-            o_pieces = &mut self.w_pieces;
-        }
-        // Common operations for all moves
-        // Free up src squares
-        // Remove from the free bitboard
-        self.free |= mv.src;
-        // Populate the free bitboard
-        self.occ ^= mv.src; 
-        // Flip the bits on the universal friendly piece bitboard on the target
-        // and source squares
-        f_pieces[Piece::Any as usize] ^= mv.src | mv.target; 
-        f_pieces[mv.moved_piece as usize] ^= mv.src;
-        // Occupy the target square on universal occupied bitboard
-        self.occ |= mv.target;
-        // Free the target square on the universal free bitboard
-        self.free &= !mv.target;
-        // Free the squares on the opponent bitboards if the piece is a capture
-        if mv.is_capture {
-            o_pieces[mv.captured_piece as usize] ^= mv.target;
-            o_pieces[Piece::Any as usize] ^= mv.target;
-        }
-        // Set en passant target sq if the move was a double pawn push
-        if (matches!(mv.moved_piece, Piece::Pawn) 
-            && (((mv.src << 16) == mv.target) | ((mv.src >> 16) == mv.target))
-        ) {
-            if self.white_to_move {
-                self.en_passant_target_sq = mv.src << 8;
-            } else {
-                self.en_passant_target_sq = mv.src >> 8;
-            }
-        } else {
-            self.en_passant_target_sq = 0;
-        }
-        // Reset the halfmove clock if a pawn is moved or a capture has taken
-        // place. Else, increment the halfmove clock
-        if mv.is_capture || matches!(mv.moved_piece, Piece::Pawn) {
-            self.halfmove_clock = 0;
-        } else {
-            self.halfmove_clock += 1;
-        }
-        // Increment the fullmove clock if black has moved
-        if !self.white_to_move {
-            self.fullmove_clock += 1;
-        }
-        match mv.special_move_flag {
-            SpecialMove::Promotion => {
-                // Set target square on promotion piece bitboard
-                f_pieces[mv.promotion_piece as usize] |= mv.target
-            },
-            SpecialMove::Castling => {
-                assert!(matches!(mv.moved_piece, Piece::King));
-                // Set the rook and universal bitboards
-                // Calculate if kingside or queenside castle
-                f_pieces[mv.moved_piece as usize] |= mv.target;
-                if mv.target.trailing_zeros() % 8 == 6 {
-                    // Kingside castle
-                    f_pieces[Piece::Rook as usize] ^= mv.target << 1 | mv.target >> 1
-                } else {
-                    // Queenside castle
-                    assert!(mv.target.trailing_zeros() % 8 == 2);
-                    f_pieces[Piece::Rook as usize] ^= mv.target << 1 | mv.target >> 2
-                }
-                if self.white_to_move {
-                    self.w_kingside_castle = false;
-                    self.w_queenside_castle = false;
-                } else {
-                    self.b_kingside_castle = false;
-                    self.b_queenside_castle = false;
-                }
-            },
-            SpecialMove::EnPassant => {
-                assert!(self.en_passant_target_sq != 0);
-                let ep_capture_sq;
-                if self.white_to_move {
-                    ep_capture_sq = self.en_passant_target_sq >> 8
-                } else {
-                    ep_capture_sq = self.en_passant_target_sq << 8
-                }
-                o_pieces[Piece::Any as usize] ^= ep_capture_sq;
-                o_pieces[Piece::Pawn as usize] ^= ep_capture_sq;
-            },
-            SpecialMove::None => {
-                f_pieces[mv.moved_piece as usize] |= mv.target;
-            },
-        }
-        // Change the turn
-        self.white_to_move = !self.white_to_move;
-    }
-
-    pub fn unmake_move(&self, mv: &Move) {
-
-    }
-    
 }
