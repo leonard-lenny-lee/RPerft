@@ -1,8 +1,8 @@
 /// Contains commmon functions to carry out bit manipulations
 
-use super::{FILE_A, FILE_B, FILE_G, FILE_H};
+use super::{FILE_A, FILE_B, FILE_G, FILE_H, EMPTY_BB};
 
-pub fn draw_bitboard(n: u64) {
+pub fn bitboard_to_string(n: u64) -> String {
     let mut out = String::new();
     for i in 0..64 {
         if i % 8 == 0 {
@@ -14,7 +14,16 @@ pub fn draw_bitboard(n: u64) {
             out.push('0')
         }
     }
-    println!("{}", out);
+    out = out.trim().to_string();
+    return out;
+}
+
+pub fn squares_to_bitboard(squares: Vec<i32>) -> u64 {
+    let mut out: u64 = EMPTY_BB;
+    for square in squares {
+        out |= 1 << square;
+    }
+    return out;
 }
 
 pub fn get_lsb(n: &u64) -> u64 {
@@ -347,3 +356,6 @@ pub fn no_we_we(bb: u64) -> u64 {
 pub fn no_no_we(bb: u64) -> u64 {
     (bb & !FILE_A) << 15
 }
+
+#[cfg(test)]
+mod tests;
