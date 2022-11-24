@@ -1,24 +1,13 @@
 /// Contains the functions required to parse a FEN string into a position
 
-use std::collections::HashMap;
-
 use super::*;
-use crate::d;
 
 /// Initialise a set of bitboards for white and black pieces from the portion
 /// of the FEN string representing the board. Outputs two arrays, representing
 /// black and white pieces, indexed by the discriminants of the Pieces enum. 
-pub fn bitboards(board: &str) -> ([u64; 7], [u64; 7]) {
-    let mappings = HashMap::from([
-        ('P', d!(Piece::Pawn)),
-        ('R', d!(Piece::Rook)),
-        ('N', d!(Piece::Knight)),
-        ('B', d!(Piece::Bishop)),
-        ('Q', d!(Piece::Queen)),
-        ('K', d!(Piece::King)),
-    ]);
-    let mut w_pieces: [u64; 7] = [0; 7];
-    let mut b_pieces: [u64; 7] = [0; 7];
+pub fn bitboards(board: &str) -> (PieceSet, PieceSet) {
+    let mut w_pieces: PieceSet = PieceSet::new();
+    let mut b_pieces: PieceSet = PieceSet::new();
     // Split the FEN string at "/"
     let mut split_board: Vec<&str> = board.split("/").collect();
     assert!(split_board.len() == 8);
@@ -31,17 +20,22 @@ pub fn bitboards(board: &str) -> ([u64; 7], [u64; 7]) {
         if char.is_alphabetic() {
             // If the character is alphabetic, then it represents a piece;
             // populate the relevant bitboard
-            let board_to_modify;
+            let pieceset_to_modify;
             if char.is_uppercase() {
-                board_to_modify = &mut w_pieces;
+                pieceset_to_modify = &mut w_pieces;
             } else {
-                board_to_modify = &mut b_pieces;
+                pieceset_to_modify = &mut b_pieces;
                 char.make_ascii_uppercase();
             }
-            board_to_modify[d!(Piece::Any)] |= mask;
-            match mappings.get(&char) {
-                Some(&i) => board_to_modify[i] |= mask,
-                None => panic!("Invalid character {} in FEN", char),
+            pieceset_to_modify.any |= mask;
+            match char {
+                'P' => pieceset_to_modify.pawn |= mask,
+                'R' => pieceset_to_modify.rook |= mask,
+                'N' => pieceset_to_modify.knight |= mask,
+                'B' => pieceset_to_modify.bishop |= mask,
+                'Q' => pieceset_to_modify.queen |= mask,
+                'K' => pieceset_to_modify.king |= mask,
+                _ => panic!("Invalid character {} in FEN", char)
             }
             i += 1;
         } else {

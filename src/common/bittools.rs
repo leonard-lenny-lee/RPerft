@@ -1,6 +1,7 @@
 /// Contains commmon functions to carry out bit manipulations
 
 use super::{FILE_A, FILE_B, FILE_G, FILE_H, EMPTY_BB};
+use crate::global::maps::Maps;
 
 pub fn bitboard_to_string(n: u64) -> String {
     let mut out = String::new();
@@ -53,6 +54,20 @@ pub fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
     forward ^= reverse.reverse_bits();
     forward &= m;
     return forward;
+}
+
+pub fn hv_hyp_quint(o: u64, s: u64, maps: &Maps) -> u64 {
+    let mut result = EMPTY_BB;
+    result |= hyp_quint(o, s, &maps.file);
+    result |= hyp_quint(o, s, &maps.rank);
+    return result;
+}
+
+pub fn da_hyp_quint(o: u64, s: u64, maps: &Maps) -> u64 {
+    let mut result = EMPTY_BB;
+    result |= hyp_quint(o, s, &maps.diag);
+    result |= hyp_quint(o, s, &maps.adiag);
+    return result;
 }
 
 pub fn create_push_mask(attacker: u64, king: u64) -> u64 {
