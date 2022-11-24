@@ -296,6 +296,10 @@ pub fn north_one(bb: u64) -> u64 {
     bb << 8
 }
 
+pub fn north_two(bb: u64) -> u64 {
+    bb << 16
+}
+
 pub fn nort_east(bb: u64) -> u64 {
     (bb & !FILE_H) << 9
 }
@@ -310,6 +314,10 @@ pub fn sout_east(bb: u64) -> u64 {
 
 pub fn south_one(bb: u64) -> u64 {
     bb >> 8
+}
+
+pub fn south_two(bb: u64) -> u64 {
+    bb >> 16
 }
 
 pub fn sout_west(bb: u64) -> u64 {
