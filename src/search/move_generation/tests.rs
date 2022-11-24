@@ -13,60 +13,70 @@ mod default_position_tests {
     #[test]
     fn test_sgl_push_pawn_move_gen() {
         let pos = create_position();
-        let n_moves = generate_pawn_moves(
+        let mut move_vec = Vec::new();
+        generate_pawn_moves(
+            &mut move_vec,
             &pos,
             PawnMove::SinglePush,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB
-        ).len();
-        assert_eq!(8, n_moves);
+        );
+        assert_eq!(8, move_vec.len());
     }
 
     #[test]
     fn test_dbl_push_pawn_move_gen() {
         let pos = create_position();
-        let n_moves = generate_pawn_moves(
+        let mut move_vec = Vec::new();
+        generate_pawn_moves(
+            &mut move_vec,
             &pos,
             PawnMove::DoublePush,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB
-        ).len();
-        assert_eq!(8, n_moves);
+        );
+        assert_eq!(8, move_vec.len());
     }
 
     #[test]
     fn test_push_lcap_move_gen() {
         let pos = create_position();
-        let n_moves = generate_pawn_moves(
+        let mut move_vec = Vec::new();
+        generate_pawn_moves(
+            &mut move_vec,
             &pos, 
             PawnMove::CaptureLeft,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_push_rcap_move_gen() {
         let pos = create_position();
-        let n_moves = generate_pawn_moves(
+        let mut move_vec = Vec::new();
+        generate_pawn_moves(
+            &mut move_vec,
             &pos,
             PawnMove::CaptureRight,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_knight_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_jumping_moves(
+        let mut move_vec = Vec::new();
+        generate_jumping_moves(
+            &mut move_vec,
             &pos,
             JumpingPiece::Knight,
             &pos.w_pieces,
@@ -75,15 +85,17 @@ mod default_position_tests {
             FILLED_BB,
             FILLED_BB, 
             EMPTY_BB
-        ).len();
-        assert_eq!(4, n_moves);
+        );
+        assert_eq!(4, move_vec.len());
     }
 
     #[test]
     fn test_king_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_jumping_moves(
+        let mut move_vec = Vec::new();
+        generate_jumping_moves(
+            &mut move_vec,
             &pos,
             JumpingPiece::King,
             &pos.w_pieces,
@@ -92,15 +104,17 @@ mod default_position_tests {
             FILLED_BB,
             FILLED_BB, 
             EMPTY_BB
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_bishop_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_sliding_moves(
+        let mut move_vec = Vec::new();
+        generate_sliding_moves(
+            &mut move_vec,
             &pos,
             SlidingPiece::Bishop,
             &pos.w_pieces,
@@ -108,15 +122,17 @@ mod default_position_tests {
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_rook_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_sliding_moves(
+        let mut move_vec = Vec::new();
+        generate_sliding_moves(
+            &mut move_vec,
             &pos,
             SlidingPiece::Rook,
             &pos.w_pieces,
@@ -124,15 +140,17 @@ mod default_position_tests {
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_queen_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_sliding_moves(
+        let mut move_vec = Vec::new();
+        generate_sliding_moves(
+            &mut move_vec,
             &pos,
             SlidingPiece::Queen,
             &pos.w_pieces,
@@ -140,16 +158,16 @@ mod default_position_tests {
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
-        ).len();
-        assert_eq!(0, n_moves);
+        );
+        assert_eq!(0, move_vec.len());
     }
 
     #[test]
     fn test_move_gen() {
         let pos = create_position();
         let maps = Maps::new();
-        let n_moves = generate_moves(&pos, &maps).len();
-        assert_eq!(20, n_moves)
+        let move_vec = generate_moves(&pos, &maps);
+        assert_eq!(20, move_vec.len())
     }
 
 }

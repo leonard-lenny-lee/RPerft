@@ -66,7 +66,7 @@ pub struct PieceSet {
 }
 
 impl PieceSet {
-    fn new() -> PieceSet {
+    pub fn new() -> PieceSet {
         PieceSet {
             any: EMPTY_BB,
             pawn: EMPTY_BB,

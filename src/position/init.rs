@@ -61,19 +61,11 @@ pub fn castling_rights(code: &str) -> (bool, bool, bool, bool) {
             code.contains("Q"), code.contains("q"));
 }
 
-pub fn en_passant(algebraic: &str) -> u64 {
-    let target_square: u64;
-    let epts: Vec<char> = algebraic.chars().collect();
-    if epts[0] != '-' {
-        assert!(epts.len() == 2);
-        assert!(epts[0].is_alphabetic());
-        let file = epts[0] as u8;
-        assert!(epts[1].is_numeric());
-        let rank = epts[1] as u8;
-        target_square = 1 << ((file - ASCIIBases::LowerA as u8)
-            + (rank - ASCIIBases::Zero as u8 - 1) * 8);
+/// Calculate the en passant target square bitmask
+pub fn en_passant(epts: &str) -> u64 {
+    if epts == "-" {
+        return EMPTY_BB;
     } else {
-        target_square = EMPTY_BB;
+        return bittools::algebraic_to_bitmask(epts);
     }
-    return target_square;
 }

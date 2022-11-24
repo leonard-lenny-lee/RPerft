@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use crate::common::*;
+use crate::common::bittools as bt;
 
 pub struct Maps {
     pub knight: [u64; 64],
@@ -31,19 +32,54 @@ impl Maps {
         }
     }
 
+    /// Get the attack squares of a single knight
+    pub fn retrieve_knight_map(&self, bb: u64) -> u64 {
+        self.knight[bt::ilsb(bb)]
+    }
+
+    /// Get the attack squares of knights
+    pub fn retrive_dknight_map(&self, bb: &u64) -> u64 {
+        *self.dknight.get(bb).unwrap()
+    }
+
+    /// Get the attack squares of a king
+    pub fn retreive_king_map(&self, bb: u64) -> u64 {
+        self.king[bt::ilsb(bb)]
+    }
+
+    /// Get the corresponding rank mask of a square
+    pub fn retreive_rank_map(&self, bb: u64) -> u64 {
+        self.rank[bt::ilsb(bb)]
+    }
+
+    /// Get the corresponding file mask of a square
+    pub fn retrieve_file_map(&self, bb: u64) -> u64 {
+        self.file[bt::ilsb(bb)]
+    }
+
+    /// Get the corresponding diagonal mask of a square
+    pub fn retrieve_diag_map(&self, bb: u64) -> u64 {
+        self.diag[bt::ilsb(bb)]
+    }
+
+    /// Get the corresponding anti-diagonal mask of a square
+    pub fn retrieve_adiag_map(&self, bb: u64) -> u64 {
+        self.adiag[bt::ilsb(bb)]
+    }
+
     fn generate_knight_maps() -> [u64; 64] {
         let mut maps: [u64; 64] = [0; 64];
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin = 1 << i;
-            map |= bittools::no_no_ea(origin);
-            map |= bittools::no_ea_ea(origin);
-            map |= bittools::so_ea_ea(origin);
-            map |= bittools::so_so_ea(origin);
-            map |= bittools::so_so_we(origin);
-            map |= bittools::so_we_we(origin);
-            map |= bittools::no_we_we(origin);
-            map |= bittools::no_no_we(origin);
+            map |= bt::no_no_ea(origin);
+            map |= bt::no_ea_ea(origin);
+            map |= bt::so_ea_ea(origin);
+            map |= bt::so_so_ea(origin);
+            map |= bt::so_so_we(origin);
+            map |= bt::so_we_we(origin);
+            map |= bt::no_we_we(origin);
+            map |= bt::no_no_we(origin);
             maps[i] = map;
         }
         return maps;   
@@ -55,14 +91,14 @@ impl Maps {
             for j in 0..64 {
                 let mut map: u64 = 0;
                 let origin = 1 << i | 1 << j;
-                map |= bittools::no_no_ea(origin);
-                map |= bittools::no_ea_ea(origin);
-                map |= bittools::so_ea_ea(origin);
-                map |= bittools::so_so_ea(origin);
-                map |= bittools::so_so_we(origin);
-                map |= bittools::so_we_we(origin);
-                map |= bittools::no_we_we(origin);
-                map |= bittools::no_no_we(origin);
+                map |= bt::no_no_ea(origin);
+                map |= bt::no_ea_ea(origin);
+                map |= bt::so_ea_ea(origin);
+                map |= bt::so_so_ea(origin);
+                map |= bt::so_so_we(origin);
+                map |= bt::so_we_we(origin);
+                map |= bt::no_we_we(origin);
+                map |= bt::no_no_we(origin);
                 maps.insert(origin, map);
             }
         }
@@ -74,14 +110,14 @@ impl Maps {
         for i in 0..64 {
             let mut map: u64 = 0;
             let origin: u64 = 1 << i;
-            map |= bittools::north_one(origin);
-            map |= bittools::nort_east(origin);
-            map |= bittools::east_one(origin);
-            map |= bittools::sout_east(origin);
-            map |= bittools::south_one(origin);
-            map |= bittools::sout_west(origin);
-            map |= bittools::west_one(origin);
-            map |= bittools::nort_west(origin);
+            map |= bt::north_one(origin);
+            map |= bt::nort_east(origin);
+            map |= bt::east_one(origin);
+            map |= bt::sout_east(origin);
+            map |= bt::south_one(origin);
+            map |= bt::sout_west(origin);
+            map |= bt::west_one(origin);
+            map |= bt::nort_west(origin);
             maps[i] = map;
         }
         return maps;

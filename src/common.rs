@@ -95,7 +95,6 @@ pub enum Piece {
 }
 
 impl Piece {
-
     pub fn iter_pieces() -> Vec<Piece> {
         use Piece::*;
         return vec![Pawn, Rook, Knight, Bishop, Queen, King];
@@ -107,13 +106,6 @@ pub enum SlidingPiece {
     Rook = 2,
     Bishop = 4,
     Queen = 5,
-}
-
-impl SlidingPiece {
-    pub fn iterator() -> Vec<SlidingPiece> {
-        use SlidingPiece::*;
-        return vec![Bishop, Rook, Queen]
-    }
 }
 
 pub enum Color {

@@ -15,14 +15,14 @@ mod tests {
     #[test]
     fn test_get_lsb() {
         let bitboard = squares_to_bitboard(vec![19, 30]);
-        let lsb = get_lsb(&bitboard);
+        let lsb = get_lsb(bitboard);
         assert_eq!(1 << 19, lsb);
     }
 
     #[test]
     fn test_get_ilsb() {
         let bitboard = squares_to_bitboard(vec![41, 55]);
-        let ilsb = ilsb(&bitboard);
+        let ilsb = ilsb(bitboard);
         assert_eq!(ilsb, 41);
     }
 

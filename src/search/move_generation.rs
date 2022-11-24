@@ -47,8 +47,10 @@ impl Move {
     }
 }
 
-// Move generation functions
+/// Move generation functions. These accept a mutable move vector reference as
+/// an argument and pushes legal pawn moves in a position to the move vector
 
+/// General move generation function for pawns in a position.
 fn generate_pawn_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
@@ -120,6 +122,7 @@ fn generate_pawn_moves(
     }
 }
 
+/// General move generation function for jumping pieces - Knights and Kings
 fn generate_jumping_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
@@ -148,7 +151,7 @@ fn generate_jumping_moves(
     }
     let src_vec = bt::forward_scan(srcs);
     for src in src_vec {
-        let mut targets = map[bt::ilsb(&src)] & !our_pieces.any;
+        let mut targets = map[bt::ilsb(src)] & !our_pieces.any;
         // Remove unsafe squares i.e. squares attacked by opponent pieces
         // from the available target sqaures for the king
         if matches!(piece, JumpingPiece::King) {
@@ -178,6 +181,8 @@ fn generate_jumping_moves(
     }
 }
 
+/// General move generation function for sliding pieces - Rooks, Bishops and
+/// Queens
 fn generate_sliding_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
@@ -189,31 +194,28 @@ fn generate_sliding_moves(
     pinned_pieces: u64,
 ) {
     let srcs: u64;
-    let masks: Vec<&[u64; 64]>;
     let moved_piece;
+    let target_gen_func: fn(u64, u64, &Maps) -> u64;
     match piece {
         SlidingPiece::Bishop => {
             srcs = our_pieces.bishop;
-            masks = vec![&maps.diag, &maps.adiag];
+            target_gen_func = bt::da_hyp_quint;
             moved_piece = Piece::Bishop;
         },
         SlidingPiece::Rook => {
             srcs = our_pieces.rook;
-            masks = vec![&maps.file, &maps.rank];
+            target_gen_func = bt::hv_hyp_quint;
             moved_piece = Piece::Rook;
         },
         SlidingPiece::Queen => {
             srcs = our_pieces.queen;
-            masks = vec![&maps.diag, &maps.adiag, &maps.file, &maps.rank];
+            target_gen_func = bt::all_hyp_quint;
             moved_piece = Piece::Queen;
         }
     }
     let src_vec = bt::forward_scan(srcs);
     for src in src_vec {
-        let mut targets: u64 = EMPTY_BB;
-        for mask in &masks {
-            targets |= bt::hyp_quint(pos.occ, src, mask);
-        }
+        let mut targets: u64 = target_gen_func(pos.occ, src, maps);
         targets &= !our_pieces.any;
         targets &= capture_mask | push_mask;
         // If piece is pinned, it can only move the direction directly to 
@@ -242,6 +244,8 @@ fn generate_sliding_moves(
 
 // Special Moves
 
+/// Move generation function for promotions, this is called by the general
+/// pawn generation function if a target square is on the promotion rank
 fn generate_promotions(
     move_vec: &mut Vec<Move>, 
     pos: &Position, 
@@ -262,6 +266,7 @@ fn generate_promotions(
     }
 }
 
+/// Move generation function for en passant captures
 fn generate_en_passant_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
@@ -343,6 +348,8 @@ fn generate_castling_moves(
     }
 }
 
+/// The master move generation function - generates all legal moves in a
+/// position and returns the list of legal moves as a vector of moves
 pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
     // Initialise variables
     let mut moves: Vec<Move> = Vec::new();
@@ -371,8 +378,8 @@ pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
     if n_attackers > 1 {
         // If the king is in double check, only king moves to safe sqaures are valid
         generate_jumping_moves(
-            &mut moves, pos, JumpingPiece::King, our_pieces, maps,
-            unsafe_squares, capture_mask, push_mask, pinned_pieces
+            &mut moves, pos, JumpingPiece::King, our_pieces,
+            maps, unsafe_squares, capture_mask, push_mask, pinned_pieces
         );
         return moves;
     }
@@ -385,7 +392,7 @@ pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
         if analysis_tools::piece_at_is_slider(pos, checkers) {
             // If the attacker is a sliding piece, then check can be blocked by
             // another piece moving to the intervening squares
-            push_mask = bt::create_push_mask(
+            push_mask = bt::connect_squares(
                 checkers, our_pieces.king
             )
         } else {
@@ -430,6 +437,7 @@ pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
     return moves;
 }
 
+// TODO Refactor
 pub fn apply_move(mut pos: Position, mv: &Move) -> Position {
     let our_pieces;
     let their_pieces;
