@@ -47,6 +47,95 @@ impl Move {
     }
 }
 
+/// The master move generation function - generates all legal moves in a
+/// position and returns the list of legal moves as a vector of moves
+pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
+    // Initialise variables
+    let mut moves: Vec<Move> = Vec::new();
+    let our_pieces;
+    let castle_masks;
+    let castle_rights;
+    let color;
+    if pos.white_to_move {
+        our_pieces = &pos.w_pieces;
+        castle_masks = &W_CASTLE;
+        castle_rights = [pos.w_kingside_castle, pos.w_queenside_castle];
+        color = Color::White;
+    } else {
+        our_pieces = &pos.b_pieces;
+        castle_masks = &B_CASTLE;
+        castle_rights = [pos.b_kingside_castle, pos.b_kingside_castle];
+        color = Color::Black;
+    }
+    let (unsafe_squares, checkers) = 
+        analysis_tools::find_unsafe_squares_and_checkers_for(&color, pos, maps);
+    let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos, &color, maps);
+    // Number of pieces placing the king in check
+    let n_attackers = checkers.count_ones();
+    let mut capture_mask: u64 = FILLED_BB;
+    let mut push_mask: u64 = FILLED_BB;
+    if n_attackers > 1 {
+        // If the king is in double check, only king moves to safe sqaures are valid
+        generate_jumping_moves(
+            &mut moves, pos, JumpingPiece::King, our_pieces,
+            maps, unsafe_squares, capture_mask, push_mask, pinned_pieces
+        );
+        return moves;
+    }
+    if n_attackers == 1 {
+        // This means the king is in single check so moves are only legal if
+        // 1. It moves the king out of check
+        // 2. The attacking piece is captured
+        // 3. The attacking piece is blocked, if the piece is a sliding piece
+        capture_mask = checkers;
+        if analysis_tools::piece_at_is_slider(pos, checkers) {
+            // If the attacker is a sliding piece, then check can be blocked by
+            // another piece moving to the intervening squares
+            push_mask = bt::connect_squares(
+                checkers, our_pieces.king
+            )
+        } else {
+            // Not a slider so it can only be captured;
+            // give no options to block
+            push_mask = EMPTY_BB
+        }
+    }
+
+    for move_type in PawnMove::iter() {
+        generate_pawn_moves(
+            &mut moves, pos, move_type, capture_mask, push_mask,
+            pinned_pieces
+        )
+    }
+
+    for piece in JumpingPiece::iter() {
+        generate_jumping_moves(
+            &mut moves, pos, piece, our_pieces, maps, unsafe_squares,
+            capture_mask, push_mask, pinned_pieces
+        )
+    }
+
+    for piece in SlidingPiece::iter() {
+        generate_sliding_moves(
+            &mut moves, pos, piece, our_pieces, maps,
+            capture_mask, push_mask, pinned_pieces
+        )
+    }
+    // Castling is only allowed if not in check
+    if n_attackers == 0 {
+        generate_castling_moves(
+            &mut moves, pos, castle_masks, 
+            &castle_rights, our_pieces, unsafe_squares
+        );
+    }
+    if pos.en_passant_target_sq & push_mask != EMPTY_BB {
+        generate_en_passant_moves(
+            &mut moves, pos, capture_mask, push_mask, maps
+        );
+    }
+    return moves;
+}
+
 /// Move generation functions. These accept a mutable move vector reference as
 /// an argument and pushes legal pawn moves in a position to the move vector
 
@@ -83,7 +172,6 @@ fn generate_pawn_moves(
     } else {
         mask = capture_mask
     }
-
     let targets = target_gen_funcs[d!(move_type)](pos) & mask;
     let srcs = src_gen_funcs[d!(move_type)](targets);
     let target_vec = bt::forward_scan(targets);
@@ -346,95 +434,6 @@ fn generate_castling_moves(
             )
         }
     }
-}
-
-/// The master move generation function - generates all legal moves in a
-/// position and returns the list of legal moves as a vector of moves
-pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
-    // Initialise variables
-    let mut moves: Vec<Move> = Vec::new();
-    let our_pieces;
-    let castle_masks;
-    let castle_rights;
-    let color;
-    if pos.white_to_move {
-        our_pieces = &pos.w_pieces;
-        castle_masks = &W_CASTLE;
-        castle_rights = [pos.w_kingside_castle, pos.w_queenside_castle];
-        color = Color::White;
-    } else {
-        our_pieces = &pos.b_pieces;
-        castle_masks = &B_CASTLE;
-        castle_rights = [pos.b_kingside_castle, pos.b_kingside_castle];
-        color = Color::Black;
-    }
-    let (unsafe_squares, checkers) = 
-        analysis_tools::find_unsafe_squares_and_checkers_for(&color, pos, maps);
-    let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos, &color, maps);
-    // Number of pieces placing the king in check
-    let n_attackers = checkers.count_ones();
-    let mut capture_mask: u64 = FILLED_BB;
-    let mut push_mask: u64 = FILLED_BB;
-    if n_attackers > 1 {
-        // If the king is in double check, only king moves to safe sqaures are valid
-        generate_jumping_moves(
-            &mut moves, pos, JumpingPiece::King, our_pieces,
-            maps, unsafe_squares, capture_mask, push_mask, pinned_pieces
-        );
-        return moves;
-    }
-    if n_attackers == 1 {
-        // This means the king is in single check so moves are only legal if
-        // 1. It moves the king out of check
-        // 2. The attacking piece is captured
-        // 3. The attacking piece is blocked, if the piece is a sliding piece
-        capture_mask = checkers;
-        if analysis_tools::piece_at_is_slider(pos, checkers) {
-            // If the attacker is a sliding piece, then check can be blocked by
-            // another piece moving to the intervening squares
-            push_mask = bt::connect_squares(
-                checkers, our_pieces.king
-            )
-        } else {
-            // Not a slider so it can only be captured;
-            // give no options to block
-            push_mask = EMPTY_BB
-        }
-    }
-
-    for move_type in PawnMove::iter() {
-        generate_pawn_moves(
-            &mut moves, pos, move_type, capture_mask, push_mask,
-            pinned_pieces
-        )
-    }
-
-    for piece in JumpingPiece::iter() {
-        generate_jumping_moves(
-            &mut moves, pos, piece, our_pieces, maps, unsafe_squares,
-            capture_mask, push_mask, pinned_pieces
-        )
-    }
-
-    for piece in SlidingPiece::iter() {
-        generate_sliding_moves(
-            &mut moves, pos, piece, our_pieces, maps,
-            capture_mask, push_mask, pinned_pieces
-        )
-    }
-    // Castling is only allowed if not in check
-    if n_attackers == 0 {
-        generate_castling_moves(
-            &mut moves, pos, castle_masks, 
-            &castle_rights, our_pieces, unsafe_squares
-        );
-    }
-    if pos.en_passant_target_sq & push_mask != EMPTY_BB {
-        generate_en_passant_moves(
-            &mut moves, pos, capture_mask, push_mask, maps
-        );
-    }
-    return moves;
 }
 
 // TODO Refactor

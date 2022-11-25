@@ -23,37 +23,6 @@ pub struct Position {
     pub fullmove_clock: i8,
 }
 
-impl Position {
-
-    pub fn new_from_fen(fen: String) -> Position {
-        let split_fen: Vec<&str> = fen.split(" ").collect();
-        assert!(split_fen.len() == 6);
-        // Initialise bitboards
-        let board = split_fen[0];
-        let (w_pieces, b_pieces) = init::bitboards(board);
-        let occ = w_pieces.any | b_pieces.any;
-        let free = !occ;
-        // Set white to move
-        let white_to_move = init::white_to_move(split_fen[1]);
-        // Set castling rights
-        let (
-            w_kingside_castle, b_kingside_castle,
-            w_queenside_castle, b_queenside_castle
-        ) = init::castling_rights(split_fen[2]);
-        // Set en passant target square
-        let en_passant_target_sq = init::en_passant(split_fen[3]);
-        // Calculate clocks
-        let halfmove_clock: i8 = split_fen[4].parse().unwrap();
-        let fullmove_clock: i8 = split_fen[5].parse().unwrap();
-        // Construct struct with calculated values
-        return Position {
-            w_pieces, b_pieces, occ, free, white_to_move, w_kingside_castle,
-            b_kingside_castle, w_queenside_castle, b_queenside_castle,
-            en_passant_target_sq, halfmove_clock, fullmove_clock
-        }
-    }
-}
-
 #[derive(Clone, Copy)]
 pub struct PieceSet {
     pub any: u64,
