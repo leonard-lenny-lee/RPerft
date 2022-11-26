@@ -52,6 +52,18 @@ impl Position {
     pub fn color(&self) -> Color {
         self.state.color()
     }
+    pub fn our_ks_rook_starting_sq(&self) -> u64 {
+        self.state.our_ks_rook_starting_sq()
+    }
+    pub fn our_qs_rook_starting_sq(&self) -> u64 {
+        self.state.our_qs_rook_starting_sq()
+    }
+    pub fn their_ks_rook_starting_sq(&self) -> u64 {
+        self.state.their_ks_rook_starting_sq()
+    }
+    pub fn their_qs_rook_starting_sq(&self) -> u64 {
+        self.state.their_qs_rook_starting_sq()
+    }
     /// Return the single push target squares of our pawns
     pub fn pawn_sgl_push_targets(&self) -> u64 {
         self.state.pawn_sgl_push_targets(self)
@@ -102,12 +114,46 @@ impl Position {
     pub fn queenside_castle_mask(&self) -> u64 {
         self.state.qscm()
     }
-    /// Return the king side castling rights
-    pub fn kingside_castle(&self) -> bool {
-        self.state.ksc(self)
+    /// Return our king side castling rights
+    pub fn our_kingside_castle(&self) -> bool {
+        self.state.our_ksc(self)
     }
     /// Return the queenside castling rights
-    pub fn queenside_castle(&self) -> bool {
-        self.state.qsc(self)
+    pub fn our_queenside_castle(&self) -> bool {
+        self.state.our_sqc(self)
     }
+    /// Return their king side castling rights
+    pub fn their_kingside_castle(&self) -> bool {
+        self.state.their_ksc(self)
+    }
+    /// Return their queenside castling rights
+    pub fn their_queenside_castle(&self) -> bool {
+        self.state.their_qsc(self)
+    }
+    /// Return all the squares attacked by their pawns
+    pub fn unsafe_squares_pawn(&self) -> u64 {
+        self.state.unsafe_squares_pawn(self)
+    }
+    /// Locate their pawns checking our king
+    pub fn their_checking_pawns(&self) -> u64 {
+        self.state.pawn_checking_squares(self) 
+        & self.their_pieces().pawn
+    }
+
+    pub fn set_our_ksc(&mut self, value: bool) {
+        self.state.set_our_ksc(self, value)
+    }
+
+    pub fn set_our_qsc(&mut self, value: bool) {
+        self.state.set_our_qsc(self, value)
+    }
+
+    pub fn set_their_ksc(&mut self, value: bool) {
+        self.state.set_their_ksc(self, value)
+    }
+
+    pub fn set_their_qsc(&mut self, value: bool) {
+        self.state.set_their_qsc(self, value)
+    }
+    
 }

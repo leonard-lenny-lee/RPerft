@@ -2,12 +2,13 @@ use super::*;
 use crate::common::*;
 use crate::common::bittools as bt;
 
+/// The State trait is implemented by structs which contain methods which
+/// are specific to the color
 pub(crate) trait State {
-
     fn promotion_rank(&self) -> u64;
     fn ep_capture_rank(&self) -> u64;
-    fn our_pieces(&self, pos: &Position) -> &PieceSet;
-    fn their_pieces(&self, pos: &Position) -> &PieceSet;
+    fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
+    fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
     fn color(&self) -> Color;
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64;
     fn pawn_dbl_push_targets(&self, pos: &Position) -> u64;
@@ -21,22 +22,41 @@ pub(crate) trait State {
     fn pawn_en_passant_cap(&self, pos: &Position) -> u64;
     fn kscm(&self) -> u64;
     fn qscm(&self) -> u64;
-    fn ksc(&self, pos: &Position) -> bool;
-    fn qsc(&self, pos: &Position) -> bool;
+    fn our_ksc(&self, pos: &Position) -> bool;
+    fn our_sqc(&self, pos: &Position) -> bool;
+    fn their_ksc(&self, pos: &Position) -> bool;
+    fn their_qsc(&self, pos: &Position) -> bool;
+    fn unsafe_squares_pawn(&self, pos: &Position) -> u64;
+    fn pawn_checking_squares(&self, pos: &Position) -> u64;
+    fn our_ks_rook_starting_sq(&self) -> u64;
+    fn our_qs_rook_starting_sq(&self) -> u64;
+    fn their_ks_rook_starting_sq(&self) -> u64;
+    fn their_qs_rook_starting_sq(&self) -> u64;
+    // Setters
+    fn set_our_ksc(&self, pos: &mut Position, value: bool);
+    fn set_our_qsc(&self, pos: &mut Position, value: bool);
+    fn set_their_ksc(&self, pos: &mut Position, value: bool);
+    fn set_their_qsc(&self, pos: &mut Position, value: bool);
 
 }
 
 impl State for White {
 
     fn promotion_rank(&self) -> u64 {RANK_8}
-    fn ep_capture_rank(&self) -> u64 {RANK_4}
-    fn our_pieces(&self, pos: &Position) -> &PieceSet {&pos.data.w_pieces}
-    fn their_pieces(&self, pos: &Position) -> &PieceSet {&pos.data.b_pieces}
-    fn ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
-    fn qsc(&self, pos: &Position) -> bool {pos.data.w_queenside_castle}
+    fn ep_capture_rank(&self) -> u64 {RANK_5}
+    fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
+    fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
+    fn our_ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
+    fn our_sqc(&self, pos: &Position) -> bool {pos.data.w_queenside_castle}
+    fn their_ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
+    fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
     fn kscm(&self) -> u64 {0x60}
     fn qscm(&self) -> u64 {0xe}
     fn color(&self) -> Color {Color::White}
+    fn our_ks_rook_starting_sq(&self) -> u64 {WKROOK}
+    fn our_qs_rook_starting_sq(&self) -> u64 {WQROOK}
+    fn their_ks_rook_starting_sq(&self) -> u64 {BKROOK}
+    fn their_qs_rook_starting_sq(&self) -> u64 {BQROOK}
 
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
         bt::north_one(
@@ -90,19 +110,51 @@ impl State for White {
         bt::south_one(pos.data.en_passant_target_sq)
     }
 
+    fn unsafe_squares_pawn(&self, pos: &Position) -> u64 {
+        bt::sout_west(pos.data.b_pieces.pawn) 
+        | bt::sout_east(pos.data.b_pieces.pawn)
+    }
+
+    fn pawn_checking_squares(&self, pos: &Position) -> u64 {
+        let king = pos.data.w_pieces.king;
+        bt::nort_east(king) | bt::nort_west(king)
+    }
+
+    fn set_our_ksc(&self, pos: &mut Position, value: bool) {
+        pos.data.w_kingside_castle = value
+    }
+
+    fn set_our_qsc(&self, pos: &mut Position, value: bool) {
+        pos.data.w_queenside_castle = value
+    }
+
+    fn set_their_ksc(&self, pos: &mut Position, value: bool) {
+        pos.data.b_kingside_castle = value
+    }
+
+    fn set_their_qsc(&self, pos: &mut Position, value: bool) {
+        pos.data.b_queenside_castle = value
+    }
+
 }
 
 impl State for Black {
 
     fn promotion_rank(&self) -> u64 {RANK_1}
-    fn ep_capture_rank(&self) -> u64 {RANK_5}
-    fn our_pieces(&self, pos: &Position) -> &PieceSet {&pos.data.b_pieces}
-    fn their_pieces(&self, pos: &Position) -> &PieceSet {&pos.data.w_pieces}
-    fn ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
-    fn qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
+    fn ep_capture_rank(&self) -> u64 {RANK_4}
+    fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
+    fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
+    fn our_ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
+    fn our_sqc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
+    fn their_ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
+    fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
     fn kscm(&self) -> u64 {0x6000000000000000}
     fn qscm(&self) -> u64 {0xe00000000000000}
     fn color(&self) -> Color {Color::Black}
+    fn our_ks_rook_starting_sq(&self) -> u64 {BKROOK}
+    fn our_qs_rook_starting_sq(&self) -> u64 {BQROOK}
+    fn their_ks_rook_starting_sq(&self) -> u64 {WKROOK}
+    fn their_qs_rook_starting_sq(&self) -> u64 {WQROOK}
 
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
         bt::south_one(
@@ -154,6 +206,32 @@ impl State for Black {
 
     fn pawn_en_passant_cap(&self, pos: &Position) -> u64 {
         bt::north_one(pos.data.en_passant_target_sq)
+    }
+
+    fn unsafe_squares_pawn(&self, pos: &Position) -> u64 {
+        bt::nort_west(pos.data.w_pieces.pawn)
+        | bt::nort_east(pos.data.w_pieces.pawn)
+    }
+
+    fn pawn_checking_squares(&self, pos: &Position) -> u64 {
+        let king = pos.data.b_pieces.king;
+        bt::sout_east(king) | bt::sout_west(king)
+    }
+
+    fn set_our_ksc(&self, pos: &mut Position, value: bool) {
+        pos.data.b_kingside_castle = value
+    }
+
+    fn set_our_qsc(&self, pos: &mut Position, value: bool) {
+        pos.data.b_queenside_castle = value
+    }
+
+    fn set_their_ksc(&self, pos: &mut Position, value: bool) {
+        pos.data.w_kingside_castle = value
+    }
+
+    fn set_their_qsc(&self, pos: &mut Position, value: bool) {
+        pos.data.w_queenside_castle = value
     }
 
 }

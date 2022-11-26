@@ -1,8 +1,10 @@
 use crate::{common::*, d};
 use crate::common::bittools as bt;
-use crate::position::{Position, analysis_tools};
+use crate::position::{Position, PieceSet, analysis_tools};
 use crate::global::maps::Maps;
 use strum::IntoEnumIterator;
+
+pub mod apply_move;
 
 pub struct Move {
     pub target: u64,
@@ -41,30 +43,30 @@ impl Move {
     }
 }
 
-/// The master move generation function - generates all legal moves in a
+/// The master move finding function - finds all legal moves in a
 /// position and returns the list of legal moves as a vector of moves
-pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
+pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
     // Initialise variables
     let mut move_vec: Vec<Move> = Vec::new();
     let (unsafe_squares, checkers) = 
-        analysis_tools::find_unsafe_squares_and_checkers_for(pos, maps);
+        analysis_tools::find_unsafe_squares_and_checkers(pos, maps);
     let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos, maps);
     // Number of pieces placing the king in check
-    let n_attackers = checkers.count_ones();
+    let n_checkers = checkers.count_ones();
     let mut capture_mask: u64 = FILLED_BB;
     let mut push_mask: u64 = FILLED_BB;
     // If the king is in double check, only king moves to safe squares are valid
-    if n_attackers > 1 {
-        generate_king_moves(&mut move_vec, pos, maps, unsafe_squares);
+    if n_checkers > 1 {
+        find_king_moves(&mut move_vec, pos, maps, unsafe_squares);
         return move_vec;
     }
-    if n_attackers == 1 {
+    if n_checkers == 1 {
         // This means the king is in single check so moves are only legal if
         // 1. It moves the king out of check
         // 2. The attacking piece is captured
         // 3. The attacking piece is blocked, if the piece is a sliding piece
         capture_mask = checkers;
-        if analysis_tools::piece_at_is_slider(pos, checkers) {
+        if analysis_tools::their_piece_at_is_slider(pos, checkers) {
             // If the attacker is a sliding piece, then check can be blocked by
             // another piece moving to the intervening squares
             push_mask = bt::connect_squares(
@@ -79,29 +81,29 @@ pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
 
     // Add all moves to the move vector
     for move_type in PawnMove::iter() {
-        generate_pawn_moves(
+        find_pawn_moves(
             &mut move_vec, pos, move_type, capture_mask,
             push_mask, pinned_pieces
         )
     }
-    generate_knight_moves(
+    find_knight_moves(
         &mut move_vec, pos, maps, capture_mask,
         push_mask, pinned_pieces
     );
-    generate_king_moves(
+    find_king_moves(
         &mut move_vec, pos, maps, unsafe_squares
     );
     for piece in SlidingPiece::iter() {
-        generate_sliding_moves(
+        find_sliding_moves(
             &mut move_vec, pos, piece, maps, capture_mask, 
             push_mask, pinned_pieces
         )
     }
     // Castling is only allowed if not in check
-    if n_attackers == 0 {
-        generate_castling_moves(&mut move_vec, pos, unsafe_squares);
+    if n_checkers == 0 {
+        find_castling_moves(&mut move_vec, pos, unsafe_squares);
     }
-    generate_en_passant_moves(
+    find_en_passant_moves(
         &mut move_vec, pos, capture_mask, push_mask, maps
     );
     return move_vec;
@@ -111,7 +113,7 @@ pub fn generate_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
 /// an argument and pushes legal pawn moves in a position to the move vector
 
 /// General move generation function for pawns in a position.
-fn generate_pawn_moves(
+fn find_pawn_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     move_type: PawnMove,
@@ -168,13 +170,13 @@ fn generate_pawn_moves(
                 )
             )
         } else {
-            generate_promotions(move_vec, pos, target, src)
+            find_promotions(move_vec, pos, target, src)
         }
     }
 }
 
 /// Move generation function for knights
-fn generate_knight_moves(
+fn find_knight_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     maps: &Maps,
@@ -208,7 +210,7 @@ fn generate_knight_moves(
 }
 
 /// Move generation function for kings
-fn generate_king_moves(
+fn find_king_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     maps: &Maps,
@@ -236,7 +238,7 @@ fn generate_king_moves(
 
 /// General move generation function for sliding pieces - Rooks, Bishops and
 /// Queens
-fn generate_sliding_moves(
+fn find_sliding_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     piece: SlidingPiece,
@@ -297,7 +299,7 @@ fn generate_sliding_moves(
 
 /// Move generation function for promotions, this is called by the general
 /// pawn generation function if a target square is on the promotion rank
-fn generate_promotions(
+fn find_promotions(
     move_vec: &mut Vec<Move>, 
     pos: &Position, 
     target: u64, 
@@ -318,7 +320,7 @@ fn generate_promotions(
 }
 
 /// Move generation function for en passant captures
-fn generate_en_passant_moves(
+fn find_en_passant_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     capture_mask: u64,
@@ -361,14 +363,14 @@ fn generate_en_passant_moves(
     
 }
 
-fn generate_castling_moves(
+fn find_castling_moves(
     move_vec: &mut Vec<Move>,
     pos: &Position,
     unsafe_squares: u64
 ) {
     let src = pos.our_pieces().king;
     // Kingside castle
-    if pos.kingside_castle()
+    if pos.our_kingside_castle()
         && (
             pos.kingside_castle_mask() 
             & pos.data.occ 
@@ -386,7 +388,7 @@ fn generate_castling_moves(
             )
         )
     }
-    if pos.queenside_castle()
+    if pos.our_queenside_castle()
         && (
             pos.queenside_castle_mask()
             & pos.data.occ
@@ -405,134 +407,6 @@ fn generate_castling_moves(
         )
     }
 }
-
-// TODO Refactor
-/// Create a new position by applying move data to a position
-pub fn apply_move_to_data(pos: &Position, mv: &Move) -> Position {
-
-    let mut new_pos = Position::new(pos.data.clone());
-    let mut our_pieces = new_pos.our_pieces();
-    let mut their_pieces = new_pos.their_pieces();
-
-    // Common operations for all moves
-    let move_mask = mv.src | mv.target;
-    new_pos.data.free |= mv.src; // Source squares must be free now
-    new_pos.data.occ &= !mv.src;
-    new_pos.data.free &= !mv.target; // Target sqaures must be occupied
-    new_pos.data.occ |= mv.target;
-    // Our bitboards must be flipped at target and source
-    our_pieces.xor_assign(d!(mv.moved_piece), move_mask); 
-    our_pieces.any ^= move_mask;
-    // Free the squares on the their bitboards if the piece is a capture
-    if mv.is_capture {
-        their_pieces.xor_assign(d!(mv.captured_piece), mv.target);
-        their_pieces.any ^= mv.target;
-        if matches!(mv.captured_piece, Piece::Rook) && mv.target & ROOK_START != 0 {
-            // If a rook on its starting square is captured, always set the
-            // castling rights as false.
-            match mv.target {
-                WQROOK => pos.w_queenside_castle = false,
-                WKROOK => pos.w_kingside_castle = false,
-                BQROOK => pos.b_queenside_castle = false,
-                BKROOK => pos.b_kingside_castle = false,
-                _ => ()
-            }
-        }
-    }
-    // Similarly, if a rook has been moved from its starting square, always
-    // set the castling rights as false
-    if matches!(mv.moved_piece, Piece::Rook) && mv.src & ROOK_START != 0 {
-        match mv.src {
-            WQROOK => pos.w_queenside_castle = false,
-            WKROOK => pos.w_kingside_castle = false,
-            BQROOK => pos.b_queenside_castle = false,
-            BKROOK => pos.b_kingside_castle = false,
-            _ => ()
-        }
-    }
-    // Set en passant target sq to empty, this will be set to the relevant
-    // value for dbl pawn pushes later
-    pos.en_passant_target_sq = EMPTY_BB;
-    // Reset the halfmove clock if a pawn is moved or a capture has taken
-    // place. Else, increment the halfmove clock
-    if mv.is_capture || matches!(mv.moved_piece, Piece::Pawn) {
-        pos.halfmove_clock = 0;
-    } else {
-        pos.halfmove_clock += 1;
-    }
-    // Increment the fullmove clock if black has moved
-    if !pos.white_to_move {
-        pos.fullmove_clock += 1;
-    }
-    match mv.special_move_flag {
-        SpecialMove::None => (),
-        SpecialMove::Promotion => {
-            // Set target square on promotion piece bitboard
-            our_pieces.bit_or_assign(d!(mv.promotion_piece), mv.target);
-            // Unset the pawn from our pawn bitboard
-            our_pieces.pawn ^= mv.target;
-        },
-        SpecialMove::Castling => {
-            assert!(matches!(mv.moved_piece, Piece::King));
-            // For castling moves, we also need the update the rook
-            // bitboard and the our universal bitboard
-            // Calculate if kingside or queenside castle
-            let rook_castle_mask: u64;
-            if mv.target.trailing_zeros() % 8 == 6 {
-                // For kingside castle, the rook has transported from a
-                // position one east of the target square to one west
-                rook_castle_mask = mv.target << 1 | mv.target >> 1;
-            } else {
-                // For the queenside castle, the rook has transported from
-                // a position 2 squares west of the target square to the
-                // position 1 east of the target sqaure
-                assert!(mv.target.trailing_zeros() % 8 == 2);
-                rook_castle_mask = mv.target << 1 | mv.target >> 2;
-            }
-            our_pieces.rook ^= rook_castle_mask;
-            our_pieces.any ^= rook_castle_mask;
-            // Disallow any more castling moves if a castle has occurred
-            if pos.white_to_move {
-                pos.w_kingside_castle = false;
-                pos.w_queenside_castle = false;
-            } else {
-                pos.b_kingside_castle = false;
-                pos.b_queenside_castle = false;
-            }
-        },
-        SpecialMove::EnPassant => {
-            assert!(pos.en_passant_target_sq != 0);
-            let ep_capture_sq;
-            if pos.white_to_move {
-                // If white made the en passant capture, then the square at
-                // which the capture takes place is on square south of the
-                // target square
-                ep_capture_sq = bt::south_one(mv.target)
-            } else {
-                // Opposite for black
-                ep_capture_sq = bt::north_one(mv.target)
-            }
-            // Reflect the capture on the opponent bitboards
-            their_pieces.any ^= ep_capture_sq;
-            their_pieces.pawn ^= ep_capture_sq;
-        },
-        SpecialMove::DoublePush => {
-            // Set enpassant square if the move was a double push
-            if pos.white_to_move {
-                // If white made the double pawn push, then the ep target
-                // square must be one square north of the source
-                pos.en_passant_target_sq = bt::north_one(mv.src)
-            } else {
-                // Vice versa for black
-                pos.en_passant_target_sq = bt::south_one(mv.src)
-            }
-        }
-    }
-    // Change the turn
-    pos.white_to_move = !pos.white_to_move;
-    return pos
-}
-
 
 #[cfg(test)]
 mod tests;
