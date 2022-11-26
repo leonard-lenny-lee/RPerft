@@ -3,6 +3,7 @@
 /// bitboards required for move generation and evaluation
 
 mod init;
+pub mod states;
 pub mod analysis_tools;
 
 use super::common::*;
@@ -22,6 +23,9 @@ pub struct Position {
     pub halfmove_clock: i8,
     pub fullmove_clock: i8,
 }
+
+pub struct White {pos: Position}
+pub struct Black {pos: Position}
 
 #[derive(Clone, Copy)]
 pub struct PieceSet {

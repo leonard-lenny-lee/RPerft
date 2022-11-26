@@ -3,112 +3,7 @@
 use crate::{common::*, d};
 use crate::common::bittools as bt;
 use crate::global::maps::Maps;
-use super::{Position, PieceSet};
-
-/// Possible squares the white pawns can push to
-pub fn w_pawn_sgl_pushes(pos: &Position) -> u64 {
-    bt::north_one(
-        pos.w_pieces.pawn
-    ) & pos.free
-}
-
-/// Possible squares the white pawns can double push to
-pub fn w_pawn_dbl_pushes(pos: &Position) -> u64 {
-    let sgl_push: u64 = bt::north_one(
-        pos.w_pieces.pawn & RANK_2
-    ) & pos.free;
-    bt::north_one(sgl_push) & pos.free
-}
-
-/// Possible squares the white pawns can capture left
-pub fn w_pawn_left_captures(pos: &Position) -> u64 {
-    bt::nort_west(
-        pos.w_pieces.pawn
-    ) & pos.b_pieces.pawn
-}
-
-/// Possible squares the white pawns can capture right
-pub fn w_pawn_right_captures(pos: &Position) -> u64 {
-    bt::nort_east(
-        pos.w_pieces.pawn
-    ) & pos.b_pieces.pawn
-}
-
-/// Possible squares the black pawns can push to
-pub fn b_pawn_sgl_pushes(pos: &Position) -> u64 {
-    bt::south_one(
-        pos.b_pieces.pawn
-    ) & pos.free
-}
-
-/// Possible squares the black pawns can double push to
-pub fn b_pawn_dbl_pushes(pos: &Position) -> u64 {
-    let sgl_push: u64 = bt::south_one(
-        pos.b_pieces.pawn & RANK_7
-    ) & pos.free;
-    bt::south_one(sgl_push) & pos.free
-}
-
-/// Possible squares the black pawns can capture left
-pub fn b_pawn_left_captures(pos: &Position) -> u64 {
-    bt::sout_west(
-        pos.b_pieces.pawn
-    ) & pos.w_pieces.pawn
-}
-
-/// Possible squares the black pawns can capture right
-pub fn b_pawn_right_captures(pos: &Position) -> u64 {
-    bt::sout_east(
-        pos.b_pieces.pawn
-    ) & pos.w_pieces.pawn
-}
-
-/// Collate all the relevant functions for generating the white pawn targets
-pub fn w_pawn_target_gen_funcs() -> [fn(&Position) -> u64; 4] {
-    [w_pawn_sgl_pushes, w_pawn_dbl_pushes, 
-     w_pawn_left_captures, w_pawn_right_captures]
-}
-
-/// Collate all the relevant functions for generating the black pawn targets
-pub fn b_pawn_target_gen_funcs() -> [fn(&Position) -> u64; 4] {
-    [b_pawn_sgl_pushes, b_pawn_dbl_pushes,
-     b_pawn_left_captures, b_pawn_right_captures]
-}
-
-pub fn w_pawn_src_gen_funcs() -> [fn(u64) -> u64; 4] {
-    [bt::south_one, bt::south_two, bt::sout_east, bt::sout_west]
-}
-
-pub fn b_pawn_src_gen_funcs() -> [fn(u64) -> u64; 4] {
-    [bt::north_one, bt::north_two, bt::nort_east, bt::nort_west]
-}
-
-
-/// White pawns able to capture en passant
-pub fn w_pawn_en_passant(pos: &Position) -> u64 {
-    (bt::sout_west(pos.en_passant_target_sq) 
-        | bt::sout_east(pos.en_passant_target_sq))
-        & pos.w_pieces.pawn
-        & RANK_5
-}
-
-/// Black pawns able to capture en passant
-pub fn b_pawn_en_passant(pos: &Position) -> u64 {
-    (bt::nort_west(pos.en_passant_target_sq)
-    | bt::nort_east(pos.en_passant_target_sq))
-    & pos.b_pieces.pawn
-    & RANK_4
-}
-
-/// White pawns left attack squares
-pub fn w_pawn_left_attack_sqs(pos: &Position) -> u64 {
-    bt::nort_west(pos.w_pieces.pawn)
-}
-
-/// White pawns right attack squares
-pub fn w_pawn_right_attack_sqs(pos: &Position) -> u64 {
-    bt::nort_east(pos.w_pieces.pawn)
-}
+use super::{Position, PieceSet, states};
 
 /// Black pawns left attack squares
 pub fn b_pawn_left_attack_sqs(pos: &Position) -> u64 {
@@ -168,7 +63,7 @@ pub fn find_unsafe_squares_and_checkers_for(
         &mut unsafe_squares, &mut checkers, their_pieces, our_pieces, maps
     );
     // Calculate king attacks
-    unsafe_squares |= maps.retreive_king_map(their_pieces.king);
+    unsafe_squares |= maps.get_king_map(their_pieces.king);
 
     return (unsafe_squares, checkers)
 }
@@ -234,7 +129,7 @@ fn find_knight_attack_squares_and_checkers(
     maps: &Maps
 ) {
     for knight in bt::forward_scan(their_pieces.knight) {
-        let attacks = maps.retrieve_knight_map(knight);
+        let attacks = maps.get_knight_map(knight);
         *unsafe_squares |= attacks;
         if our_pieces.king & attacks != EMPTY_BB {
             *checkers |= knight

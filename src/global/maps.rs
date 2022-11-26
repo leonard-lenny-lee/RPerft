@@ -33,37 +33,37 @@ impl Maps {
     }
 
     /// Get the attack squares of a single knight
-    pub fn retrieve_knight_map(&self, bb: u64) -> u64 {
+    pub fn get_knight_map(&self, bb: u64) -> u64 {
         self.knight[bt::ilsb(bb)]
     }
 
     /// Get the attack squares of knights
-    pub fn retrive_dknight_map(&self, bb: &u64) -> u64 {
+    pub fn get_dknight_map(&self, bb: &u64) -> u64 {
         *self.dknight.get(bb).unwrap()
     }
 
     /// Get the attack squares of a king
-    pub fn retreive_king_map(&self, bb: u64) -> u64 {
+    pub fn get_king_map(&self, bb: u64) -> u64 {
         self.king[bt::ilsb(bb)]
     }
 
     /// Get the corresponding rank mask of a square
-    pub fn retreive_rank_map(&self, bb: u64) -> u64 {
+    pub fn get_rank_map(&self, bb: u64) -> u64 {
         self.rank[bt::ilsb(bb)]
     }
 
     /// Get the corresponding file mask of a square
-    pub fn retrieve_file_map(&self, bb: u64) -> u64 {
+    pub fn get_file_map(&self, bb: u64) -> u64 {
         self.file[bt::ilsb(bb)]
     }
 
     /// Get the corresponding diagonal mask of a square
-    pub fn retrieve_diag_map(&self, bb: u64) -> u64 {
+    pub fn get_diag_map(&self, bb: u64) -> u64 {
         self.diag[bt::ilsb(bb)]
     }
 
     /// Get the corresponding anti-diagonal mask of a square
-    pub fn retrieve_adiag_map(&self, bb: u64) -> u64 {
+    pub fn get_adiag_map(&self, bb: u64) -> u64 {
         self.adiag[bt::ilsb(bb)]
     }
 

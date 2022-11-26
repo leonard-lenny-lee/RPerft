@@ -395,6 +395,10 @@ pub fn east_one(bb: u64) -> u64 {
     (bb & !FILE_H) << 1
 }
 
+pub fn east_two(bb: u64) -> u64 {
+    (bb & !(FILE_G | FILE_H)) << 2
+}
+
 pub fn sout_east(bb: u64) -> u64 {
     (bb & !FILE_H) >> 7
 }
@@ -415,10 +419,13 @@ pub fn west_one(bb: u64) -> u64 {
     (bb & !FILE_A) >> 1
 }
 
+pub fn west_two(bb: u64) -> u64 {
+    (bb & !(FILE_A | FILE_B)) >> 2
+}
+
 pub fn nort_west(bb: u64) -> u64 {
     (bb & !FILE_A) << 7
 }
-
 
 pub fn no_no_ea(bb: u64) -> u64 {
     (bb & !FILE_H) << 17
