@@ -1,6 +1,6 @@
 use crate::{common::*, d};
 use crate::common::bittools as bt;
-use crate::position::{Position, PieceSet, analysis_tools};
+use crate::position::{Position, analysis_tools};
 use crate::global::maps::Maps;
 use strum::IntoEnumIterator;
 
@@ -121,7 +121,7 @@ fn find_pawn_moves(
     push_mask: u64,
     pinned_pieces: u64
 ) {
-    let mut targets;
+    let targets;
     let srcs;
     match move_type {
         PawnMove::SinglePush => {

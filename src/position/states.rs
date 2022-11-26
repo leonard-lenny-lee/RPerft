@@ -33,10 +33,12 @@ pub(crate) trait State {
     fn their_ks_rook_starting_sq(&self) -> u64;
     fn their_qs_rook_starting_sq(&self) -> u64;
     // Setters
-    fn set_our_ksc(&self, pos: &mut Position, value: bool);
-    fn set_our_qsc(&self, pos: &mut Position, value: bool);
-    fn set_their_ksc(&self, pos: &mut Position, value: bool);
-    fn set_their_qsc(&self, pos: &mut Position, value: bool);
+    fn set_our_ksc(&self, data: &mut Data, value: bool);
+    fn set_our_qsc(&self, data: &mut Data, value: bool);
+    fn set_their_ksc(&self, data: &mut Data, value: bool);
+    fn set_their_qsc(&self, data: &mut Data, value: bool);
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet;
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet;
 
 }
 
@@ -120,20 +122,28 @@ impl State for White {
         bt::nort_east(king) | bt::nort_west(king)
     }
 
-    fn set_our_ksc(&self, pos: &mut Position, value: bool) {
-        pos.data.w_kingside_castle = value
+    fn set_our_ksc(&self, data: &mut Data, value: bool) {
+        data.w_kingside_castle = value
     }
 
-    fn set_our_qsc(&self, pos: &mut Position, value: bool) {
-        pos.data.w_queenside_castle = value
+    fn set_our_qsc(&self, data: &mut Data, value: bool) {
+        data.w_queenside_castle = value
     }
 
-    fn set_their_ksc(&self, pos: &mut Position, value: bool) {
-        pos.data.b_kingside_castle = value
+    fn set_their_ksc(&self, data: &mut Data, value: bool) {
+        data.b_kingside_castle = value
     }
 
-    fn set_their_qsc(&self, pos: &mut Position, value: bool) {
-        pos.data.b_queenside_castle = value
+    fn set_their_qsc(&self, data: &mut Data, value: bool) {
+        data.b_kingside_castle = value
+    }
+
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet {
+        &mut data.w_pieces
+    }
+
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet{
+        &mut data.b_pieces
     }
 
 }
@@ -218,20 +228,28 @@ impl State for Black {
         bt::sout_east(king) | bt::sout_west(king)
     }
 
-    fn set_our_ksc(&self, pos: &mut Position, value: bool) {
-        pos.data.b_kingside_castle = value
+    fn set_our_ksc(&self, data: &mut Data, value: bool) {
+        data.b_kingside_castle = value;
     }
 
-    fn set_our_qsc(&self, pos: &mut Position, value: bool) {
-        pos.data.b_queenside_castle = value
+    fn set_our_qsc(&self, data: &mut Data, value: bool) {
+        data.b_queenside_castle = value
     }
 
-    fn set_their_ksc(&self, pos: &mut Position, value: bool) {
-        pos.data.w_kingside_castle = value
+    fn set_their_ksc(&self, data: &mut Data, value: bool) {
+        data.w_kingside_castle = value
     }
 
-    fn set_their_qsc(&self, pos: &mut Position, value: bool) {
-        pos.data.w_queenside_castle = value
+    fn set_their_qsc(&self, data: &mut Data, value: bool) {
+        data.w_kingside_castle = value
+    }
+
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet {
+        &mut data.b_pieces
+    }
+
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet{
+        &mut data.w_pieces
     }
 
 }

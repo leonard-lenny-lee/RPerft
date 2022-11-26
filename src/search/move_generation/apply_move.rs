@@ -12,6 +12,7 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
     if mv.is_capture {
         execute_capture_operations(&mut new_pos, mv)
     }
+    set_castling_rights(&mut new_pos, mv);
     set_halfmove_clock(&mut new_pos, mv);
     // Set en passant target sq to empty, this will be set to a value only
     // if the move was a pawn double push
@@ -19,13 +20,19 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
 
     match mv.special_move_flag {
         SpecialMove::None => (),
-        SpecialMove::Promotion => execute_promotion_operations(&mut new_pos, mv),
-        SpecialMove::Castling => execute_castling_operations(&mut new_pos, mv),
+        SpecialMove::Promotion => {
+            execute_promotion_operations(&mut new_pos, mv)
+        },
+        SpecialMove::Castling => {
+            execute_castling_operations(&mut new_pos, mv)
+        },
         SpecialMove::EnPassant => {
             assert!(pos.data.en_passant_target_sq != EMPTY_BB);
             execute_en_passant_operations(&mut new_pos, mv)
         },
-        SpecialMove::DoublePush => execute_double_push_operations(&mut new_pos, mv)
+        SpecialMove::DoublePush => {
+            execute_double_push_operations(&mut new_pos, mv)
+        }
     }
     // Change the turn
     new_pos.data.white_to_move = !new_pos.data.white_to_move;
@@ -42,12 +49,7 @@ fn modify_universal_bitboards(pos: &mut Position, mv: &Move) {
 }
 
 fn execute_common_operations(pos: &mut Position, mv: &Move) {
-    let our_pieces;
-    if pos.data.white_to_move {
-        our_pieces = &mut pos.data.w_pieces;
-    } else {
-        our_pieces = &mut pos.data.b_pieces;
-    }
+    let our_pieces = pos.mut_our_pieces();
     let move_mask = mv.src | mv.target;
     // Our bitboards must be flipped at target and source
     our_pieces.xor_assign(d!(mv.moved_piece), move_mask); 
@@ -106,13 +108,15 @@ fn set_halfmove_clock(pos: &mut Position, mv: &Move) {
 }
 
 fn execute_promotion_operations(pos: &mut Position, mv: &Move) {
+    let our_pieces = pos.mut_our_pieces();
     // Set target square on promotion piece bitboard
-    pos.our_pieces().bit_or_assign(d!(mv.promotion_piece), mv.target);
+    our_pieces.bit_or_assign(d!(mv.promotion_piece), mv.target);
     // Unset the pawn from our pawn bitboard
-    pos.our_pieces().xor_assign(d!(Piece::Pawn), mv.target)
+    our_pieces.xor_assign(d!(Piece::Pawn), mv.target)
 }
 
 fn execute_castling_operations(pos: &mut Position, mv: &Move) {
+    let our_pieces = pos.mut_our_pieces();
     assert!(matches!(mv.moved_piece, Piece::King));
     // For castling moves, we also need the update our rook and any bitboards
     // Calculate if kingside or queenside castle
@@ -128,8 +132,8 @@ fn execute_castling_operations(pos: &mut Position, mv: &Move) {
         assert!(mv.target.trailing_zeros() % 8 == 2);
         castle_mask = bt::east_one(mv.target) | bt::west_two(mv.target);
     }
-    pos.our_pieces().xor_assign(d!(Piece::Rook), castle_mask);
-    pos.our_pieces().xor_assign(d!(Piece::Any), castle_mask);
+    our_pieces.xor_assign(d!(Piece::Rook), castle_mask);
+    our_pieces.xor_assign(d!(Piece::Any), castle_mask);
 }
 
 fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
@@ -138,8 +142,9 @@ fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
     // opposite for black
     let ep_capture_sq = pos.pawn_sgl_push_srcs(mv.target);
     // Reflect the capture on the opponent bitboards
-    pos.their_pieces().xor_assign(d!(Piece::Pawn), ep_capture_sq);
-    pos.their_pieces().xor_assign(d!(Piece::Any), ep_capture_sq);
+    let their_pieces = pos.mut_their_pieces();
+    their_pieces.xor_assign(d!(Piece::Pawn), ep_capture_sq);
+    their_pieces.xor_assign(d!(Piece::Any), ep_capture_sq);
 }
 
 fn execute_double_push_operations(pos: &mut Position, mv: &Move) {

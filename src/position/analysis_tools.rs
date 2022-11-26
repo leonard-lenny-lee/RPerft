@@ -106,20 +106,19 @@ pub fn get_color_at(pos: &Position, n: u64) -> Color {
 /// Identify which opponent piece is a particular position
 pub fn get_their_piece_at(pos: &Position, n: u64) -> Piece {
     assert!(n.count_ones() == 1);
-    let mut result = Piece::Any;
     let their_piece_array = pos.their_pieces().as_array();
     for piece in Piece::iter_pieces() {
         if their_piece_array[d!(piece)] & n != EMPTY_BB {
             return piece
         }
     }
-    if matches!(result, Piece::Any) {
+    if true {
         panic!(
             "Function get_piece_at could not locate the requested bit {}",
             n.trailing_zeros()
         )
     }
-    return result;
+    return Piece::Any;
 }
 
 /// Identify if the piece at the specified square is a sliding piece

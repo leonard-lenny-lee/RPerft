@@ -1,7 +1,6 @@
 mod tests {
 
     use crate::common::bittools::*;
-    use crate::common::*;
     use crate::global::maps::Maps;
     use test_case::test_case;
 

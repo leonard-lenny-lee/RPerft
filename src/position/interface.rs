@@ -141,19 +141,27 @@ impl Position {
     }
 
     pub fn set_our_ksc(&mut self, value: bool) {
-        self.state.set_our_ksc(self, value)
+        self.state.set_our_ksc(&mut self.data, value)
     }
 
     pub fn set_our_qsc(&mut self, value: bool) {
-        self.state.set_our_qsc(self, value)
+        self.state.set_our_qsc(&mut self.data, value)
     }
 
     pub fn set_their_ksc(&mut self, value: bool) {
-        self.state.set_their_ksc(self, value)
+        self.state.set_their_ksc(&mut self.data, value)
     }
 
     pub fn set_their_qsc(&mut self, value: bool) {
-        self.state.set_their_qsc(self, value)
+        self.state.set_their_qsc(&mut self.data, value)
+    }
+
+    pub fn mut_our_pieces(&mut self) -> &mut PieceSet {
+        self.state.mut_our_pieces(&mut self.data)
+    }
+
+    pub fn mut_their_pieces(&mut self) -> &mut PieceSet {
+        self.state.mut_their_pieces(&mut self.data)
     }
     
 }
