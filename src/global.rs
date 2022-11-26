@@ -1,5 +1,5 @@
 pub mod maps;
-use super::position::Position;
+use super::position::Data;
 use super::evaluation;
 
 pub struct Score {
@@ -13,7 +13,7 @@ impl Score {
     }
 }
 pub struct State {
-    position: Position,
+    position: Data,
     evaluation: i32,
 }
 
@@ -21,7 +21,7 @@ pub struct State {
 impl State {
 
     pub fn new_from_fen(fen: String) -> State {
-        let position = Position::new_from_fen(fen);
+        let position = Data::from_fen(fen);
         let score = evaluation::evaluate(&position);
         let evaluation = 0;
         return State {position, evaluation};

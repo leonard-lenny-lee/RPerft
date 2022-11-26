@@ -2,14 +2,20 @@
 /// to describe the current position, as well as methods to derive other
 /// bitboards required for move generation and evaluation
 
-mod init;
+mod data;
+mod interface;
 pub mod states;
 pub mod analysis_tools;
 
 use super::common::*;
 
-#[derive(Clone, Copy)]
 pub struct Position {
+    pub data: Data,
+    state: Box<dyn states::State>
+}
+
+#[derive(Clone, Copy)]
+pub struct Data {
     pub w_pieces: PieceSet,
     pub b_pieces: PieceSet,
     pub occ: u64,
@@ -23,9 +29,6 @@ pub struct Position {
     pub halfmove_clock: i8,
     pub fullmove_clock: i8,
 }
-
-pub struct White {pos: Position}
-pub struct Black {pos: Position}
 
 #[derive(Clone, Copy)]
 pub struct PieceSet {
@@ -70,3 +73,6 @@ impl PieceSet {
     }
 
 }
+
+struct White {}
+struct Black {}

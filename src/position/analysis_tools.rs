@@ -3,28 +3,18 @@
 use crate::{common::*, d};
 use crate::common::bittools as bt;
 use crate::global::maps::Maps;
-use super::{Position, PieceSet, states};
-
-/// Black pawns left attack squares
-pub fn b_pawn_left_attack_sqs(pos: &Position) -> u64 {
-    bt::sout_east(pos.b_pieces.pawn)
-}
-
-/// Black pawns right attack squares
-pub fn b_pawn_right_attack_sqs(pos: &Position) -> u64 {
-    bt::sout_west(pos.b_pieces.pawn)
-}
+use super::{Data, PieceSet, Position};
 
 /// Get all the squares the opponent pieces are attacking and all the opponent
 /// pieces that are checking the king
 pub fn find_unsafe_squares_and_checkers_for(
-    color: &Color, pos: &Position, maps: &Maps
+    pos: &Data, maps: &Maps
 ) -> (u64, u64) {
     // Initialise variables based on which color we want to find the unsafe
     // squares and checkers for
     let their_pieces;
     let our_pieces;
-    let pawn_attack_funcs: [fn(&Position) -> u64; 2];
+    let pawn_attack_funcs: [fn(&Data) -> u64; 2];
     let find_pawn_checker_funcs: [fn(u64) -> u64; 2];
     if matches!(color, Color::White) {
         our_pieces = &pos.w_pieces;
@@ -72,9 +62,9 @@ pub fn find_unsafe_squares_and_checkers_for(
 fn find_pawn_attack_squares_and_checkers(
     unsafe_squares: &mut u64,
     checkers: &mut u64,
-    pawn_attack_funcs: [fn(&Position) -> u64; 2],
+    pawn_attack_funcs: [fn(&Data) -> u64; 2],
     find_pawn_checker_funcs: [fn(u64) -> u64; 2],
-    pos: &Position,
+    pos: &Data,
     their_pieces: &PieceSet,
     our_pieces: &PieceSet,
 ) {
@@ -138,7 +128,7 @@ fn find_knight_attack_squares_and_checkers(
 }
 
 /// Get the colour at a particular square
-pub fn get_color_at(pos: &Position, n: u64) -> Color {
+pub fn get_color_at(pos: &Data, n: u64) -> Color {
     assert!(n.count_ones() == 1);
     let color;
     if n & pos.w_pieces.any != EMPTY_BB {
@@ -154,18 +144,14 @@ pub fn get_color_at(pos: &Position, n: u64) -> Color {
     return color;
 }
 
-/// Identify which piece is a particular position
-pub fn get_piece_at(pos: &Position, n: u64) -> Piece {
+/// Identify which opponent piece is a particular position
+pub fn get_their_piece_at(pos: &Position, n: u64) -> Piece {
     assert!(n.count_ones() == 1);
     let mut result = Piece::Any;
-    let w_piece_array = pos.w_pieces.as_array();
-    let b_piece_array = pos.b_pieces.as_array();
+    let their_piece_array = pos.their_pieces().as_array();
     for piece in Piece::iter_pieces() {
-        if (
-            w_piece_array[d!(piece)] | b_piece_array[d!(piece)]
-        ) & n != EMPTY_BB {
-            result = piece;
-            return result;
+        if their_piece_array[d!(piece)] & n != EMPTY_BB {
+            return piece
         }
     }
     if matches!(result, Piece::Any) {
@@ -178,17 +164,16 @@ pub fn get_piece_at(pos: &Position, n: u64) -> Piece {
 }
 
 /// Identify if the piece at the specified square is a sliding piece
-pub fn piece_at_is_slider(pos: &Position, n: u64) -> bool {
+pub fn piece_at_is_slider(pos: &Data, n: u64) -> bool {
     matches!(
-        get_piece_at(pos, n),
+        get_their_piece_at(pos, n),
         Piece::Rook | Piece::Bishop | Piece::Queen
     ) 
 }
 
 /// Identify which pieces are pinned for a particular color in a position
 pub fn get_pinned_pieces_for(
-    pos: &Position,
-    color: &Color,
+    pos: &Data,
     maps: &Maps
 ) -> u64 {
     // Initialise variables
@@ -238,7 +223,7 @@ pub fn get_pinned_pieces_for(
 /// Calculate the rays from the king along the four axes which the piece may 
 /// be pinned to. Returns an array of bitboards representing the horizontal,
 /// vertical, diagonal and antidiagonal rays, respectively
-fn calculate_king_rays(pos: &Position, king_bb: u64, maps: &Maps) -> [u64; 4] {
+fn calculate_king_rays(pos: &Data, king_bb: u64, maps: &Maps) -> [u64; 4] {
     let h_rays = bt::hyp_quint(pos.occ, king_bb, &maps.rank);
     let v_rays = bt::hyp_quint(pos.occ, king_bb, &maps.file);
     let d_rays = bt::hyp_quint(pos.occ, king_bb, &maps.diag);
@@ -252,7 +237,7 @@ fn calculate_king_rays(pos: &Position, king_bb: u64, maps: &Maps) -> [u64; 4] {
 fn find_pins_for_direction(
     pinned_pieces: &mut u64,
     pinning_pieces: u64,
-    pos: &Position,
+    pos: &Data,
     our_pieces_not_king: u64,
     king_ray: u64,
     maps: &[u64; 64]

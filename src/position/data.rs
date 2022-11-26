@@ -1,13 +1,13 @@
-/// Contains the methods required to parse a FEN string into a position
+/// Contains the methods required to parse a FEN string into a Data struct
 
 use super::*;
 
-impl Position {
+impl Data {
     
-    pub fn new_from_fen(fen: String) -> Position {
+    pub fn from_fen(fen: String) -> Data {
         let split_fen: Vec<&str> = fen.split(" ").collect();
         assert!(split_fen.len() == 6);
-        let mut pos = Position::new();
+        let mut pos = Data::new();
         pos.set_bitboards(split_fen[0]);
         pos.set_white_to_move(split_fen[1]);
         pos.set_castling_rights(split_fen[2]);
@@ -17,8 +17,8 @@ impl Position {
         pos
     }
     
-    fn new() -> Position {
-        Position {
+    fn new() -> Data {
+        Data {
             w_pieces: PieceSet::new(),
             b_pieces: PieceSet::new(),
             occ: EMPTY_BB,
@@ -30,7 +30,7 @@ impl Position {
             b_queenside_castle: false,
             en_passant_target_sq: EMPTY_BB,
             halfmove_clock: 0,
-            fullmove_clock: 0,
+            fullmove_clock: 0
         }
     }
 

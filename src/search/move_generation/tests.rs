@@ -1,13 +1,13 @@
 mod default_position_tests {
 
     use crate::global::maps::Maps;
-    use crate::position::Position;
+    use crate::position::Data;
     use crate::common::*;
     use crate::search::move_generation::*;
 
 
-    fn create_position() -> Position {
-        return Position::new_from_fen(DEFAULT_FEN.to_string())
+    fn create_position() -> Data {
+        return Data::from_fen(DEFAULT_FEN.to_string())
     }
 
     #[test]

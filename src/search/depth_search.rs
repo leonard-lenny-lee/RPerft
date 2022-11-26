@@ -1,8 +1,8 @@
-use crate::position::{Position, states::Pos};
+use crate::position::{Data, states::State};
 use crate::global::maps::Maps;
 use super::move_generation::{generate_moves, apply_move};
 
-pub fn perft(pos: &impl Pos, depth: i8, maps: &Maps) -> i32 {
+pub fn perft(pos: Box<dyn State>, depth: i8, maps: &Maps) -> i32 {
     let mut nodes = 0;
     if depth == 0 {
         return 1;
