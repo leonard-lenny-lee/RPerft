@@ -114,7 +114,7 @@ pub enum Color {
 
 #[macro_export]
 /// Returns the discriminant of an enum for indexing -> usize
-macro_rules! d {
+macro_rules! disc {
     ($enum:expr) => {
         $enum as usize
     };

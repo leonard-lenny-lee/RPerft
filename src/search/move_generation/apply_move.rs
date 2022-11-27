@@ -52,7 +52,7 @@ fn execute_common_operations(pos: &mut Position, mv: &Move) {
     let our_pieces = pos.mut_our_pieces();
     let move_mask = mv.src | mv.target;
     // Our bitboards must be flipped at target and source
-    our_pieces.xor_assign(d!(mv.moved_piece), move_mask); 
+    our_pieces.xor_assign(disc!(mv.moved_piece), move_mask); 
     our_pieces.any ^= move_mask;
 }
 
@@ -65,7 +65,7 @@ fn execute_capture_operations(pos: &mut Position, mv: &Move) {
     }
     // If capture has taken place, then their bitboard must be unset at the
     // target positions
-    their_pieces.xor_assign(d!(mv.captured_piece), mv.target);
+    their_pieces.xor_assign(disc!(mv.captured_piece), mv.target);
     their_pieces.any ^= mv.target;
 }
 
@@ -110,9 +110,9 @@ fn set_halfmove_clock(pos: &mut Position, mv: &Move) {
 fn execute_promotion_operations(pos: &mut Position, mv: &Move) {
     let our_pieces = pos.mut_our_pieces();
     // Set target square on promotion piece bitboard
-    our_pieces.bit_or_assign(d!(mv.promotion_piece), mv.target);
+    our_pieces.bit_or_assign(disc!(mv.promotion_piece), mv.target);
     // Unset the pawn from our pawn bitboard
-    our_pieces.xor_assign(d!(Piece::Pawn), mv.target)
+    our_pieces.xor_assign(disc!(Piece::Pawn), mv.target)
 }
 
 fn execute_castling_operations(pos: &mut Position, mv: &Move) {
@@ -132,8 +132,8 @@ fn execute_castling_operations(pos: &mut Position, mv: &Move) {
         assert!(mv.target.trailing_zeros() % 8 == 2);
         castle_mask = bt::east_one(mv.target) | bt::west_two(mv.target);
     }
-    our_pieces.xor_assign(d!(Piece::Rook), castle_mask);
-    our_pieces.xor_assign(d!(Piece::Any), castle_mask);
+    our_pieces.xor_assign(disc!(Piece::Rook), castle_mask);
+    our_pieces.xor_assign(disc!(Piece::Any), castle_mask);
 }
 
 fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
@@ -143,8 +143,8 @@ fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
     let ep_capture_sq = pos.pawn_sgl_push_srcs(mv.target);
     // Reflect the capture on the opponent bitboards
     let their_pieces = pos.mut_their_pieces();
-    their_pieces.xor_assign(d!(Piece::Pawn), ep_capture_sq);
-    their_pieces.xor_assign(d!(Piece::Any), ep_capture_sq);
+    their_pieces.xor_assign(disc!(Piece::Pawn), ep_capture_sq);
+    their_pieces.xor_assign(disc!(Piece::Any), ep_capture_sq);
 }
 
 fn execute_double_push_operations(pos: &mut Position, mv: &Move) {

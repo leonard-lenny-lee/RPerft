@@ -1,6 +1,6 @@
 /// Module containing functions to extract information from a position
 
-use crate::{common::*, d};
+use crate::{common::*, disc};
 use crate::common::bittools as bt;
 use crate::global::maps::Maps;
 use super::Position;
@@ -122,7 +122,7 @@ pub fn get_their_piece_at(pos: &Position, n: u64) -> Piece {
     assert!(n.count_ones() == 1);
     let their_piece_array = pos.their_pieces().as_array();
     for piece in Piece::iter_pieces() {
-        if their_piece_array[d!(piece)] & n != EMPTY_BB {
+        if their_piece_array[disc!(piece)] & n != EMPTY_BB {
             return piece
         }
     }

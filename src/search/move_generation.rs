@@ -1,4 +1,4 @@
-use crate::{common::*, d};
+use crate::{common::*, disc};
 use crate::common::bittools as bt;
 use crate::position::{Position, analysis_tools};
 use crate::global::maps::Maps;
@@ -18,27 +18,26 @@ pub struct Move {
 
 impl Move {
     pub fn new(
-        target_sq: u64, 
-        src_sq: u64, 
-        moved_piece: Piece, 
-        promotion_piece: Promotion, 
-        special_move_flag: SpecialMove, 
+        target_sq: u64, src_sq: u64, moved_piece: Piece, 
+        promotion_piece: Promotion, special_move_flag: SpecialMove, 
         pos: &Position
     ) -> Move {
         // Identify which piece has been captured
         let is_capture = pos.their_pieces().any & target_sq != EMPTY_BB;
         let mut captured_piece = Piece::Any;
         if is_capture {
-            captured_piece = analysis_tools::get_their_piece_at(pos, target_sq)
+            captured_piece = analysis_tools::get_their_piece_at(
+                pos, target_sq
+            )
         }
         return Move {
             target: target_sq,
             src: src_sq,
-            moved_piece: moved_piece,
-            promotion_piece: promotion_piece,
-            special_move_flag: special_move_flag,
-            is_capture: is_capture,
-            captured_piece: captured_piece,
+            moved_piece,
+            promotion_piece,
+            special_move_flag,
+            is_capture,
+            captured_piece,
         };
     }
 }
@@ -114,12 +113,8 @@ pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
 
 /// General move generation function for pawns in a position.
 fn find_pawn_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    move_type: PawnMove,
-    capture_mask: u64,
-    push_mask: u64,
-    pinned_pieces: u64
+    move_vec: &mut Vec<Move>, pos: &Position, move_type: PawnMove,
+    capture_mask: u64, push_mask: u64, pinned_pieces: u64
 ) {
     let targets;
     let srcs;
@@ -177,12 +172,8 @@ fn find_pawn_moves(
 
 /// Move generation function for knights
 fn find_knight_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    maps: &Maps,
-    capture_mask: u64,
-    push_mask: u64,
-    pinned_pieces: u64,
+    move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps, 
+    capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
     for src in bt::forward_scan(our_pieces.knight) {
@@ -211,9 +202,7 @@ fn find_knight_moves(
 
 /// Move generation function for kings
 fn find_king_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    maps: &Maps,
+    move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps,
     unsafe_squares: u64
 ) {
     let our_pieces = pos.our_pieces();
@@ -239,13 +228,8 @@ fn find_king_moves(
 /// General move generation function for sliding pieces - Rooks, Bishops and
 /// Queens
 fn find_sliding_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    piece: SlidingPiece,
-    maps: &Maps,
-    capture_mask: u64,
-    push_mask: u64,
-    pinned_pieces: u64,
+    move_vec: &mut Vec<Move>, pos: &Position, piece: SlidingPiece,
+    maps: &Maps, capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
     let srcs;
@@ -300,10 +284,7 @@ fn find_sliding_moves(
 /// Move generation function for promotions, this is called by the general
 /// pawn generation function if a target square is on the promotion rank
 fn find_promotions(
-    move_vec: &mut Vec<Move>, 
-    pos: &Position, 
-    target: u64, 
-    src: u64
+    move_vec: &mut Vec<Move>, pos: &Position, target: u64, src: u64
 ) {
     for piece in Promotion::iterator() {
         move_vec.push(
@@ -321,11 +302,8 @@ fn find_promotions(
 
 /// Move generation function for en passant captures
 fn find_en_passant_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    capture_mask: u64,
-    push_mask: u64,
-    maps: &Maps
+    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    push_mask: u64, maps: &Maps
 ) {
     let target = pos.data.en_passant_target_sq & push_mask;
     let captured_pawn = pos.pawn_en_passant_cap();
@@ -364,9 +342,7 @@ fn find_en_passant_moves(
 }
 
 fn find_castling_moves(
-    move_vec: &mut Vec<Move>,
-    pos: &Position,
-    unsafe_squares: u64
+    move_vec: &mut Vec<Move>, pos: &Position, unsafe_squares: u64
 ) {
     let src = pos.our_pieces().king;
     // Kingside castle
