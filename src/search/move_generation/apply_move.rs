@@ -34,8 +34,8 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
             execute_double_push_operations(&mut new_pos, mv)
         }
     }
-    // Change the turn
-    new_pos.data.white_to_move = !new_pos.data.white_to_move;
+    // Change the turn and state
+    new_pos.change_state();
     return new_pos
 }
 

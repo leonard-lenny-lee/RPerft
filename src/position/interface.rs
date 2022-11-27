@@ -32,6 +32,15 @@ impl Position {
         }
     }
 
+    pub fn change_state(&mut self) {
+        self.data.white_to_move = !self.data.white_to_move;
+        self.state = if self.data.white_to_move {
+            Box::new(White{})
+        } else {
+            Box::new(Black{})
+        } 
+    }
+
     /// Return the piece set of our pieces
     pub fn our_pieces(&self) -> &PieceSet {
         self.state.our_pieces(self)
