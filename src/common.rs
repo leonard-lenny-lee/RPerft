@@ -1,6 +1,8 @@
 /// This file contains hardcoded masks and Enums which are required by many
 /// other parts of the program.
 
+use strum_macros::EnumIter;
+
 pub mod bittools;
 
 pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -39,63 +41,81 @@ pub const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000
 
 
 pub enum ASCIIBases {
-    LowerA = 97, UpperA = 65, Zero = 48,
+    LowerA = 97,
+    UpperA = 65,
+    Zero = 48,
 }
 
-pub enum PromotionPiece {
-    None = 0, Rook = 2, Knight = 3, Bishop = 4, Queen = 5,
+pub enum Promotion {
+    None = 0,
+    Rook = 2,
+    Knight = 3,
+    Bishop = 4,
+    Queen = 5,
 }
 
-impl PromotionPiece {
-    pub fn iterator() -> Vec<PromotionPiece> {
-        use PromotionPiece::*;
+impl Promotion {
+    pub fn iterator() -> Vec<Promotion> {
+        use Promotion::*;
         return vec![Rook, Knight, Bishop, Queen];
     }
 }
 
 pub enum SpecialMove {
-    None, Promotion, EnPassant, Castling, DoublePush,
+    None,
+    Promotion,
+    EnPassant,
+    Castling,
+    DoublePush,
 }
 
+#[derive(EnumIter)]
 pub enum PawnMove {
-    SinglePush, DoublePush, CaptureLeft, CaptureRight,
+    SinglePush,
+    DoublePush,
+    CaptureLeft,
+    CaptureRight,
 }
 
+#[derive(EnumIter)]
 pub enum JumpingPiece {
-    Knight = 3, King = 6,
-}
-
-impl JumpingPiece {
-    pub fn iterator() -> Vec<JumpingPiece> {
-        use JumpingPiece::*;
-        return vec![Knight, King];
-    }
-}
-
-pub enum SlidingPiece {
-    Rook = 2, Bishop = 4, Queen = 5,
-}
-
-impl SlidingPiece {
-    pub fn iterator() -> Vec<SlidingPiece> {
-        use SlidingPiece::*;
-        return vec![Bishop, Rook, Queen]
-    }
+    Knight = 3,
+    King = 6,
 }
 
 #[derive(Clone, Copy)]
 pub enum Piece {
-    Any, Pawn, Rook, Knight, Bishop, Queen, King
+    Any,
+    Pawn,
+    Rook,
+    Knight,
+    Bishop,
+    Queen,
+    King
 }
 
 impl Piece {
-
     pub fn iter_pieces() -> Vec<Piece> {
         use Piece::*;
         return vec![Pawn, Rook, Knight, Bishop, Queen, King];
     }
 }
 
+#[derive(EnumIter)]
+pub enum SlidingPiece {
+    Rook = 2,
+    Bishop = 4,
+    Queen = 5,
+}
+
 pub enum Color {
     White, Black
+}
+
+#[macro_export]
+/// Returns the discriminant of an enum for indexing -> usize
+macro_rules! disc {
+    ($enum:expr) => {
+        $enum as usize
+    };
 }
