@@ -1,4 +1,5 @@
 /// Contains the methods required to parse a FEN string into a Data struct
+/// The data struct holds all the data required to describe a position.
 
 use super::*;
 

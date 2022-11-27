@@ -3,7 +3,10 @@ use crate::common::*;
 use crate::common::bittools as bt;
 
 /// The State trait is implemented by structs which contain methods which
-/// are specific to the color
+/// are specific to the color. For example, black and white implement different
+/// methods to push the pawn forward. This implementation circumvents the need
+/// to repeatedly use if white / black logic
+
 pub(crate) trait State {
     fn promotion_rank(&self) -> u64;
     fn ep_capture_rank(&self) -> u64;

@@ -1,5 +1,5 @@
-/// Module containing methods to extract information from a position
-// TODO Implement State Pattern for positions for white to move and black to move
+/// Module containing functions to extract information from a position
+
 use crate::{common::*, d};
 use crate::common::bittools as bt;
 use crate::global::maps::Maps;

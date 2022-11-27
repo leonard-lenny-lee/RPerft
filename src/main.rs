@@ -4,10 +4,8 @@ use chess_engine::*;
 //     return ctx;
 // }
 fn main() {
-    let attacker: u64 = 1 << 46;
+    let attacker: u64 = 1 << 47;
     let king = 1 << 20;
-    let o = common::bittools::squares_to_bitboard(vec![18, 36, 43]);
-    let maps = global::maps::Maps::new();
     let string = common::bittools::bitboard_to_string(
         common::bittools::connect_squares(attacker, king)
     );

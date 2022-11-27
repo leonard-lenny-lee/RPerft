@@ -1,5 +1,5 @@
 /// Public interface methods for the Position Struct which accesses the state
-/// methods
+/// methods. This is a loose implementation of State pattern.
 
 use super::*;
 
@@ -139,27 +139,27 @@ impl Position {
         self.state.pawn_checking_squares(self) 
         & self.their_pieces().pawn
     }
-
+    /// Set our kingside castle permission
     pub fn set_our_ksc(&mut self, value: bool) {
         self.state.set_our_ksc(&mut self.data, value)
     }
-
+    /// Set our queenside castle permission
     pub fn set_our_qsc(&mut self, value: bool) {
         self.state.set_our_qsc(&mut self.data, value)
     }
-
+    /// Set their kingside castle permission
     pub fn set_their_ksc(&mut self, value: bool) {
         self.state.set_their_ksc(&mut self.data, value)
     }
-
+    /// Set their queenside castle permission
     pub fn set_their_qsc(&mut self, value: bool) {
         self.state.set_their_qsc(&mut self.data, value)
     }
-
+    /// Return our piece set as a mutable reference
     pub fn mut_our_pieces(&mut self) -> &mut PieceSet {
         self.state.mut_our_pieces(&mut self.data)
     }
-
+    /// Return their piece set as a mutable reference
     pub fn mut_their_pieces(&mut self) -> &mut PieceSet {
         self.state.mut_their_pieces(&mut self.data)
     }
