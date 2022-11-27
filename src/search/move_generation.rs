@@ -48,8 +48,8 @@ impl Move {
 pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
     // Initialise variables
     let mut move_vec: Vec<Move> = Vec::new();
-    let (unsafe_squares, checkers) = 
-        analysis_tools::find_unsafe_squares_and_checkers(pos, maps);
+    let unsafe_squares = analysis_tools::find_unsafe_squares(pos, maps);
+    let checkers = analysis_tools::find_checkers(pos, maps);
     let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos, maps);
     // Number of pieces placing the king in check
     let n_checkers = checkers.count_ones();

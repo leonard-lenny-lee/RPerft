@@ -40,8 +40,8 @@ pub(crate) trait State {
     fn set_our_qsc(&self, data: &mut Data, value: bool);
     fn set_their_ksc(&self, data: &mut Data, value: bool);
     fn set_their_qsc(&self, data: &mut Data, value: bool);
-    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet;
-    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet;
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet;
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet;
 
 }
 
@@ -141,11 +141,11 @@ impl State for White {
         data.b_kingside_castle = value
     }
 
-    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet {
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
         &mut data.w_pieces
     }
 
-    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet{
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet{
         &mut data.b_pieces
     }
 
@@ -247,11 +247,11 @@ impl State for Black {
         data.w_kingside_castle = value
     }
 
-    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet {
+    fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
         &mut data.b_pieces
     }
 
-    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &mut PieceSet{
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet{
         &mut data.w_pieces
     }
 
