@@ -247,7 +247,7 @@ impl State for Black {
     }
 
     fn set_their_qsc(&self, data: &mut Data, value: bool) {
-        data.w_kingside_castle = value
+        data.w_queenside_castle = value
     }
 
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
