@@ -1,18 +1,30 @@
-mod default_position_tests {
-
+#[cfg(test)]
+mod position_tests {
     use crate::global::maps::Maps;
     use crate::position::Position;
     use crate::common::*;
     use crate::search::move_generation::*;
+    use bittools::squares_to_bitboard;
+    use test_case::test_case;
 
-
-    fn create_position() -> Position {
-        return Position::new_from_fen(DEFAULT_FEN.to_string())
+    const POSITION_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+    const POSITION_3: &str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";
+    const POSITION_4: &str = "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1";
+    
+    fn generate_targets(move_vec: Vec<Move>) -> u64 {
+        let mut targets = EMPTY_BB;
+        for mv in move_vec {
+            targets |= mv.target;
+        }
+        return targets
     }
 
-    #[test]
-    fn test_sgl_push_pawn_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 8, vec![16, 17, 18, 19, 20, 21, 22, 23]; "starting")]
+    #[test_case(POSITION_2, 4, vec![16, 17, 43, 22]; "position_two")]
+    fn test_sgl_push_pawn_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
         find_pawn_moves(
             &mut move_vec,
@@ -22,12 +34,18 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB
         );
-        assert_eq!(8, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets);
     }
 
-    #[test]
-    fn test_dbl_push_pawn_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 8, vec![24, 25, 26, 27, 28, 29, 30, 31]; "starting")]
+    #[test_case(POSITION_2, 2, vec![24, 30]; "position_two")]
+    fn test_dbl_push_pawn_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
         find_pawn_moves(
             &mut move_vec,
@@ -37,12 +55,17 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB
         );
-        assert_eq!(8, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
-
-    #[test]
-    fn test_push_lcap_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 0, vec![]; "position_two")]
+    fn test_push_lcap_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
         find_pawn_moves(
             &mut move_vec,
@@ -52,12 +75,18 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_push_rcap_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 2, vec![44, 23]; "position_two")]
+    fn test_push_rcap_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
         find_pawn_moves(
             &mut move_vec,
@@ -67,12 +96,17 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
-
-    #[test]
-    fn test_knight_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 4, vec![16, 18, 21, 23]; "starting")]
+    #[test_case(POSITION_2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53]; "position_two")]
+    fn test_knight_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let mut move_vec = Vec::new();
         find_knight_moves(
@@ -83,12 +117,18 @@ mod default_position_tests {
             FILLED_BB, 
             EMPTY_BB,
         );
-        assert_eq!(4, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_king_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 2, vec![3, 5]; "position_two")]
+    fn test_king_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let mut move_vec = Vec::new();
         find_king_moves(
@@ -97,12 +137,18 @@ mod default_position_tests {
             &maps,
             EMPTY_BB
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_bishop_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 11, vec![2, 20, 29, 38, 47, 3, 5, 19, 26, 33, 40]; "position_two")]
+    fn test_bishop_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let mut move_vec = Vec::new();
         find_sliding_moves(
@@ -114,12 +160,18 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_rook_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 5, vec![1, 2, 3, 5, 6]; "position_two")]
+    fn test_rook_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let mut move_vec = Vec::new();
         find_sliding_moves(
@@ -131,12 +183,18 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_queen_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 9, vec![19, 20, 22, 23, 29, 37, 45, 30, 39]; "position_two")]
+    fn test_queen_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let mut move_vec = Vec::new();
         find_sliding_moves(
@@ -148,15 +206,68 @@ mod default_position_tests {
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(0, move_vec.len());
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
     }
 
-    #[test]
-    fn test_move_gen() {
-        let pos = create_position();
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 0, vec![]; "position_two")]
+    fn test_en_passant_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
+        let maps = Maps::new();
+        let mut move_vec = Vec::new();
+        find_en_passant_moves(
+            &mut move_vec,
+            &pos,
+            FILLED_BB,
+            FILLED_BB,
+            &maps
+        );
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
+    }
+
+    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
+    #[test_case(POSITION_2, 2, vec![2, 6]; "position_two")]
+    fn test_castling_move_gen(
+        fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
+        let mut move_vec = Vec::new();
+        find_castling_moves(
+            &mut move_vec,
+            &pos,
+            EMPTY_BB,
+        );
+        assert_eq!(expected_nodes, move_vec.len() as i32);
+        let targets = generate_targets(move_vec);
+        let expected_targets = squares_to_bitboard(expected_targets);
+        assert_eq!(expected_targets, targets)
+    }
+
+    #[test_case(DEFAULT_FEN, 20, 0; "starting")]
+    #[test_case(POSITION_2, 48, 8; "position_two")]
+    #[test_case(POSITION_3, 14, 1; "position_three")]
+    #[test_case(POSITION_4, 6, 0; "position_four")]
+    fn test_move_gen(
+        fen: &str, expected_nodes: i32, expected_captures: i32,
+    ) {
+        let pos = Position::new_from_fen(fen.to_string());
         let maps = Maps::new();
         let move_vec = find_moves(&pos, &maps);
-        assert_eq!(20, move_vec.len())
+        let mut n_captures = 0;
+        for mv in &move_vec {
+            if mv.is_capture {
+                n_captures += 1
+            }
+        }
+        assert_eq!(expected_nodes, move_vec.len() as i32, "nodes");
+        assert_eq!(expected_captures, n_captures, "captures")
     }
-
 }

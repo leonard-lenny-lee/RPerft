@@ -39,7 +39,10 @@ impl Maps {
 
     /// Get the attack squares of knights
     pub fn get_dknight_map(&self, bb: &u64) -> u64 {
-        *self.dknight.get(bb).unwrap()
+        match self.dknight.get(bb) {
+            Some(m) => return *m,
+            None => return EMPTY_BB,
+        }
     }
 
     /// Get the attack squares of a king

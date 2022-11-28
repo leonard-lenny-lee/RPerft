@@ -2,6 +2,7 @@ mod tests {
 
     use crate::common::bittools::*;
     use crate::global::maps::Maps;
+    use crate::position::Data;
     use test_case::test_case;
 
     #[test]
@@ -55,6 +56,23 @@ mod tests {
     #[test_case(north_one, 59; "north")]
     fn test_overflows(func: fn(u64) -> u64, input: i32) {
         assert_eq!(func(1 << input), 0);
+    }
+
+    #[ignore]
+    #[test]
+    fn test_position_to_string() {
+        let data = Data::from_fen(DEFAULT_FEN.to_string());
+        let out = piecesets_to_string(data.w_pieces, data.b_pieces);
+        print!("{}", out)
+    }
+
+    #[ignore]
+    #[test]
+    fn test_kiwipete_to_string() {
+        let kiwipete = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+        let data = Data::from_fen(kiwipete.to_string());
+        let out = piecesets_to_string(data.w_pieces, data.b_pieces);
+        print!("{}", out)
     }
 
 }

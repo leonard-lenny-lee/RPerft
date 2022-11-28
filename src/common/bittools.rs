@@ -1,7 +1,7 @@
 /// Toolkit to carry out bit manipulations
 
 use super::{FILE_A, FILE_B, FILE_G, FILE_H, EMPTY_BB};
-use crate::global::maps::Maps;
+use crate::{global::maps::Maps, position::PieceSet};
 use super::*;
 
 /// Convert algebraic notation of a square e.g. a5 to a single bit mask at
@@ -38,6 +38,59 @@ pub fn bitboard_to_string(n: u64) -> String {
     out.push_str(
         "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h ");
     return out;
+}
+
+/// Convert position (white and black pieceset) into a string representation
+pub fn piecesets_to_string(w_pieces: PieceSet, b_pieces: PieceSet) -> String {
+    let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
+    let w_array = w_pieces.as_array();
+    let b_array = b_pieces.as_array();
+    for i in 1..7 {
+        let mut char;
+        match i {
+            1 => char = 'p',
+            2 => char = 'r',
+            3 => char = 'n',
+            4 => char = 'b',
+            5 => char = 'q',
+            6 => char = 'k',
+            _ => char = ' ',
+        };
+        for bit in forward_scan(b_array[i]) {
+            let index = ilsb(bit);
+            let x = index / 8;
+            let y = index % 8;
+            array[x][y] = char;
+        }
+        char.make_ascii_uppercase();
+        for bit in forward_scan(w_array[i]) {
+            let index = ilsb(bit);
+            let x = index / 8;
+            let y = index % 8;
+            array[x][y] = char;
+        }
+    };
+    let mut out = String::new();
+    out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
+    for i in 0..8 {
+        let i2 = 7 - i;
+        let row = array[i2];
+        if i != 0 {
+            let rank = &(8 - i).to_string()[..];
+            out.push_str("|\n   --- --- --- --- --- --- --- --- \n");
+            out.push_str(rank);
+            out.push(' ');
+        }
+        for c in row {
+            out.push_str("| ");
+            out.push(c);
+            out.push(' ')
+        }
+    }
+    out.push_str(
+        "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h "
+    );
+    return out
 }
 
 /// Accepts a vector of bitboard indices and returns a bitboard with the

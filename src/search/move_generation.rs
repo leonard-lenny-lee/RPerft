@@ -347,11 +347,8 @@ fn find_castling_moves(
     let src = pos.our_pieces().king;
     // Kingside castle
     if pos.our_kingside_castle()
-        && (
-            pos.kingside_castle_mask() 
-            & pos.data.occ 
-            & unsafe_squares
-        ) == EMPTY_BB
+        && (pos.kingside_castle_mask() & pos.data.occ) == EMPTY_BB
+        && (pos.kingside_castle_mask() & unsafe_squares) == EMPTY_BB 
     {
         move_vec.push(
             Move::new(
@@ -364,12 +361,10 @@ fn find_castling_moves(
             )
         )
     }
+    // Queenside castle
     if pos.our_queenside_castle()
-        && (
-            pos.queenside_castle_mask()
-            & pos.data.occ
-            & unsafe_squares
-        ) == EMPTY_BB
+        && (pos.queenside_castle_mask() & pos.data.occ) == EMPTY_BB
+        && (pos.queenside_castle_mask() & unsafe_squares) == EMPTY_BB
     {
         move_vec.push(
             Move::new(
