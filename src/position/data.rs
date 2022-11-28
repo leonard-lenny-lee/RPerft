@@ -127,7 +127,104 @@ impl Data {
             Ok(c) => fullmove_clock = c,
             Err(_e) => panic!("Invalid fullmove clock")
         }
-        self.halfmove_clock = fullmove_clock;
+        self.fullmove_clock = fullmove_clock;
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::*;
+    use super::*;
+    use bittools::squares_to_bitboard as stb;
+    use test_case::test_case;
+
+    #[test]
+    fn test_from_fen_init() {
+        Data::from_fen(DEFAULT_FEN.to_string());
+    }
+
+    #[test]
+    fn test_new_init() {
+        Data::new();
+    }
+
+    #[test]
+    fn test_set_bitboards() {
+        let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
+        let mut data = Data::new();
+        data.set_bitboards(fen);
+        // White pieces
+        assert_eq!(data.w_pieces.any, RANK_1 | RANK_2, "w.any");
+        assert_eq!(data.w_pieces.pawn, RANK_2, "w.pawn");
+        assert_eq!(data.w_pieces.rook, stb(vec![0, 7]), "w.rook");
+        assert_eq!(data.w_pieces.knight, stb(vec![1, 6]), "w.knight");
+        assert_eq!(data.w_pieces.bishop, stb(vec![2, 5]), "w.bishop");
+        assert_eq!(data.w_pieces.queen, stb(vec![3]), "w.queen");
+        assert_eq!(data.w_pieces.king, stb(vec![4]), "w.king");
+        // Black pieces
+        assert_eq!(data.b_pieces.any, RANK_7 | RANK_8, "b.any");
+        assert_eq!(data.b_pieces.pawn, RANK_7, "b.pawn");
+        assert_eq!(data.b_pieces.rook, stb(vec![56, 63]), "b.rook");
+        assert_eq!(data.b_pieces.knight, stb(vec![57, 62]), "b.knight");
+        assert_eq!(data.b_pieces.bishop, stb(vec![58, 61]), "b.bishop");
+        assert_eq!(data.b_pieces.queen, stb(vec![59]), "b.queen");
+        assert_eq!(data.b_pieces.king, stb(vec![60]), "b.king");
+        // Universal bitboards
+        let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
+        let expected_free = !expected_occ;
+        assert_eq!(data.occ, expected_occ, "occ");
+        assert_eq!(data.free, expected_free, "free");
+
+    }
+
+    #[test_case("w", true; "white")]
+    #[test_case("b", false; "black")]
+    fn test_set_white_to_move (test_case: &str, expected: bool) {
+        let mut data = Data::new();
+        data.set_white_to_move(test_case);
+        assert_eq!(data.white_to_move, expected)
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_invalid_white_to_move() {
+        let mut data = Data::new();
+        data.set_white_to_move("X")
+    }
+
+    #[test]
+    fn test_set_castling_rights() {
+        let mut data = Data::new();
+        data.set_castling_rights("KkQq");
+        assert_eq!(
+            data.w_kingside_castle 
+            && data.b_kingside_castle
+            && data.w_queenside_castle
+            && data.b_queenside_castle,
+            true
+        )
+    }
+
+    #[test_case("-", EMPTY_BB; "empty")]
+    #[test_case("e6", 1 << 44; "e6")]
+    fn test_set_en_passant(test: &str, expected: u64) {
+        let mut data = Data::new();
+        data.set_en_passant(test);
+        assert_eq!(data.en_passant_target_sq, expected)
+    }
+
+    #[test]
+    fn test_set_halfmove_clock() {
+        let mut data = Data::new();
+        data.set_halfmove_clock("6");
+        assert_eq!(data.halfmove_clock, 6)
+    }
+
+    #[test]
+    fn test_set_fullmove_clock() {
+        let mut data = Data::new();
+        data.set_fullmove_clock("0");
+        assert_eq!(data.fullmove_clock, 0)
+    }
 }

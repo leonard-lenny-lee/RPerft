@@ -1,7 +1,7 @@
 use chess_engine::{*, common::*};
 
 #[test]
-fn test_position_new_from_fen_default() {
+fn test_data_new_from_fen_default() {
     let pos = position::Data::from_fen(common::DEFAULT_FEN.to_string());
     assert_eq!(pos.w_pieces.any, RANK_1 | RANK_2);
     assert_eq!(pos.w_pieces.pawn, RANK_2);
@@ -27,10 +27,4 @@ fn test_position_new_from_fen_default() {
     assert_eq!(pos.en_passant_target_sq, 0);
     assert_eq!(pos.halfmove_clock, 0);
     assert_eq!(pos.fullmove_clock, 1);
-}
-
-#[test]
-fn test_position_new_from_fen_eps() {
-    let pos = position::Data::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq d6 0 1".to_string());
-    assert_eq!(pos.en_passant_target_sq, 1 << 43);
 }

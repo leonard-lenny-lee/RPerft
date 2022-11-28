@@ -4,7 +4,7 @@
 
 mod data;
 mod interface;
-pub mod states;
+mod states;
 pub mod analysis_tools;
 
 use super::common::*;

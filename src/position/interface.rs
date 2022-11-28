@@ -7,16 +7,7 @@ impl Position {
 
     pub fn new_from_fen(fen: String) -> Position {
         let data = Data::from_fen(fen);
-        Position {
-            data: data,
-            state: (
-                if data.white_to_move {
-                    Box::new(White{})
-                } else {
-                    Box::new(Black{})
-                }
-            )
-        }
+        Position::new(data)
     }
 
     pub fn new(data: Data) -> Position {

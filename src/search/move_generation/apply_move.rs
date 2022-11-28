@@ -154,3 +154,7 @@ fn execute_double_push_operations(pos: &mut Position, mv: &Move) {
     let en_passant_target = pos.pawn_sgl_push_srcs(mv.target);
     pos.data.en_passant_target_sq = en_passant_target
 }
+
+#[cfg(test)]
+mod test_apply_move {
+}
