@@ -6,10 +6,6 @@ mod position_tests {
     use crate::search::move_generation::*;
     use bittools::squares_to_bitboard;
     use test_case::test_case;
-
-    const POSITION_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-    const POSITION_3: &str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";
-    const POSITION_4: &str = "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1";
     
     fn generate_targets(move_vec: Vec<Move>) -> u64 {
         let mut targets = EMPTY_BB;
@@ -225,7 +221,8 @@ mod position_tests {
             &pos,
             FILLED_BB,
             FILLED_BB,
-            &maps
+            &maps,
+            EMPTY_BB,
         );
         assert_eq!(expected_nodes, move_vec.len() as i32);
         let targets = generate_targets(move_vec);

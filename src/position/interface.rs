@@ -110,9 +110,14 @@ impl Position {
         self.state.kscm()
     }
     /// Return the mask of the squares the king must traverse to castle
-    /// queenside
-    pub fn queenside_castle_mask(&self) -> u64 {
-        self.state.qscm()
+    /// queenside so must be safe
+    pub fn queenside_castle_mask_safe(&self) -> u64 {
+        self.state.qscms()
+    }
+    /// Return the mask of the squares in between the king and the rook which
+    /// must be free in order to castle
+    pub fn queenside_castle_mask_free(&self) -> u64 {
+        self.state.qscmf()
     }
     /// Return our king side castling rights
     pub fn our_kingside_castle(&self) -> bool {

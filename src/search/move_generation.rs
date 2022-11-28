@@ -103,7 +103,7 @@ pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
         find_castling_moves(&mut move_vec, pos, unsafe_squares);
     }
     find_en_passant_moves(
-        &mut move_vec, pos, capture_mask, push_mask, maps
+        &mut move_vec, pos, capture_mask, push_mask, maps, pinned_pieces
     );
     return move_vec;
 }
@@ -118,6 +118,7 @@ fn find_pawn_moves(
 ) {
     let targets;
     let srcs;
+    let mut special_move_flag = SpecialMove::None;
     match move_type {
         PawnMove::SinglePush => {
             targets = pos.pawn_sgl_push_targets() & push_mask;
@@ -125,7 +126,8 @@ fn find_pawn_moves(
         },
         PawnMove::DoublePush => {
             targets = pos.pawn_dbl_push_targets() & push_mask;
-            srcs = pos.pawn_dbl_push_srcs(targets)
+            srcs = pos.pawn_dbl_push_srcs(targets);
+            special_move_flag = SpecialMove::DoublePush
         },
         PawnMove::CaptureLeft => {
             targets = pos.pawn_lcap_targets() & capture_mask;
@@ -160,7 +162,7 @@ fn find_pawn_moves(
                     src,
                     Piece::Pawn,
                     Promotion::None,
-                    SpecialMove::None,
+                    special_move_flag,
                     pos
                 )
             )
@@ -303,24 +305,32 @@ fn find_promotions(
 /// Move generation function for en passant captures
 fn find_en_passant_moves(
     move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
-    push_mask: u64, maps: &Maps
+    push_mask: u64, maps: &Maps, pinned_pieces: u64
 ) {
-    let target = pos.data.en_passant_target_sq & push_mask;
+    let target = pos.data.en_passant_target_sq;
     let captured_pawn = pos.pawn_en_passant_cap();
-    if target == EMPTY_BB || captured_pawn & capture_mask == EMPTY_BB {
+    if target == EMPTY_BB || (captured_pawn & capture_mask == EMPTY_BB
+        && target & push_mask == EMPTY_BB) {
         return
     }
     let our_pieces = pos.our_pieces();
     let their_pieces = pos.their_pieces();
     
     for src in bt::forward_scan(pos.pawn_en_passant_srcs()) {
+        // If pawn is pinned, check capture is along pin axis
+        if src & pinned_pieces != EMPTY_BB {
+            let pin_mask = bt::ray_axis(our_pieces.king, src);
+            if target & pin_mask == EMPTY_BB {
+                continue;
+            }
+        }
         // Check rare en passant case that may occur if the king is on the
         // same rank as the pawns involved in the en passant capture where
         // an en passant capture may reveal a discovered check
         if our_pieces.king & pos.ep_capture_rank() != EMPTY_BB {
-            let occ = pos.data.occ ^ (src | captured_pawn);
+            let occ = pos.data.occ & !(src | captured_pawn);
             let king_file_attacks = bt::hyp_quint(
-                occ, our_pieces.king, &maps.file
+                occ, our_pieces.king, &maps.rank
             );
             if king_file_attacks 
                 & (their_pieces.rook | their_pieces.queen) != EMPTY_BB {
@@ -363,8 +373,8 @@ fn find_castling_moves(
     }
     // Queenside castle
     if pos.our_queenside_castle()
-        && (pos.queenside_castle_mask() & pos.data.occ) == EMPTY_BB
-        && (pos.queenside_castle_mask() & unsafe_squares) == EMPTY_BB
+        && (pos.queenside_castle_mask_free() & pos.data.occ) == EMPTY_BB
+        && (pos.queenside_castle_mask_safe() & unsafe_squares) == EMPTY_BB
     {
         move_vec.push(
             Move::new(

@@ -24,7 +24,8 @@ pub(crate) trait State {
     fn pawn_en_passant_srcs(&self, pos: &Position) -> u64;
     fn pawn_en_passant_cap(&self, pos: &Position) -> u64;
     fn kscm(&self) -> u64;
-    fn qscm(&self) -> u64;
+    fn qscms(&self) -> u64;
+    fn qscmf(&self) -> u64;
     fn our_ksc(&self, pos: &Position) -> bool;
     fn our_sqc(&self, pos: &Position) -> bool;
     fn their_ksc(&self, pos: &Position) -> bool;
@@ -56,7 +57,8 @@ impl State for White {
     fn their_ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
     fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
     fn kscm(&self) -> u64 {0x60}
-    fn qscm(&self) -> u64 {0xe}
+    fn qscms(&self) -> u64 {0xc}
+    fn qscmf(&self) -> u64 {0xe}
     fn color(&self) -> Color {Color::White}
     fn our_ks_rook_starting_sq(&self) -> u64 {WKROOK}
     fn our_qs_rook_starting_sq(&self) -> u64 {WQROOK}
@@ -162,7 +164,8 @@ impl State for Black {
     fn their_ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
     fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
     fn kscm(&self) -> u64 {0x6000000000000000}
-    fn qscm(&self) -> u64 {0xe00000000000000}
+    fn qscms(&self) -> u64 {0xc00000000000000}
+    fn qscmf(&self) -> u64 {0xe00000000000000}
     fn color(&self) -> Color {Color::Black}
     fn our_ks_rook_starting_sq(&self) -> u64 {BKROOK}
     fn our_qs_rook_starting_sq(&self) -> u64 {BQROOK}
@@ -185,13 +188,13 @@ impl State for Black {
     fn pawn_lcap_targets(&self, pos: &Position) -> u64 {
         bt::sout_west(
             pos.data.b_pieces.pawn
-        ) & pos.data.w_pieces.pawn
+        ) & pos.data.w_pieces.any
     }
 
     fn pawn_rcap_targets(&self, pos: &Position) -> u64 {
         bt::sout_east(
             pos.data.b_pieces.pawn
-        ) & pos.data.w_pieces.pawn
+        ) & pos.data.w_pieces.any
     }
 
     fn pawn_sgl_push_srcs(&self, targets: u64) -> u64 {

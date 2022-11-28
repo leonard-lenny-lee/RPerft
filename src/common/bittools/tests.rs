@@ -6,6 +6,14 @@ mod tests {
     use test_case::test_case;
 
     #[test]
+    fn test_bitmask_to_algebraic() {
+        let expected = "f8";
+        let input = 1 << 61;
+        let result = &bitmask_to_algebraic(input)[..];
+        assert_eq!(expected, result)
+    }
+
+    #[test]
     fn test_squares_to_bitboard() {
         let squares = vec![0, 1, 2, 3, 4, 5, 6, 7];
         let bitboard = squares_to_bitboard(squares);

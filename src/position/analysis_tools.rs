@@ -61,8 +61,10 @@ fn find_knight_attack_squares(
     maps: &Maps
 ) {
     let knights = pos.their_pieces().knight;
-    let attacks = maps.get_dknight_map(&knights);
-    *unsafe_squares |= attacks;
+    for knight in bt::forward_scan(knights) {
+        let attacks = maps.knight[bt::ilsb(knight)];
+        *unsafe_squares |= attacks;
+    }
 }
 
 pub fn find_checkers(pos: &Position, maps: &Maps) -> u64 {

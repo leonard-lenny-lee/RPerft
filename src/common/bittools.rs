@@ -18,6 +18,16 @@ pub fn algebraic_to_bitmask(algebraic: &str) -> u64 {
     1 << (file + (rank - 1) * 8)
 }
 
+/// Convert a single bit mask to algebraic notation
+pub fn bitmask_to_algebraic(bb: u64) -> String {
+    let index = ilsb(bb);
+    let rank_index = (index / 8) as u8;
+    let file_index = (index % 8) as u8;
+    let rank = (ASCIIBases::Zero as u8 + rank_index + 1) as char;
+    let file = (ASCIIBases::LowerA as u8 + file_index) as char;
+    format!("{}{}", file, rank)
+}
+
 /// Convert a bitboard representation (u64) into a string representation
 pub fn bitboard_to_string(n: u64) -> String {
     let mut out = String::new();
@@ -173,35 +183,37 @@ pub fn connect_squares(square_one: u64, square_two: u64) -> u64 {
     assert!(square_one.count_ones() == 1 && square_two.count_ones() == 1);
     assert!(square_one != square_two);
     // Calculate direction
-    let attacker_sq = square_one.trailing_zeros();
-    let king_sq = square_two.trailing_zeros();
+    let sq_one_index = square_one.trailing_zeros();
+    let sq_two_index = square_two.trailing_zeros();
     let push_mask;
-    if attacker_sq > king_sq {
+    if sq_one_index > sq_two_index {
         // Attacker must be attacking W, SW, S or SE
-        let diff = attacker_sq - king_sq;
-        if diff % 9 == 0 {
+        let diff = sq_one_index - sq_two_index;
+        if diff < 8 && sq_one_index / 8 == sq_two_index / 8 {
+            // They are on the same rank
+            push_mask = west_ofill(square_one, square_two)
+        } else if diff % 9 == 0 {
             push_mask = so_we_ofill(square_one, square_two)
         } else if diff % 8 == 0 {
             push_mask = sout_ofill(square_one, square_two)
         } else if diff % 7 == 0 {
             push_mask = so_ea_ofill(square_one, square_two)
         } else {
-            // Assert they are on the same rank
-            assert!(attacker_sq / 8 == king_sq / 8);
-            push_mask = west_ofill(square_one, square_two)
+            panic!("Squares cannot be connected")
         }
     } else {
         // Attacker must be attacking E, NE, N or NW
-        let diff = king_sq - attacker_sq;
-        if diff % 9 == 0 {
+        let diff = sq_two_index - sq_one_index;
+        if diff < 8 && sq_one_index / 8 == sq_two_index / 8 {
+            push_mask = east_ofill(square_one, square_two)
+        } else if diff % 9 == 0 {
             push_mask = no_ea_ofill(square_one, square_two)
         } else if diff % 8 == 0 {
             push_mask = nort_ofill(square_one, square_two)
         } else if diff % 7 == 0 {
             push_mask = no_we_ofill(square_one, square_two)
         } else {
-            assert!(attacker_sq / 8 == king_sq / 8);
-            push_mask = east_ofill(square_one, square_two)
+            panic!("Squares cannot be connected")
         }
     }
     return push_mask ^ square_one;

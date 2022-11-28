@@ -6,7 +6,7 @@ use super::*;
 impl Data {
     
     pub fn from_fen(fen: String) -> Data {
-        let split_fen: Vec<&str> = fen.split(" ").collect();
+        let split_fen: Vec<&str> = fen.trim().split(" ").collect();
         assert!(split_fen.len() == 6);
         let mut pos = Data::new();
         pos.set_bitboards(split_fen[0]);

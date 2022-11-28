@@ -57,12 +57,7 @@ fn execute_common_operations(pos: &mut Position, mv: &Move) {
 }
 
 fn execute_capture_operations(pos: &mut Position, mv: &Move) {
-    let their_pieces;
-    if pos.data.white_to_move {
-        their_pieces = &mut pos.data.w_pieces;
-    } else {
-        their_pieces = &mut pos.data.b_pieces;
-    }
+    let their_pieces = pos.mut_their_pieces();
     // If capture has taken place, then their bitboard must be unset at the
     // target positions
     their_pieces.xor_assign(disc!(mv.captured_piece), mv.target);
@@ -134,6 +129,9 @@ fn execute_castling_operations(pos: &mut Position, mv: &Move) {
     }
     our_pieces.xor_assign(disc!(Piece::Rook), castle_mask);
     our_pieces.xor_assign(disc!(Piece::Any), castle_mask);
+    // We also need to modify the universal occupancy bitboards
+    pos.data.occ ^= castle_mask;
+    pos.data.free ^= castle_mask;
 }
 
 fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
@@ -145,6 +143,9 @@ fn execute_en_passant_operations(pos: &mut Position, mv: &Move) {
     let their_pieces = pos.mut_their_pieces();
     their_pieces.xor_assign(disc!(Piece::Pawn), ep_capture_sq);
     their_pieces.xor_assign(disc!(Piece::Any), ep_capture_sq);
+    // We also need to modify the universal occupancy bitboards
+    pos.data.occ ^= ep_capture_sq;
+    pos.data.free ^= ep_capture_sq;
 }
 
 fn execute_double_push_operations(pos: &mut Position, mv: &Move) {
