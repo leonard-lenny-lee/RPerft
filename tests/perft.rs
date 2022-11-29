@@ -39,7 +39,7 @@ fn perft(pos: &Position, depth: i8, maps: &Maps) -> i32 {
     }
     let moves = find_moves(pos, maps);
     for mv in moves {
-        // if pos.data.b_pieces.bishop & 1 != EMPTY_BB {
+        // if pos.data.w_pieces.rook & 1 << 56 != EMPTY_BB {
         //     println!("{}{}", bittools::bitmask_to_algebraic(mv.src), bittools::bitmask_to_algebraic(mv.target))
         // }
         let new_pos = apply_move(pos, &mv);
@@ -66,12 +66,32 @@ fn perft_test(fen: &str, expected_nodes: Vec<i32>, depth: i8) {
     }
 }
 
+#[test_case("3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1", 6, 1134888; "illegal ep move #1")]
+#[test_case("8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1", 6, 1015133; "illegal ep move #2")]
+#[test_case("8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1", 6, 1440467; "ep capture checks opponent")]
+#[test_case("5k2/8/8/8/8/8/8/4K2R w K - 0 1", 6, 661072; "short castling gives check")]
+#[test_case("3k4/8/8/8/8/8/8/R3K3 w Q - 0 1", 6, 803711; "long castling gives check")]
+#[test_case("r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1", 4, 1274206; "castle rights")]
+#[test_case("r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1", 4, 1720476; "castling prevented")]
+#[test_case("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1", 6, 3821001; "promote out of check")]
+#[test_case("8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1", 5, 1004658; "discovered check")]
+#[test_case("4k3/1P6/8/8/8/8/K7/8 w - - 0 1", 6, 217342; "promote to give check")]
+#[test_case("8/P1k5/K7/8/8/8/8/8 w - - 0 1", 6, 92683; "under promote to give check")]
+#[test_case("K1k5/8/P7/8/8/8/8/8 w - - 0 1", 6, 2217; "self statemate")]
+#[test_case("8/k1P5/8/1K6/8/8/8/8 w - - 0 1", 7, 567584; "stalemate & checkmate")]
+#[test_case("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", 4, 23527; "stalemate & checkmate #2")]
+fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i32) {
+    let pos = Position::new_from_fen(fen.to_string());
+    let maps = Maps::new();
+    assert_eq!(perft(&pos, depth, &maps), expected_nodes);
+}
+
 // Not part of perft test suite, useful for debugging.
 #[ignore]
 #[test]
 fn perft_debug() {
-    let fen = "rnbq1k1r/pp1P1ppp/2p2b2/8/2B5/PP6/2P1NnPP/RNBQK2R b KQ - 0 9";
+    let fen = "r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1";
     let pos = Position::new_from_fen(fen.to_string());
     let maps = Maps::new();
-    perft_divide(&pos, 2, &maps);
+    perft_divide(&pos, 4, &maps);
 }

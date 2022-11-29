@@ -140,7 +140,7 @@ impl State for White {
     }
 
     fn set_their_qsc(&self, data: &mut Data, value: bool) {
-        data.b_kingside_castle = value
+        data.b_queenside_castle = value
     }
 
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
