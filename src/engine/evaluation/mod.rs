@@ -1,7 +1,6 @@
-use crate::position::Position;
+use super::*;
 
-use super::position::Data;
-use super::global::Score;
+use position::Position;
 
 pub fn evaluate(pos: &Position) -> i32 {
     return 0;

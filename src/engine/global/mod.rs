@@ -1,8 +1,8 @@
-pub mod maps;
-use crate::position::Position;
+use super::*;
 
-use super::position::Data;
-use super::evaluation;
+use position::{Position};
+
+pub mod maps;
 
 pub struct Score {
     value: i64,

@@ -1,6 +1,4 @@
 use super::*;
-use crate::common::*;
-use crate::common::bittools as bt;
 
 /// The State trait is implemented by structs which contain methods which
 /// are specific to the color. For example, black and white implement different

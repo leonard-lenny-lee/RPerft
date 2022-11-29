@@ -134,7 +134,6 @@ impl Data {
 
 #[cfg(test)]
 mod tests {
-    use crate::common::*;
     use super::*;
     use bittools::squares_to_bitboard as stb;
     use test_case::test_case;

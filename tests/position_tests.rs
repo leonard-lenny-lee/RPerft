@@ -1,4 +1,5 @@
-use chess_engine::{*, common::*};
+use chess_engine::engine::*;
+use common::*;
 
 #[test]
 fn test_data_new_from_fen_default() {

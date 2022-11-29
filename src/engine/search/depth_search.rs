@@ -1,7 +1,8 @@
-use crate::position::{Position, analysis_tools::find_checkers};
-use crate::global::maps::Maps;
-use crate::evaluation::evaluate;
-use super::move_generation::{find_moves, apply_move::apply_move};
+use super::*;
+use position::{Position, analysis_tools::find_checkers};
+use global::maps::Maps;
+use move_generation::{find_moves, apply_move::apply_move};
+use evaluation::evaluate;
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
