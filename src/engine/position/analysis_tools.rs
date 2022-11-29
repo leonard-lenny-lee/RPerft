@@ -2,7 +2,7 @@
 
 use super::*;
 use global::maps::Maps;
-use crate::{disc};
+use crate::{disc, engine::common::{*, bittools as bt}};
 
 /// Get all the squares the opponent pieces are attacking in a position and 
 /// the location of all the opponent pieces that are checking the king
@@ -15,9 +15,9 @@ pub fn find_unsafe_squares(pos: &Position, maps: &Maps) -> u64 {
     // Calculate pawn attacks
     unsafe_squares |= pos.unsafe_squares_pawn();
     // Calculate attacks in horizontal and vertical directions
-    find_hv_unsafe_squares(&mut unsafe_squares, pos, maps, occ);
+    find_hv_unsafe_squares(&mut unsafe_squares, pos, occ);
     // Calculate attacks in the diagonal and anti-diagonal directions
-    find_ad_unsafe_squares(&mut unsafe_squares, pos, maps, occ);
+    find_ad_unsafe_squares(&mut unsafe_squares, pos, occ);
     // Calculate knight attacks
     find_knight_attack_squares(&mut unsafe_squares, pos, maps);
     // Calculate king attacks
@@ -29,28 +29,22 @@ pub fn find_unsafe_squares(pos: &Position, maps: &Maps) -> u64 {
 fn find_hv_unsafe_squares(
     unsafe_squares: &mut u64,
     pos: &Position,
-    maps: &Maps,
     occ: u64
 ) {
     let pieces = pos.their_pieces().rook | pos.their_pieces().queen;
-    for piece in bt::forward_scan(pieces) {
-        let attacks = bt::hv_hyp_quint(occ, piece, maps);
-        *unsafe_squares |= attacks;
-    }
+    let attacks = bt::rook_attacks(pieces, occ);
+    *unsafe_squares |= attacks;
 }
 
 /// Find diagonal and antidiagonal unsafe squares
 fn find_ad_unsafe_squares(
     unsafe_squares: &mut u64,
     pos: &Position,
-    maps: &Maps,
     occ: u64
 ) {
     let pieces = pos.their_pieces().bishop | pos.their_pieces().queen;
-    for piece in bt::forward_scan(pieces) {
-        let attacks = bt::da_hyp_quint(occ, piece, maps);
-        *unsafe_squares |= attacks;
-    }
+    let attacks = bt::bishop_attacks(pieces, occ);
+    *unsafe_squares |= attacks;
 }
 
 /// Find knight attack squares
