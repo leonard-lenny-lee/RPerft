@@ -112,7 +112,7 @@ pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
 /// an argument and pushes legal pawn moves in a position to the move vector
 
 /// General move generation function for pawns in a position.
-fn find_pawn_moves(
+pub fn find_pawn_moves(
     move_vec: &mut Vec<Move>, pos: &Position, move_type: PawnMove,
     capture_mask: u64, push_mask: u64, pinned_pieces: u64
 ) {
@@ -173,7 +173,7 @@ fn find_pawn_moves(
 }
 
 /// Move generation function for knights
-fn find_knight_moves(
+pub fn find_knight_moves(
     move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps, 
     capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
@@ -203,7 +203,7 @@ fn find_knight_moves(
 }
 
 /// Move generation function for kings
-fn find_king_moves(
+pub fn find_king_moves(
     move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps,
     unsafe_squares: u64
 ) {
@@ -229,7 +229,7 @@ fn find_king_moves(
 
 /// General move generation function for sliding pieces - Rooks, Bishops and
 /// Queens
-fn find_sliding_moves(
+pub fn find_sliding_moves(
     move_vec: &mut Vec<Move>, pos: &Position, piece: SlidingPiece,
     maps: &Maps, capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
@@ -303,7 +303,7 @@ fn find_promotions(
 }
 
 /// Move generation function for en passant captures
-fn find_en_passant_moves(
+pub fn find_en_passant_moves(
     move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
     push_mask: u64, maps: &Maps, pinned_pieces: u64
 ) {
@@ -351,7 +351,7 @@ fn find_en_passant_moves(
     
 }
 
-fn find_castling_moves(
+pub fn find_castling_moves(
     move_vec: &mut Vec<Move>, pos: &Position, unsafe_squares: u64
 ) {
     let src = pos.our_pieces().king;

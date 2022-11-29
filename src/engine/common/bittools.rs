@@ -370,7 +370,7 @@ pub fn sout_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn east_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_A;
+    bb_2 &= !FILE_A;
     bb_1 |= bb_2 & (bb_1 << 1);
     bb_2 &= bb_2 << 1;
     bb_1 |= bb_2 & (bb_1 << 2);
@@ -383,7 +383,7 @@ pub fn east_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn west_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_H;
+    bb_2 &= !FILE_H;
     bb_1 |= bb_2 & (bb_1 >> 1);
     bb_2 &= bb_2 >> 1;
     bb_1 |= bb_2 & (bb_1 >> 2);
@@ -396,7 +396,7 @@ pub fn west_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn no_ea_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_A;
+    bb_2 &= !FILE_A;
     bb_1 |= bb_2 & (bb_1 << 9);
     bb_2 &= bb_2 << 9;
     bb_1 |= bb_2 & (bb_1 << 18);
@@ -409,7 +409,7 @@ pub fn no_ea_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn so_ea_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_A;
+    bb_2 &= !FILE_A;
     bb_1 |= bb_2 & (bb_1 >> 7);
     bb_2 &= bb_2 >> 7;
     bb_1 |= bb_2 & (bb_1 >> 14);
@@ -422,7 +422,7 @@ pub fn so_ea_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn no_we_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_H;
+    bb_2 &= !FILE_H;
     bb_1 |= bb_2 & (bb_1 << 7);
     bb_2 &= bb_2 << 7;
     bb_1 |= bb_2 & (bb_1 << 14);
@@ -435,13 +435,59 @@ pub fn no_we_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
 /// bits in bitboard two
 pub fn so_we_ofill(mut bb_1: u64, mut bb_2: u64) -> u64 {
     bb_2 = !bb_2;
-    bb_2 ^= FILE_H;
+    bb_2 &= !FILE_H;
     bb_1 |= bb_2 & (bb_1 >> 9);
     bb_2 &= bb_2 >> 9;
     bb_1 |= bb_2 & (bb_1 >> 18);
     bb_2 &= bb_2 >> 18;
     bb_1 |= bb_2 & (bb_1 >> 36);
     return bb_1
+}
+
+pub fn nort_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    north_one(nort_ofill(bb_1, bb_2))
+}
+
+pub fn sout_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    south_one(sout_ofill(bb_1, bb_2))
+}
+
+pub fn east_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    east_one(east_ofill(bb_1, bb_2))
+}
+
+pub fn west_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    west_one(west_ofill(bb_1, bb_2))
+}
+
+pub fn no_ea_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    nort_east(no_ea_ofill(bb_1, bb_2))
+}
+
+pub fn no_we_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    nort_west(no_we_ofill(bb_1, bb_2))
+}
+
+pub fn so_ea_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    sout_east(so_ea_ofill(bb_1, bb_2))
+}
+
+pub fn so_we_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    sout_west(so_we_ofill(bb_1, bb_2))
+}
+
+pub fn rook_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    nort_attacks(bb_1, bb_2) 
+    | sout_attacks(bb_1, bb_2)
+    | west_attacks(bb_1, bb_2) 
+    | east_attacks(bb_1, bb_2)
+}
+
+pub fn bishop_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    no_ea_attacks(bb_1, bb_2)
+    | so_ea_attacks(bb_1, bb_2)
+    | no_we_attacks(bb_1, bb_2)
+    | so_we_attacks(bb_1, bb_2)
 }
 
 pub fn north_one(bb: u64) -> u64 {
