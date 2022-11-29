@@ -6,8 +6,8 @@ use chess_engine::*;
 fn main() {
     let attacker: u64 = 1 << 48;
     let king = 1 << 20;
-    let string = common::bittools::bitboard_to_string(
-        common::bittools::connect_squares(attacker, king)
+    let string = engine::common::bittools::bitboard_to_string(
+        engine::common::bittools::connect_squares(attacker, king)
     );
     print!("{}", string)
 }

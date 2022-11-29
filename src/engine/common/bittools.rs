@@ -1,8 +1,8 @@
 /// Toolkit to carry out bit manipulations
 
-use super::{FILE_A, FILE_B, FILE_G, FILE_H, EMPTY_BB};
-use crate::{global::maps::Maps, position::PieceSet};
 use super::*;
+use position::PieceSet;
+use global::maps::Maps;
 
 /// Convert algebraic notation of a square e.g. a5 to a single bit mask at
 /// the corresponding index

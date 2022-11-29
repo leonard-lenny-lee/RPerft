@@ -1,6 +1,6 @@
 /// Tests to guarantee move generation fidelity and benchmarking 
 
-use chess_engine::*;
+use chess_engine::engine::*;
 use search::move_generation::{find_moves, apply_move::apply_move};
 use position::Position;
 use common::*;
@@ -46,37 +46,21 @@ fn perft(pos: &Position, depth: i8, maps: &Maps) -> i64 {
     return nodes
 }
 
-/// Tests to compare the number of nodes generated in these standard perft
-/// positions against the consensus. Note these may be slow to run and so
-/// would recommend running in release mode cargo test --release
-#[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
-#[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
-#[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]
-#[test_case(POSITION_4, vec![6, 264, 9467, 422333, 15833292], 5; "position_four")]
-#[test_case(POSITION_5, vec![44, 1486, 62379, 2103487, 89941194], 5; "position_five")]
-#[test_case(POSITION_6, vec![46, 2079, 89890, 3894594, 164075551], 5; "position_six")]
-fn perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
+/// Light perft test suite. Compares the number of nodes generated in these 
+/// standard perft positions against the consensus. 
+#[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609], 5; "starting_position")]
+#[test_case(POSITION_2, vec![48, 2039, 97862, 4085603], 4; "position_two")]
+#[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083], 6; "position_three")]
+#[test_case(POSITION_4, vec![6, 264, 9467, 422333], 4; "position_four")]
+#[test_case(POSITION_5, vec![44, 1486, 62379, 2103487], 4; "position_five")]
+#[test_case(POSITION_6, vec![46, 2079, 89890, 3894594], 4; "position_six")]
+fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let pos = Position::new_from_fen(fen.to_string());
     let maps = Maps::new();
     for dpt in 1..depth + 1 {
         let result = perft(&pos, dpt, &maps);
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
-}
-
-/// Highly intensive perft tests. Keep ignore flag to prevent from being 
-/// run in a normal test suite. Must run with the --release flag
-#[ignore]
-#[test_case(DEFAULT_FEN, 3195901860, 7; "starting_position")]
-#[test_case(POSITION_2, 8031647685, 6; "position_two")]
-#[test_case(POSITION_3, 3009794393, 8; "position_three")]
-#[test_case(POSITION_4, 706045033, 6; "position_four")]
-#[test_case(POSITION_6, 6923051137, 6; "position_six")]
-fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
-    let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
-    let result = perft_divide(&pos, depth, &maps);
-    assert_eq!(result, expected_nodes)
 }
 
 /// Test suite for testing a variety of niche rules and mechanics found on
@@ -109,4 +93,38 @@ fn perft_debug() {
     let pos = Position::new_from_fen(fen.to_string());
     let maps = Maps::new();
     perft_divide(&pos, 4, &maps);
+}
+
+/// Medium depth perft tests. Extension of the light perft test suite. Note 
+/// these may be slow to run and so would recommend running in release mode 
+/// with cargo test --release after removing the ignore flag.
+#[ignore]
+#[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
+#[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
+#[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]
+#[test_case(POSITION_4, vec![6, 264, 9467, 422333, 15833292], 5; "position_four")]
+#[test_case(POSITION_5, vec![44, 1486, 62379, 2103487, 89941194], 5; "position_five")]
+#[test_case(POSITION_6, vec![46, 2079, 89890, 3894594, 164075551], 5; "position_six")]
+fn perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
+    let pos = Position::new_from_fen(fen.to_string());
+    let maps = Maps::new();
+    for dpt in 1..depth + 1 {
+        let result = perft(&pos, dpt, &maps);
+        assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
+    }
+}
+
+/// Highly intensive perft tests. Keep ignore flag to prevent from being 
+/// run in a normal test suite. Must run with the --release flag
+#[ignore]
+#[test_case(DEFAULT_FEN, 3195901860, 7; "starting_position")]
+#[test_case(POSITION_2, 8031647685, 6; "position_two")]
+#[test_case(POSITION_3, 3009794393, 8; "position_three")]
+#[test_case(POSITION_4, 706045033, 6; "position_four")]
+#[test_case(POSITION_6, 6923051137, 6; "position_six")]
+fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
+    let pos = Position::new_from_fen(fen.to_string());
+    let maps = Maps::new();
+    let result = perft_divide(&pos, depth, &maps);
+    assert_eq!(result, expected_nodes)
 }

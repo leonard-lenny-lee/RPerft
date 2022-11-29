@@ -2,6 +2,7 @@
 /// other parts of the program.
 
 use strum_macros::EnumIter;
+use super::*;
 
 pub mod bittools;
 

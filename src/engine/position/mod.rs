@@ -2,12 +2,13 @@
 /// to describe the current position, as well as methods to derive other
 /// bitboards required for move generation and evaluation
 
+use super::*;
+use common::{*, bittools as bt};
+
 mod data;
 mod interface;
 mod states;
 pub mod analysis_tools;
-
-use super::common::*;
 
 pub struct Position {
     pub data: Data,

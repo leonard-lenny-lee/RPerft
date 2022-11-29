@@ -6,8 +6,8 @@
 /// struct and only via the new() constructor static method.
 
 use std::collections::HashMap;
-use crate::common::*;
-use crate::common::bittools as bt;
+use super::*;
+use common::{*, bittools as bt};
 
 pub struct Maps {
     pub knight: [u64; 64],

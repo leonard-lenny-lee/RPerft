@@ -1,8 +1,8 @@
-use crate::{common::*, disc};
-use crate::common::bittools as bt;
-use crate::position::{Position, analysis_tools};
-use crate::global::maps::Maps;
 use strum::IntoEnumIterator;
+use super::*;
+
+use position::{Position, analysis_tools};
+use global::maps::Maps;
 
 pub mod apply_move;
 

@@ -1,4 +1,5 @@
 use super::*;
+use crate::disc;
 
 /// Create a new position by applying move data to a position
 pub fn apply_move(pos: &Position, mv: &Move) -> Position {
