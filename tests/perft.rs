@@ -40,9 +40,6 @@ fn perft(pos: &Position, depth: i8, maps: &Maps) -> i64 {
     }
     let moves = find_moves(pos, maps);
     for mv in moves {
-        // if pos.data.w_pieces.rook & 1 << 56 != EMPTY_BB {
-        //     println!("{}{}", bittools::bitmask_to_algebraic(mv.src), bittools::bitmask_to_algebraic(mv.target))
-        // }
         let new_pos = apply_move(pos, &mv);
         nodes += perft(&new_pos, depth-1, maps);
     }
