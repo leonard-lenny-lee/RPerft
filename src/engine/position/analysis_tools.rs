@@ -2,7 +2,7 @@
 
 use super::*;
 use global::maps::Maps;
-use crate::{disc, engine::common::{*, bittools as bt}};
+use crate::{disc, engine::common::bittools as bt};
 
 /// Get all the squares the opponent pieces are attacking in a position and 
 /// the location of all the opponent pieces that are checking the king
@@ -53,10 +53,12 @@ fn find_knight_attack_squares(
     pos: &Position,
     maps: &Maps
 ) {
-    let knights = pos.their_pieces().knight;
-    for knight in bt::forward_scan(knights) {
-        let attacks = maps.knight[bt::ilsb(knight)];
+    let mut knights = pos.their_pieces().knight;
+    while knights != 0 {
+        let knight = bt::ilsb(knights);
+        let attacks = maps.knight[knight];
         *unsafe_squares |= attacks;
+        knights ^= 1 << knight;
     }
 }
 
@@ -143,31 +145,28 @@ pub fn get_pinned_pieces_for(pos: &Position, maps: &Maps) -> u64 {
     // Initialise variables
     let our_pieces = pos.our_pieces();
     let their_pieces = pos.their_pieces();
-    let our_pieces_not_king = our_pieces.any ^ our_pieces.king;
     let mut pinned_pieces: u64 = EMPTY_BB;
 
     // Calculate the rays from the king
     let king_rays = calculate_king_rays(pos, our_pieces.king, maps);
-    // Calculate horizontal and vertical pins
     let hv_pieces = their_pieces.rook | their_pieces.queen;
-    find_pins_for_direction(
-        &mut pinned_pieces, hv_pieces, pos, 
-        our_pieces_not_king, king_rays[0], &maps.rank
-    );
-    find_pins_for_direction(
-        &mut pinned_pieces, hv_pieces, pos,
-        our_pieces_not_king, king_rays[1], &maps.file
-    );
-    // Calculate diagonal and antidiagonal pins
     let da_pieces = their_pieces.bishop | their_pieces.queen;
-    find_pins_for_direction(
-        &mut pinned_pieces, da_pieces, pos,
-        our_pieces_not_king, king_rays[2], &maps.diag
-    );
-    find_pins_for_direction(
-        &mut pinned_pieces, da_pieces, pos,
-        our_pieces_not_king, king_rays[3], &maps.adiag
-    );
+
+    // Calculate horizontal pins
+    let h_attacks = bt::rank_attacks(hv_pieces, pos.data.occ);
+    pinned_pieces |= h_attacks & king_rays[0];
+
+    // Calculate vertical pins
+    let v_attacks = bt::file_attacks(hv_pieces, pos.data.occ);
+    pinned_pieces |= v_attacks & king_rays[1];
+
+    // Calculate diagonal pins
+    let d_attacks = bt::diag_attacks(da_pieces, pos.data.occ);
+    pinned_pieces |= d_attacks & king_rays[2];
+
+    // Calculate antidiagonal pins
+    let a_attacks = bt::adiag_attacks(da_pieces, pos.data.occ);
+    pinned_pieces |= a_attacks & king_rays[3];
     return pinned_pieces
 
 }
@@ -189,25 +188,4 @@ fn calculate_king_rays(pos: &Position, king: u64, maps: &Maps) -> [u64; 4] {
         pos.data.occ, king, &maps.adiag
     );
     return [h_rays, v_rays, d_rays, a_rays]
-}
-
-/// Find the pieces pinned by pinning pieces in a certain direction. Note: the
-/// direction of the king_ray MUST be the same as the direction of the rays to
-/// be calculated for the pinning pieces (as specified by the maps provided)
-fn find_pins_for_direction(
-    pinned_pieces: &mut u64,
-    pinning_pieces: u64,
-    pos: &Position,
-    our_pieces_not_king: u64,
-    king_ray: u64,
-    maps: &[u64; 64]
-) {
-    for pinning_piece in bt::forward_scan(pinning_pieces) {
-        let ray = bt::hyp_quint(
-            pos.data.occ, pinning_piece, maps
-        );
-        // If the king and opponent piece rays align on the same square and 
-        // that piece is ours, it must be pinned
-        *pinned_pieces |= ray & king_ray & our_pieces_not_king
-    }
 }

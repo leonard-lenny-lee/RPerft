@@ -476,6 +476,22 @@ pub fn so_we_attacks(bb_1: u64, bb_2: u64) -> u64 {
     sout_west(so_we_ofill(bb_1, bb_2))
 }
 
+pub fn file_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    nort_attacks(bb_1, bb_2) | sout_attacks(bb_1, bb_2)
+}
+
+pub fn rank_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    east_attacks(bb_1, bb_2) | west_attacks(bb_1, bb_2)
+}
+
+pub fn diag_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    no_ea_attacks(bb_1, bb_2) | so_we_attacks(bb_1, bb_2)
+}
+
+pub fn adiag_attacks(bb_1: u64, bb_2: u64) -> u64 {
+    no_we_attacks(bb_1, bb_2) | so_ea_attacks(bb_1, bb_2)
+}
+
 pub fn rook_attacks(bb_1: u64, bb_2: u64) -> u64 {
     nort_attacks(bb_1, bb_2) 
     | sout_attacks(bb_1, bb_2)

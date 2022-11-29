@@ -13,10 +13,13 @@ fn generate_targets(move_vec: Vec<Move>) -> u64 {
 
 #[test_case(DEFAULT_FEN, 8, vec![16, 17, 18, 19, 20, 21, 22, 23]; "starting")]
 #[test_case(POSITION_2, 4, vec![16, 17, 43, 22]; "position_two")]
+#[test_case(POSITION_3, 3, vec![20, 22, 41]; "position_three")]
 fn test_sgl_push_pawn_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
+    let maps = &Maps::new();
+    let pinned_pieces = analysis_tools::get_pinned_pieces_for(&pos, maps);
     let mut move_vec = Vec::new();
     find_pawn_moves(
         &mut move_vec,
@@ -34,6 +37,7 @@ fn test_sgl_push_pawn_move_gen(
 
 #[test_case(DEFAULT_FEN, 8, vec![24, 25, 26, 27, 28, 29, 30, 31]; "starting")]
 #[test_case(POSITION_2, 2, vec![24, 30]; "position_two")]
+#[test_case(POSITION_3, 2, vec![28, 30]; "position_three")]
 fn test_dbl_push_pawn_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
@@ -54,6 +58,7 @@ fn test_dbl_push_pawn_move_gen(
 }
 #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
 #[test_case(POSITION_2, 0, vec![]; "position_two")]
+#[test_case(POSITION_3, 0, vec![]; "position_three")]
 fn test_push_lcap_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
@@ -75,6 +80,7 @@ fn test_push_lcap_move_gen(
 
 #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
 #[test_case(POSITION_2, 2, vec![44, 23]; "position_two")]
+#[test_case(POSITION_3, 0, vec![]; "position_three")]
 fn test_push_rcap_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {

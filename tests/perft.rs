@@ -105,7 +105,7 @@ fn perft_debug() {
 #[test_case(POSITION_4, vec![6, 264, 9467, 422333, 15833292], 5; "position_four")]
 #[test_case(POSITION_5, vec![44, 1486, 62379, 2103487, 89941194], 5; "position_five")]
 #[test_case(POSITION_6, vec![46, 2079, 89890, 3894594, 164075551], 5; "position_six")]
-fn perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
+fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let pos = Position::new_from_fen(fen.to_string());
     let maps = Maps::new();
     for dpt in 1..depth + 1 {
