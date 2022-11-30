@@ -80,6 +80,30 @@ impl PieceSet {
         *self.as_mut_array()[index] ^= rhs;
     }
 
+    pub fn n_kings(&self) -> i32 {
+        self.king.count_ones() as i32
+    }
+
+    pub fn n_queens(&self) -> i32 {
+        self.queen.count_ones() as i32
+    }
+
+    pub fn n_rooks(&self) -> i32 {
+        self.rook.count_ones() as i32
+    }
+
+    pub fn n_bishops(&self) -> i32 {
+        self.bishop.count_ones() as i32
+    }
+
+    pub fn n_knights(&self) -> i32 {
+        self.knight.count_ones() as i32
+    }
+
+    pub fn n_pawns(&self) -> i32 {
+        self.pawn.count_ones() as i32
+    }
+
 }
 
 struct White {}

@@ -139,10 +139,8 @@ pub fn find_pawn_moves(
         }
     }
     while targets != EMPTY_BB {
-        let target = bt::get_lsb(targets);
-        let src = bt::get_lsb(srcs);
-        targets ^= target;
-        srcs ^= src;
+        let target = bt::pop_lsb(&mut targets);
+        let src = bt::pop_lsb(&mut srcs);
         // Check if the pawn is pinned, only allow moves towards/away from king
         if src & pinned_pieces != EMPTY_BB {
             let pin_mask = bt::ray_axis(
@@ -177,7 +175,9 @@ pub fn find_knight_moves(
     capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
-    for src in bt::forward_scan(our_pieces.knight) {
+    let mut srcs = our_pieces.knight;
+    while srcs != EMPTY_BB {
+        let src = bt::pop_lsb(&mut srcs);
         let mut targets = maps.get_knight_map(src) & !our_pieces.any;
         // Only allow moves which either capture a checking piece or blocks
         // the check. These masks should be a FILLED_BB when no check.
@@ -186,7 +186,8 @@ pub fn find_knight_moves(
             // If knight is pinned, there are no legal moves
             continue;
         }
-        for target in bt::forward_scan(targets) {
+        while targets != EMPTY_BB {
+            let target = bt::pop_lsb(&mut targets);
             move_vec.push(
                 Move::new(
                     target,
@@ -212,7 +213,8 @@ pub fn find_king_moves(
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
     targets &= !unsafe_squares;
-    for target in bt::forward_scan(targets) {
+    while targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut targets);
         move_vec.push(
             Move::new(
                 target,
@@ -233,7 +235,7 @@ pub fn find_sliding_moves(
     maps: &Maps, capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
-    let srcs;
+    let mut srcs;
     let moved_piece;
     let target_gen_func: fn(u64, u64, &Maps) -> u64;
     match piece {
@@ -253,7 +255,8 @@ pub fn find_sliding_moves(
             moved_piece = Piece::Queen;
         }
     }
-    for src in bt::forward_scan(srcs) {
+    while srcs != EMPTY_BB {
+        let src = bt::pop_lsb(&mut srcs);
         let mut targets: u64 = target_gen_func(pos.data.occ, src, maps);
         targets &= !our_pieces.any;
         targets &= capture_mask | push_mask;
@@ -265,7 +268,8 @@ pub fn find_sliding_moves(
             );
             targets &= pin_mask;
         }
-        for target in bt::forward_scan(targets) {
+        while targets != EMPTY_BB {
+            let target = bt::pop_lsb(&mut targets);
             move_vec.push(
                 Move::new(
                     target,
@@ -314,8 +318,10 @@ pub fn find_en_passant_moves(
     }
     let our_pieces = pos.our_pieces();
     let their_pieces = pos.their_pieces();
+    let mut srcs = pos.pawn_en_passant_srcs();
     
-    for src in bt::forward_scan(pos.pawn_en_passant_srcs()) {
+    while srcs != EMPTY_BB {
+        let src = bt::pop_lsb(&mut srcs);
         // If pawn is pinned, check capture is along pin axis
         if src & pinned_pieces != EMPTY_BB {
             let pin_mask = bt::ray_axis(our_pieces.king, src);

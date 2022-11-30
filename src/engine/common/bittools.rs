@@ -118,6 +118,13 @@ pub fn get_lsb(n: u64) -> u64 {
     1 << n.trailing_zeros()
 }
 
+/// Pops off and returns the least significant set bit
+pub fn pop_lsb(n: &mut u64) -> u64 {
+    let lsb: u64 = 1 << n.trailing_zeros();
+    *n ^= lsb;
+    return lsb
+}
+
 /// Returns the index of the least significant bit
 pub fn ilsb(n: u64) -> usize {
     return n.trailing_zeros() as usize;

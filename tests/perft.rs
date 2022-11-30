@@ -12,8 +12,8 @@ use test_case::test_case;
 fn perft_divide(pos: &Position, depth: i8, maps: &Maps) -> i64 {
     let mut nodes = 0;
     let moves = find_moves(pos, maps);
-    for mv in moves {
-        let new_pos = apply_move(pos, &mv);
+    for mv in &moves {
+        let new_pos = apply_move(pos, mv);
         let branch_nodes = perft(&new_pos, depth-1, maps);
         // Report branch
         let src = bittools::bitmask_to_algebraic(mv.src);
@@ -39,8 +39,8 @@ fn perft(pos: &Position, depth: i8, maps: &Maps) -> i64 {
         return 1;
     }
     let moves = find_moves(pos, maps);
-    for mv in moves {
-        let new_pos = apply_move(pos, &mv);
+    for mv in &moves {
+        let new_pos = apply_move(pos, mv);
         nodes += perft(&new_pos, depth-1, maps);
     }
     return nodes
@@ -98,7 +98,7 @@ fn perft_debug() {
 /// Medium depth perft tests. Extension of the light perft test suite. Note 
 /// these may be slow to run and so would recommend running in release mode 
 /// with cargo test --release after removing the ignore flag.
-#[ignore]
+// #[ignore]
 #[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]

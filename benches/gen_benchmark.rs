@@ -72,7 +72,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
             || find_knight_moves(
                 black_box(&mut move_vec),
                 black_box(&pos),
-                &Maps::new(),
+                maps,
                 FILLED_BB,
                 FILLED_BB,
                 EMPTY_BB,
@@ -80,7 +80,79 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         )
     );
 
+    c.bench_function(
+        "find_king_moves",
+        |b| b.iter(
+            || find_king_moves(
+                black_box(&mut move_vec),
+                black_box(&pos),
+                maps,
+                EMPTY_BB
+            )
+        )
+    );
+
+    c.bench_function(
+        "find_sliding_moves",
+        |b| b.iter(
+            || find_sliding_moves(
+                black_box(&mut move_vec),
+                black_box(&pos),
+                SlidingPiece::Bishop,
+                maps,
+                FILLED_BB,
+                FILLED_BB,
+                EMPTY_BB,
+            )
+        )
+    );
+
+    c.bench_function(
+        "find_en_passant",
+        |b| b.iter(
+            || find_en_passant_moves(
+                black_box(&mut move_vec),
+                black_box(&pos),
+                FILLED_BB,
+                FILLED_BB,
+                maps,
+                EMPTY_BB
+            )
+        )
+    );
+
+    c.bench_function(
+        "find_castling",
+        |b| b.iter(
+            || find_castling_moves(
+                black_box(&mut move_vec),
+                black_box(&pos),
+                EMPTY_BB,
+            )
+        )
+    );
+
 }
 
-criterion_group!(benches, find_moves_benchmark);
+pub fn apply_move_benchmark(c: &mut Criterion) {
+    use search::move_generation::*;
+    use apply_move::apply_move;
+
+    let pos = &setup();
+    let maps = &Maps::new();
+    let move_vec = find_moves(pos, maps);
+
+    c.bench_function(
+        "apply_move",
+        |b| b.iter(
+            || apply_move(
+                pos,
+                &move_vec[0]
+            )
+        )
+    );
+
+}
+
+criterion_group!(benches, find_moves_benchmark, apply_move_benchmark);
 criterion_main!(benches);
