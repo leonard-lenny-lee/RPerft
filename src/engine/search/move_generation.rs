@@ -116,8 +116,8 @@ pub fn find_pawn_moves(
     move_vec: &mut Vec<Move>, pos: &Position, move_type: PawnMove,
     capture_mask: u64, push_mask: u64, pinned_pieces: u64
 ) {
-    let targets;
-    let srcs;
+    let mut targets;
+    let mut srcs;
     let mut special_move_flag = SpecialMove::None;
     match move_type {
         PawnMove::SinglePush => {
@@ -138,12 +138,11 @@ pub fn find_pawn_moves(
             srcs = pos.pawn_rcap_srcs(targets)
         }
     }
-    let target_vec = bt::forward_scan(targets);
-    let src_vec = bt::forward_scan(srcs);
-    assert_eq!(target_vec.len(), src_vec.len());
-    for i in 0..target_vec.len() {
-        let src = src_vec[i];
-        let target = target_vec[i];
+    while targets != EMPTY_BB {
+        let target = bt::get_lsb(targets);
+        let src = bt::get_lsb(srcs);
+        targets ^= target;
+        srcs ^= src;
         // Check if the pawn is pinned, only allow moves towards/away from king
         if src & pinned_pieces != EMPTY_BB {
             let pin_mask = bt::ray_axis(

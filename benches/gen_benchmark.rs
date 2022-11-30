@@ -66,6 +66,20 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         )
     );
 
+    c.bench_function(
+        "find_knight_moves",
+        |b| b.iter(
+            || find_knight_moves(
+                black_box(&mut move_vec),
+                black_box(&pos),
+                &Maps::new(),
+                FILLED_BB,
+                FILLED_BB,
+                EMPTY_BB,
+            )
+        )
+    );
+
 }
 
 criterion_group!(benches, find_moves_benchmark);
