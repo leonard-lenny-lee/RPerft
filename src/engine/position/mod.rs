@@ -8,6 +8,7 @@ use common::{*, bittools as bt};
 mod data;
 mod interface;
 mod states;
+mod zobrist;
 pub mod analysis_tools;
 
 pub struct Position {
@@ -58,6 +59,12 @@ impl PieceSet {
     pub fn as_array(&self) -> [u64; 7] {
         [self.any, self.pawn, self.rook, self.knight, self.bishop, 
          self.queen, self.king]
+    }
+
+    // Order the bitboards so the index positions are convenient for Zobrist
+    // hashing
+    pub fn as_hash_array(&self) -> [u64; 6] {
+        [self.pawn, self.knight, self.bishop, self.rook, self.queen, self.king]
     }
 
     fn as_mut_array(&mut self) -> [&mut u64; 7] {
