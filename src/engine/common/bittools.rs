@@ -2,7 +2,6 @@
 
 use super::*;
 use position::PieceSet;
-use global::maps::Maps;
 
 /// Convert algebraic notation of a square e.g. a5 to a single bit mask at
 /// the corresponding index
@@ -156,30 +155,30 @@ pub fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
 
 /// Combined hyperbola quintesscence for the horizontal and vertical directions
 /// - the rook movement pattern
-pub fn hv_hyp_quint(o: u64, s: u64, maps: &Maps) -> u64 {
+pub fn hv_hyp_quint(o: u64, s: u64) -> u64 {
     let mut result = EMPTY_BB;
-    result |= hyp_quint(o, s, &maps.file);
-    result |= hyp_quint(o, s, &maps.rank);
+    result |= hyp_quint(o, s, &MAPS.file);
+    result |= hyp_quint(o, s, &MAPS.rank);
     return result;
 }
 
 /// Combined hyperbola quintessence for the diagonal and anti-diagonal
 /// directions - the bishop movement pattern
-pub fn da_hyp_quint(o: u64, s: u64, maps: &Maps) -> u64 {
+pub fn da_hyp_quint(o: u64, s: u64) -> u64 {
     let mut result = EMPTY_BB;
-    result |= hyp_quint(o, s, &maps.diag);
-    result |= hyp_quint(o, s, &maps.adiag);
+    result |= hyp_quint(o, s, &MAPS.diag);
+    result |= hyp_quint(o, s, &MAPS.adiag);
     return result;
 }
 
 /// Combined hyperbola quintessence for all four directions - the queen
 /// movement pattern
-pub fn all_hyp_quint(o: u64, s: u64, maps: &Maps) -> u64 {
+pub fn all_hyp_quint(o: u64, s: u64) -> u64 {
     let mut result = EMPTY_BB;
-    result |= hyp_quint(o, s, &maps.file);
-    result |= hyp_quint(o, s, &maps.rank);
-    result |= hyp_quint(o, s, &maps.diag);
-    result |= hyp_quint(o, s, &maps.adiag);
+    result |= hyp_quint(o, s, &MAPS.file);
+    result |= hyp_quint(o, s, &MAPS.rank);
+    result |= hyp_quint(o, s, &MAPS.diag);
+    result |= hyp_quint(o, s, &MAPS.adiag);
     return result;
 }
 
@@ -513,83 +512,83 @@ pub fn bishop_attacks(bb_1: u64, bb_2: u64) -> u64 {
     | so_we_attacks(bb_1, bb_2)
 }
 
-pub fn north_one(bb: u64) -> u64 {
+pub const fn north_one(bb: u64) -> u64 {
     bb << 8
 }
 
-pub fn north_two(bb: u64) -> u64 {
+pub const fn north_two(bb: u64) -> u64 {
     bb << 16
 }
 
-pub fn nort_east(bb: u64) -> u64 {
+pub const fn nort_east(bb: u64) -> u64 {
     (bb & !FILE_H) << 9
 }
 
-pub fn east_one(bb: u64) -> u64 {
+pub const fn east_one(bb: u64) -> u64 {
     (bb & !FILE_H) << 1
 }
 
-pub fn east_two(bb: u64) -> u64 {
+pub const fn east_two(bb: u64) -> u64 {
     (bb & !(FILE_G | FILE_H)) << 2
 }
 
-pub fn sout_east(bb: u64) -> u64 {
+pub const fn sout_east(bb: u64) -> u64 {
     (bb & !FILE_H) >> 7
 }
 
-pub fn south_one(bb: u64) -> u64 {
+pub const fn south_one(bb: u64) -> u64 {
     bb >> 8
 }
 
-pub fn south_two(bb: u64) -> u64 {
+pub const fn south_two(bb: u64) -> u64 {
     bb >> 16
 }
 
-pub fn sout_west(bb: u64) -> u64 {
+pub const fn sout_west(bb: u64) -> u64 {
     (bb & !FILE_A) >> 9
 }
 
-pub fn west_one(bb: u64) -> u64 {
+pub const fn west_one(bb: u64) -> u64 {
     (bb & !FILE_A) >> 1
 }
 
-pub fn west_two(bb: u64) -> u64 {
+pub const fn west_two(bb: u64) -> u64 {
     (bb & !(FILE_A | FILE_B)) >> 2
 }
 
-pub fn nort_west(bb: u64) -> u64 {
+pub const fn nort_west(bb: u64) -> u64 {
     (bb & !FILE_A) << 7
 }
 
-pub fn no_no_ea(bb: u64) -> u64 {
+pub const fn no_no_ea(bb: u64) -> u64 {
     (bb & !FILE_H) << 17
 }
 
-pub fn no_ea_ea(bb: u64) -> u64 {
+pub const fn no_ea_ea(bb: u64) -> u64 {
     (bb & !(FILE_G | FILE_H)) << 10
 }
 
-pub fn so_ea_ea(bb: u64) -> u64 {
+pub const fn so_ea_ea(bb: u64) -> u64 {
     (bb & !(FILE_G | FILE_H)) >> 6
 }
 
-pub fn so_so_ea(bb: u64) -> u64 {
+pub const fn so_so_ea(bb: u64) -> u64 {
     (bb & !FILE_H) >> 15
 }
 
-pub fn so_so_we(bb: u64) -> u64 {
+pub const fn so_so_we(bb: u64) -> u64 {
     (bb & !FILE_A) >> 17
 }
 
-pub fn so_we_we(bb: u64) -> u64 {
+pub const fn so_we_we(bb: u64) -> u64 {
     (bb & !(FILE_A | FILE_B)) >> 10
 }
 
-pub fn no_we_we(bb: u64) -> u64 {
+pub const fn no_we_we(bb: u64) -> u64 {
     (bb & !(FILE_A | FILE_B)) << 6
 }
 
-pub fn no_no_we(bb: u64) -> u64 {
+pub const fn no_no_we(bb: u64) -> u64 {
     (bb & !FILE_A) << 15
 }
 

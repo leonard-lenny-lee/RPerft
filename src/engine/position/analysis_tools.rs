@@ -1,12 +1,11 @@
 /// Module containing functions to extract information from a position
 
 use super::*;
-use global::maps::Maps;
 use crate::{disc, engine::common::bittools as bt};
 
 /// Get all the squares the opponent pieces are attacking in a position and 
 /// the location of all the opponent pieces that are checking the king
-pub fn find_unsafe_squares(pos: &Position, maps: &Maps) -> u64 {
+pub fn find_unsafe_squares(pos: &Position) -> u64 {
     // Initialise variables
     let mut unsafe_squares: u64 = EMPTY_BB;
     // Remove our king from the occupancy bitboard for sliding piece move
@@ -19,9 +18,9 @@ pub fn find_unsafe_squares(pos: &Position, maps: &Maps) -> u64 {
     // Calculate attacks in the diagonal and anti-diagonal directions
     find_ad_unsafe_squares(&mut unsafe_squares, pos, occ);
     // Calculate knight attacks
-    find_knight_attack_squares(&mut unsafe_squares, pos, maps);
+    find_knight_attack_squares(&mut unsafe_squares, pos);
     // Calculate king attacks
-    unsafe_squares |= maps.get_king_map(pos.their_pieces().king);
+    unsafe_squares |= MAPS.get_king_map(pos.their_pieces().king);
     return unsafe_squares
 }
 
@@ -51,49 +50,48 @@ fn find_ad_unsafe_squares(
 fn find_knight_attack_squares(
     unsafe_squares: &mut u64,
     pos: &Position,
-    maps: &Maps
 ) {
     let mut knights = pos.their_pieces().knight;
     while knights != 0 {
         let knight = bt::ilsb(knights);
-        let attacks = maps.knight[knight];
+        let attacks = MAPS.knight[knight];
         *unsafe_squares |= attacks;
         knights ^= 1 << knight;
     }
 }
 
-pub fn find_checkers(pos: &Position, maps: &Maps) -> u64 {
+pub fn find_checkers(pos: &Position) -> u64 {
     let mut checkers: u64 = EMPTY_BB;
     // Find checking pawns
     checkers |= pos.their_checking_pawns();
     // Find horizontal and vertical checkers
-    find_hv_checkers(&mut checkers, pos, maps);
+    find_hv_checkers(&mut checkers, pos);
     // Find diagonal and antidiagonal checkers
-    find_ad_checkers(&mut checkers, pos, maps);
+    find_ad_checkers(&mut checkers, pos);
     // Find knight checkers
-    find_knight_checkers(&mut checkers, pos, maps);
+    find_knight_checkers(&mut checkers, pos);
     checkers
 }
 
-fn find_hv_checkers(checkers: &mut u64, pos: &Position, maps: &Maps) {
+fn find_hv_checkers(checkers: &mut u64, pos: &Position) {
     let mut pseudo_attacks = bt::hv_hyp_quint(
-        pos.data.occ, pos.our_pieces().king, maps
+        pos.data.occ, pos.our_pieces().king,
     );
     pseudo_attacks &= pos.their_pieces().rook | pos.their_pieces().queen;
     *checkers |= pseudo_attacks
 }
 
-fn find_ad_checkers(checkers: &mut u64, pos: &Position, maps: &Maps) {
+fn find_ad_checkers(checkers: &mut u64, pos: &Position) {
     let mut pseudo_attacks = bt::da_hyp_quint(
-        pos.data.occ, pos.our_pieces().king, maps
+        pos.data.occ, pos.our_pieces().king
     );
     pseudo_attacks &= pos.their_pieces().bishop | pos.their_pieces().queen;
     *checkers |= pseudo_attacks
 }
 
-fn find_knight_checkers(checkers: &mut u64, pos: &Position, maps: &Maps) {
+fn find_knight_checkers(checkers: &mut u64, pos: &Position) {
     let king = pos.our_pieces().king;
-    let pseudo_attacks = maps.knight[bt::ilsb(king)];
+    let pseudo_attacks = MAPS.knight[bt::ilsb(king)];
     *checkers |= pseudo_attacks & pos.their_pieces().knight
 }
 
@@ -141,14 +139,14 @@ pub fn their_piece_at_is_slider(pos: &Position, n: u64) -> bool {
 }
 
 /// Identify which pieces are pinned for a particular color in a position
-pub fn get_pinned_pieces_for(pos: &Position, maps: &Maps) -> u64 {
+pub fn get_pinned_pieces_for(pos: &Position) -> u64 {
     // Initialise variables
     let our_pieces = pos.our_pieces();
     let their_pieces = pos.their_pieces();
     let mut pinned_pieces: u64 = EMPTY_BB;
 
     // Calculate the rays from the king
-    let king_rays = calculate_king_rays(pos, our_pieces.king, maps);
+    let king_rays = calculate_king_rays(pos, our_pieces.king);
     let hv_pieces = their_pieces.rook | their_pieces.queen;
     let da_pieces = their_pieces.bishop | their_pieces.queen;
 
@@ -174,18 +172,18 @@ pub fn get_pinned_pieces_for(pos: &Position, maps: &Maps) -> u64 {
 /// Calculate the rays from the king along the four axes which the piece may 
 /// be pinned to. Returns an array of bitboards representing the horizontal,
 /// vertical, diagonal and antidiagonal rays, respectively
-fn calculate_king_rays(pos: &Position, king: u64, maps: &Maps) -> [u64; 4] {
+fn calculate_king_rays(pos: &Position, king: u64) -> [u64; 4] {
     let h_rays = bt::hyp_quint(
-        pos.data.occ, king, &maps.rank
+        pos.data.occ, king, &MAPS.rank
     );
     let v_rays = bt::hyp_quint(
-        pos.data.occ, king, &maps.file
+        pos.data.occ, king, &MAPS.file
     );
     let d_rays = bt::hyp_quint(
-        pos.data.occ, king, &maps.diag
+        pos.data.occ, king, &MAPS.diag
     );
     let a_rays = bt::hyp_quint(
-        pos.data.occ, king, &maps.adiag
+        pos.data.occ, king, &MAPS.adiag
     );
     return [h_rays, v_rays, d_rays, a_rays]
 }

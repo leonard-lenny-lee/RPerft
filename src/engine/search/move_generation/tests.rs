@@ -18,8 +18,6 @@ fn test_sgl_push_pawn_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = &Maps::new();
-    let pinned_pieces = analysis_tools::get_pinned_pieces_for(&pos, maps);
     let mut move_vec = Vec::new();
     find_pawn_moves(
         &mut move_vec,
@@ -105,12 +103,10 @@ fn test_knight_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_knight_moves(
         &mut move_vec,
         &pos,
-        &maps,
         FILLED_BB,
         FILLED_BB, 
         EMPTY_BB,
@@ -127,12 +123,10 @@ fn test_king_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_king_moves(
         &mut move_vec,
         &pos,
-        &maps,
         EMPTY_BB
     );
     assert_eq!(expected_nodes, move_vec.len() as i32);
@@ -147,13 +141,11 @@ fn test_bishop_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_sliding_moves(
         &mut move_vec,
         &pos,
-        SlidingPiece::Bishop,
-        &maps, 
+        SlidingPiece::Bishop, 
         FILLED_BB,
         FILLED_BB,
         EMPTY_BB, 
@@ -170,13 +162,11 @@ fn test_rook_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_sliding_moves(
         &mut move_vec,
         &pos,
         SlidingPiece::Rook,
-        &maps, 
         FILLED_BB,
         FILLED_BB,
         EMPTY_BB, 
@@ -193,13 +183,11 @@ fn test_queen_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_sliding_moves(
         &mut move_vec,
         &pos,
         SlidingPiece::Queen,
-        &maps, 
         FILLED_BB,
         FILLED_BB,
         EMPTY_BB, 
@@ -216,14 +204,12 @@ fn test_en_passant_move_gen(
     fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     let mut move_vec = Vec::new();
     find_en_passant_moves(
         &mut move_vec,
         &pos,
         FILLED_BB,
         FILLED_BB,
-        &maps,
         EMPTY_BB,
     );
     assert_eq!(expected_nodes, move_vec.len() as i32);
@@ -258,8 +244,7 @@ fn test_move_gen(
     fen: &str, expected_nodes: i32, expected_captures: i32,
 ) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
-    let move_vec = find_moves(&pos, &maps);
+    let move_vec = find_moves(&pos);
     let mut n_captures = 0;
     for mv in &move_vec {
         if mv.is_capture {

@@ -4,17 +4,16 @@ use chess_engine::engine::*;
 use search::move_generation::{find_moves, apply_move::apply_move};
 use position::Position;
 use common::*;
-use global::maps::Maps;
 use test_case::test_case;
 
 /// Provides the number of nodes for down each branch of the first depth layer
 /// search. Useful for perft debugging purposes
-fn perft_divide(pos: &Position, depth: i8, maps: &Maps) -> i64 {
+fn perft_divide(pos: &Position, depth: i8) -> i64 {
     let mut nodes = 0;
-    let moves = find_moves(pos, maps);
+    let moves = find_moves(pos);
     for mv in &moves {
         let new_pos = apply_move(pos, mv);
-        let branch_nodes = perft(&new_pos, depth-1, maps);
+        let branch_nodes = perft(&new_pos, depth-1);
         // Report branch
         let src = bittools::bitmask_to_algebraic(mv.src);
         let target = bittools::bitmask_to_algebraic(mv.target);
@@ -33,15 +32,15 @@ fn perft_divide(pos: &Position, depth: i8, maps: &Maps) -> i64 {
     return nodes
 }
 
-fn perft(pos: &Position, depth: i8, maps: &Maps) -> i64 {
+fn perft(pos: &Position, depth: i8) -> i64 {
     let mut nodes = 0;
     if depth == 0 {
         return 1;
     }
-    let moves = find_moves(pos, maps);
+    let moves = find_moves(pos);
     for mv in &moves {
         let new_pos = apply_move(pos, mv);
-        nodes += perft(&new_pos, depth-1, maps);
+        nodes += perft(&new_pos, depth-1);
     }
     return nodes
 }
@@ -56,9 +55,8 @@ fn perft(pos: &Position, depth: i8, maps: &Maps) -> i64 {
 #[test_case(POSITION_6, vec![46, 2079, 89890, 3894594], 4; "position_six")]
 fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     for dpt in 1..depth + 1 {
-        let result = perft(&pos, dpt, &maps);
+        let result = perft(&pos, dpt);
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -81,8 +79,7 @@ fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", 4, 23527; "stalemate & checkmate #2")]
 fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
-    assert_eq!(perft(&pos, depth, &maps), expected_nodes);
+    assert_eq!(perft(&pos, depth), expected_nodes);
 }
 
 // Not part of perft test suite, useful for debugging.
@@ -91,14 +88,13 @@ fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
 fn perft_debug() {
     let fen = "r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1";
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
-    perft_divide(&pos, 4, &maps);
+    perft_divide(&pos, 4);
 }
 
 /// Medium depth perft tests. Extension of the light perft test suite. Note 
 /// these may be slow to run and so would recommend running in release mode 
 /// with cargo test --release after removing the ignore flag.
-// #[ignore]
+#[ignore]
 #[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]
@@ -107,9 +103,8 @@ fn perft_debug() {
 #[test_case(POSITION_6, vec![46, 2079, 89890, 3894594, 164075551], 5; "position_six")]
 fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
     for dpt in 1..depth + 1 {
-        let result = perft(&pos, dpt, &maps);
+        let result = perft(&pos, dpt);
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -124,7 +119,6 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case(POSITION_6, 6923051137, 6; "position_six")]
 fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
     let pos = Position::new_from_fen(fen.to_string());
-    let maps = Maps::new();
-    let result = perft_divide(&pos, depth, &maps);
+    let result = perft_divide(&pos, depth);
     assert_eq!(result, expected_nodes)
 }

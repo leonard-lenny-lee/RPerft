@@ -2,8 +2,6 @@ use super::*;
 
 use position::{Position};
 
-pub mod maps;
-
 pub struct Score {
     value: i64,
 }

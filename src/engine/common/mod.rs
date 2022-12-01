@@ -5,6 +5,7 @@ use strum_macros::EnumIter;
 use super::*;
 
 pub mod bittools;
+mod maps;
 
 pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const POSITION_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
@@ -41,10 +42,7 @@ pub const WKROOK: u64 = 1 << 7;
 pub const BQROOK: u64 = 1 << 56;
 pub const BKROOK: u64 = 1 << 63;
 
-// Castle masks [KingsideMask, KingsideTarget, QueensideMask, QueensideTarget]
-pub const W_CASTLE: [u64; 4] = [0x60, 0x40, 0xe, 0x4];
-pub const B_CASTLE: [u64; 4] = [0x6000000000000000, 0x4000000000000000, 0xe00000000000000, 0x400000000000000];
-
+pub const MAPS: maps::Maps = maps::Maps::new();
 
 pub enum ASCIIBases {
     LowerA = 97,

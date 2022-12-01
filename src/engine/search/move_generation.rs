@@ -2,7 +2,6 @@ use strum::IntoEnumIterator;
 use super::*;
 
 use position::{Position, analysis_tools};
-use global::maps::Maps;
 
 pub mod apply_move;
 
@@ -44,19 +43,19 @@ impl Move {
 
 /// The master move finding function - finds all legal moves in a
 /// position and returns the list of legal moves as a vector of moves
-pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
+pub fn find_moves(pos: &Position) -> Vec<Move> {
     // Initialise variables
     let mut move_vec: Vec<Move> = Vec::new();
-    let unsafe_squares = analysis_tools::find_unsafe_squares(pos, maps);
-    let checkers = analysis_tools::find_checkers(pos, maps);
-    let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos, maps);
+    let unsafe_squares = analysis_tools::find_unsafe_squares(pos);
+    let checkers = analysis_tools::find_checkers(pos);
+    let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos);
     // Number of pieces placing the king in check
     let n_checkers = checkers.count_ones();
     let mut capture_mask: u64 = FILLED_BB;
     let mut push_mask: u64 = FILLED_BB;
     // If the king is in double check, only king moves to safe squares are valid
     if n_checkers > 1 {
-        find_king_moves(&mut move_vec, pos, maps, unsafe_squares);
+        find_king_moves(&mut move_vec, pos, unsafe_squares);
         return move_vec;
     }
     if n_checkers == 1 {
@@ -86,15 +85,15 @@ pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
         )
     }
     find_knight_moves(
-        &mut move_vec, pos, maps, capture_mask,
+        &mut move_vec, pos, capture_mask,
         push_mask, pinned_pieces
     );
     find_king_moves(
-        &mut move_vec, pos, maps, unsafe_squares
+        &mut move_vec, pos, unsafe_squares
     );
     for piece in SlidingPiece::iter() {
         find_sliding_moves(
-            &mut move_vec, pos, piece, maps, capture_mask, 
+            &mut move_vec, pos, piece, capture_mask, 
             push_mask, pinned_pieces
         )
     }
@@ -103,7 +102,7 @@ pub fn find_moves(pos: &Position, maps: &Maps) -> Vec<Move> {
         find_castling_moves(&mut move_vec, pos, unsafe_squares);
     }
     find_en_passant_moves(
-        &mut move_vec, pos, capture_mask, push_mask, maps, pinned_pieces
+        &mut move_vec, pos, capture_mask, push_mask, pinned_pieces
     );
     return move_vec;
 }
@@ -171,14 +170,14 @@ pub fn find_pawn_moves(
 
 /// Move generation function for knights
 pub fn find_knight_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps, 
+    move_vec: &mut Vec<Move>, pos: &Position, 
     capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
     let mut srcs = our_pieces.knight;
     while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
-        let mut targets = maps.get_knight_map(src) & !our_pieces.any;
+        let mut targets = MAPS.get_knight_map(src) & !our_pieces.any;
         // Only allow moves which either capture a checking piece or blocks
         // the check. These masks should be a FILLED_BB when no check.
         targets &= capture_mask | push_mask;
@@ -204,12 +203,12 @@ pub fn find_knight_moves(
 
 /// Move generation function for kings
 pub fn find_king_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, maps: &Maps,
+    move_vec: &mut Vec<Move>, pos: &Position,
     unsafe_squares: u64
 ) {
     let our_pieces = pos.our_pieces();
     let src = our_pieces.king;
-    let mut targets = maps.get_king_map(src) & !our_pieces.any;
+    let mut targets = MAPS.get_king_map(src) & !our_pieces.any;
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
     targets &= !unsafe_squares;
@@ -232,12 +231,12 @@ pub fn find_king_moves(
 /// Queens
 pub fn find_sliding_moves(
     move_vec: &mut Vec<Move>, pos: &Position, piece: SlidingPiece,
-    maps: &Maps, capture_mask: u64, push_mask: u64, pinned_pieces: u64,
+    capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
     let mut srcs;
     let moved_piece;
-    let target_gen_func: fn(u64, u64, &Maps) -> u64;
+    let target_gen_func: fn(u64, u64) -> u64;
     match piece {
         SlidingPiece::Bishop => {
             srcs = our_pieces.bishop;
@@ -257,7 +256,7 @@ pub fn find_sliding_moves(
     }
     while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
-        let mut targets: u64 = target_gen_func(pos.data.occ, src, maps);
+        let mut targets: u64 = target_gen_func(pos.data.occ, src);
         targets &= !our_pieces.any;
         targets &= capture_mask | push_mask;
         // If piece is pinned, it can only move the direction directly to 
@@ -308,7 +307,7 @@ fn find_promotions(
 /// Move generation function for en passant captures
 pub fn find_en_passant_moves(
     move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
-    push_mask: u64, maps: &Maps, pinned_pieces: u64
+    push_mask: u64, pinned_pieces: u64
 ) {
     let target = pos.data.en_passant_target_sq;
     let captured_pawn = pos.pawn_en_passant_cap();
@@ -335,7 +334,7 @@ pub fn find_en_passant_moves(
         if our_pieces.king & pos.ep_capture_rank() != EMPTY_BB {
             let occ = pos.data.occ & !(src | captured_pawn);
             let king_file_attacks = bt::hyp_quint(
-                occ, our_pieces.king, &maps.rank
+                occ, our_pieces.king, &MAPS.rank
             );
             if king_file_attacks 
                 & (their_pieces.rook | their_pieces.queen) != EMPTY_BB {

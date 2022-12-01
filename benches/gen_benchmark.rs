@@ -2,7 +2,6 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use chess_engine::engine::*;
 use position::Position;
 use common::*;
-use global::maps::Maps;
 
 fn setup() -> Position {
     Position::new_from_fen(POSITION_2.to_string())
@@ -13,14 +12,13 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
     use position::analysis_tools::*;
 
     let pos = &setup();
-    let maps = &Maps::new();
     let mut move_vec = Vec::new();
 
     c.bench_function(
         "find_moves",
         |b| b.iter(
             || find_moves(
-                black_box(pos), black_box(maps)
+                black_box(pos)
             )
         )
     );
@@ -29,7 +27,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_unsafe_squares",
         |b| b.iter(
             || find_unsafe_squares(
-                black_box(pos), black_box(maps)
+                black_box(pos)
             )
         )
     );
@@ -38,7 +36,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_checkers",
         |b| b.iter(
             || find_checkers(
-                black_box(pos), black_box(maps)
+                black_box(pos)
             )
         )
     );
@@ -47,7 +45,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "get_pinned_pieces_for",
         |b| b.iter(
             || get_pinned_pieces_for(
-                black_box(pos), black_box(maps)
+                black_box(pos)
             )
         )
     );
@@ -72,7 +70,6 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
             || find_knight_moves(
                 black_box(&mut move_vec),
                 black_box(&pos),
-                maps,
                 FILLED_BB,
                 FILLED_BB,
                 EMPTY_BB,
@@ -86,7 +83,6 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
             || find_king_moves(
                 black_box(&mut move_vec),
                 black_box(&pos),
-                maps,
                 EMPTY_BB
             )
         )
@@ -99,7 +95,6 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
                 black_box(&mut move_vec),
                 black_box(&pos),
                 SlidingPiece::Bishop,
-                maps,
                 FILLED_BB,
                 FILLED_BB,
                 EMPTY_BB,
@@ -115,7 +110,6 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
                 black_box(&pos),
                 FILLED_BB,
                 FILLED_BB,
-                maps,
                 EMPTY_BB
             )
         )
@@ -139,8 +133,7 @@ pub fn apply_move_benchmark(c: &mut Criterion) {
     use apply_move::apply_move;
 
     let pos = &setup();
-    let maps = &Maps::new();
-    let move_vec = find_moves(pos, maps);
+    let move_vec = find_moves(pos);
 
     c.bench_function(
         "apply_move",

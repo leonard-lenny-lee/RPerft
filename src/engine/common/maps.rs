@@ -5,13 +5,11 @@
 /// runtime. TODO implement singleton to allow only one instantiation of a Map
 /// struct and only via the new() constructor static method.
 
-use std::collections::HashMap;
 use super::*;
 use common::{*, bittools as bt};
 
 pub struct Maps {
     pub knight: [u64; 64],
-    pub dknight: HashMap<u64, u64>,
     pub king: [u64; 64],
     pub rank: [u64; 64],
     pub file: [u64; 64],
@@ -20,10 +18,9 @@ pub struct Maps {
 }
 
 impl Maps {
-    pub fn new() -> Maps {
+    pub const fn new() -> Maps {
         return Maps {
             knight: Maps::generate_knight_maps(),
-            dknight: Maps::generate_dbl_knight_maps(),
             king: Maps::generate_king_maps(),
             rank: Maps::generate_rank_masks(),
             file: Maps::generate_file_masks(),
@@ -35,14 +32,6 @@ impl Maps {
     /// Get the attack squares of a single knight
     pub fn get_knight_map(&self, bb: u64) -> u64 {
         self.knight[bt::ilsb(bb)]
-    }
-
-    /// Get the attack squares of knights
-    pub fn get_dknight_map(&self, bb: &u64) -> u64 {
-        match self.dknight.get(bb) {
-            Some(m) => return *m,
-            None => return EMPTY_BB,
-        }
     }
 
     /// Get the attack squares of a king
@@ -70,9 +59,10 @@ impl Maps {
         self.adiag[bt::ilsb(bb)]
     }
 
-    fn generate_knight_maps() -> [u64; 64] {
+    const fn generate_knight_maps() -> [u64; 64] {
         let mut maps: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             let mut map: u64 = 0;
             let origin = 1 << i;
             map |= bt::no_no_ea(origin);
@@ -84,33 +74,15 @@ impl Maps {
             map |= bt::no_we_we(origin);
             map |= bt::no_no_we(origin);
             maps[i] = map;
+            i += 1;
         }
         return maps;   
     }
-
-    fn generate_dbl_knight_maps() -> HashMap<u64, u64> {
-        let mut maps: HashMap<u64, u64> = HashMap::new();
-        for i in 0..64 {
-            for j in 0..64 {
-                let mut map: u64 = 0;
-                let origin = 1 << i | 1 << j;
-                map |= bt::no_no_ea(origin);
-                map |= bt::no_ea_ea(origin);
-                map |= bt::so_ea_ea(origin);
-                map |= bt::so_so_ea(origin);
-                map |= bt::so_so_we(origin);
-                map |= bt::so_we_we(origin);
-                map |= bt::no_we_we(origin);
-                map |= bt::no_no_we(origin);
-                maps.insert(origin, map);
-            }
-        }
-        return maps;
-    }
     
-    fn generate_king_maps() -> [u64; 64] {
+    const fn generate_king_maps() -> [u64; 64] {
         let mut maps: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             let mut map: u64 = 0;
             let origin: u64 = 1 << i;
             map |= bt::north_one(origin);
@@ -122,13 +94,15 @@ impl Maps {
             map |= bt::west_one(origin);
             map |= bt::nort_west(origin);
             maps[i] = map;
+            i += 1;
         }
         return maps;
     }
     
-    fn generate_rank_masks() -> [u64; 64] {
+    const fn generate_rank_masks() -> [u64; 64] {
         let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             match i / 8 {
                 0 => masks[i] = RANK_1,
                 1 => masks[i] = RANK_2,
@@ -140,13 +114,15 @@ impl Maps {
                 7 => masks[i] = RANK_8,
                 _ => (),
             }
+            i += 1;
         }
         return masks;
     }
     
-    fn generate_file_masks() -> [u64; 64] {
+    const fn generate_file_masks() -> [u64; 64] {
         let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             match i % 8 {
                 0 => masks[i] = FILE_A,
                 1 => masks[i] = FILE_B,
@@ -158,60 +134,73 @@ impl Maps {
                 7 => masks[i] = FILE_H,
                 _ => (),
             }
+            i += 1;
         }
         return masks;
     }
     
-    fn generate_diagonal_masks() -> [u64; 64] {
+    const fn generate_diagonal_masks() -> [u64; 64] {
         let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             let mut mask: u64 = 1 << i;
             let from_left = i % 8;
             let from_right = 7 - from_left;
-            for l in 1..from_left+1 {
+            let mut l = 1;
+            while l <= from_left {
                 let l_trans = i + l * -9;
                 if l_trans >= 0 {
                     mask |= 1 << (l_trans);
                 } else {
                     break;
                 }
+                l += 1;
             }
-            for r in 1..from_right+1 {
+            let mut r = 1;
+            while r <= from_right {
                 let r_trans = i + r * 9;
                 if r_trans < 64 {
                     mask |= 1 << (r_trans);
                 } else {
                     break;
                 }
+                r += 1;
             }
             masks[i as usize] = mask;
+            i += 1;
        }
         return masks;
     }
     
-    fn generate_antidiagonal_masks() -> [u64; 64] {
+    const fn generate_antidiagonal_masks() -> [u64; 64] {
         let mut masks: [u64; 64] = [0; 64];
-        for i in 0..64 {
+        let mut i = 0;
+        while i < 64 {
             let mut mask: u64 = 1 << i;
             let from_left = i % 8;
             let from_right = 7 - from_left;
-            for l in 1..from_left+1 {
+            let mut l = 1;
+            while l <= from_left {
                 let l_trans = i + l * 7;
                 if l_trans < 64 {
                     mask |= 1 << (l_trans);
                 } else {
                     break;
                 }
+                l += 1;
             }
-            for r in 1..from_right+1 {
+            let mut r = 0;
+            while r <= from_right {
                 let r_trans = i + r * -7;
                 if r_trans >= 0 {
                     mask |= 1 << (r_trans);
                 } else {
                     break;
                 }
+                r += 1;
             }
             masks[i as usize] = mask;
+            i += 1;
        }
         return masks;
     }

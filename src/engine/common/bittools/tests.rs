@@ -41,10 +41,10 @@ fn test_forward_scan() {
     assert_eq!(scan_result, expected);
 }
 
-#[test_case(Maps::new().rank, vec![17, 19, 23, 35], 19, vec![17, 18, 20, 21, 22, 23];"RANK")]
-#[test_case(Maps::new().file, vec![20, 44, 18], 20, vec![4, 12, 28, 36, 44];"FILE")]
-#[test_case(Maps::new().diag, vec![27, 54, 18], 27, vec![18, 36, 45, 54];"DIAG")]
-#[test_case(Maps::new().adiag, vec![6, 13, 34, 41, 43], 34, vec![41, 27, 20, 13];"ADIAG")]
+#[test_case(MAPS.rank, vec![17, 19, 23, 35], 19, vec![17, 18, 20, 21, 22, 23];"RANK")]
+#[test_case(MAPS.file, vec![20, 44, 18], 20, vec![4, 12, 28, 36, 44];"FILE")]
+#[test_case(MAPS.diag, vec![27, 54, 18], 27, vec![18, 36, 45, 54];"DIAG")]
+#[test_case(MAPS.adiag, vec![6, 13, 34, 41, 43], 34, vec![41, 27, 20, 13];"ADIAG")]
 fn test_hyp_quint(maps: [u64; 64], occ: Vec<i32>, slider: i32, expected: Vec<i32>) {
     let occ = squares_to_bitboard(occ);
     let slider = 1 << slider;
