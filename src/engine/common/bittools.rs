@@ -124,9 +124,14 @@ pub fn pop_lsb(n: &mut u64) -> u64 {
     return lsb
 }
 
-/// Returns the index of the least significant bit
+/// Returns the index of the least significant bit as a usize
 pub fn ilsb(n: u64) -> usize {
     return n.trailing_zeros() as usize;
+}
+
+/// Return the index of the least significant bit as a u16
+pub fn ilsb_u16(n: u64) -> u16 {
+    return n.trailing_zeros() as u16
 }
 
 /// Decomposes a bitboard into a vector of single bit boardboard

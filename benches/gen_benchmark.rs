@@ -130,7 +130,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
 
 pub fn apply_move_benchmark(c: &mut Criterion) {
     use search::move_generation::*;
-    use apply_move::apply_move;
+    use search::apply_move::apply_move;
 
     let pos = &setup();
     let move_vec = find_moves(pos);

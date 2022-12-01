@@ -1,7 +1,8 @@
 /// Tests to guarantee move generation fidelity and benchmarking 
 
 use chess_engine::engine::*;
-use search::move_generation::{find_moves, apply_move::apply_move};
+use search::move_generation::find_moves;
+use search::apply_move::apply_move;
 use position::Position;
 use common::*;
 use test_case::test_case;

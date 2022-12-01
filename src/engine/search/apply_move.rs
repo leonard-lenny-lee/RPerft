@@ -1,4 +1,5 @@
 use super::*;
+use position::Position;
 use crate::disc;
 
 /// Create a new position by applying move data to a position
@@ -68,7 +69,7 @@ fn execute_capture_operations(pos: &mut Position, mv: &Move) {
 fn set_castling_rights(pos: &mut Position, mv: &Move) {
     // If their rook has been captured, check if it's a rook from on their
     // starting square. If so, unset their corresponding castling right
-    if matches!(mv.captured_piece, Piece::Rook) {
+    if matches!(mv.captured_piece, 2) {
         if mv.target == pos.their_ks_rook_starting_sq() {
             pos.set_their_ksc(false)
         }

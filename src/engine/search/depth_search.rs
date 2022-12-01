@@ -1,7 +1,8 @@
 use super::*;
 use position::{Position, analysis_tools::find_checkers};
-use move_generation::{find_moves, apply_move::apply_move};
+use move_generation::find_moves;
 use evaluation::evaluate;
+use apply_move::apply_move;
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
