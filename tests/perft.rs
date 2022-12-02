@@ -18,13 +18,15 @@ fn perft_divide(pos: &Position, depth: i8) -> i64 {
         // Report branch
         let src = bittools::bitmask_to_algebraic(mv.src());
         let target = bittools::bitmask_to_algebraic(mv.target());
-        let promotion_piece;
-        match mv.promotion_piece {
-            Promotion::None => promotion_piece = "",
-            Promotion::Rook => promotion_piece = "r",
-            Promotion::Knight => promotion_piece = "n",
-            Promotion::Bishop => promotion_piece = "b",
-            Promotion::Queen => promotion_piece = "q"
+        let mut promotion_piece = "";
+        if mv.is_promotion() {
+            match mv.promotion_piece() {
+                2 => promotion_piece = "r",
+                3 => promotion_piece = "n",
+                4 => promotion_piece = "b",
+                5 => promotion_piece = "q",
+                _ => ()
+            }
         }
         println!("{}{}{}: {}", src, target, promotion_piece, branch_nodes);
         nodes += branch_nodes;

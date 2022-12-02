@@ -24,21 +24,16 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
     // if the move was a pawn double push
     new_pos.data.en_passant_target_sq = EMPTY_BB;
 
-    match mv.special_move_flag {
-        SpecialMove::None => (),
-        SpecialMove::Promotion => {
-            execute_promotion_operations(&mut new_pos, mv, target)
-        },
-        SpecialMove::Castling => {
-            execute_castling_operations(&mut new_pos, mv, target, moved_piece)
-        },
-        SpecialMove::EnPassant => {
-            assert!(pos.data.en_passant_target_sq != EMPTY_BB);
-            execute_en_passant_operations(&mut new_pos, mv, target)
-        },
-        SpecialMove::DoublePush => {
-            execute_double_push_operations(&mut new_pos, mv, target)
-        }
+    if mv.is_quiet() {
+        // None
+    } else if mv.is_promotion() {
+        execute_promotion_operations(&mut new_pos, mv, target)
+    } else if mv.is_castle() {
+        execute_castling_operations(&mut new_pos, mv, target, moved_piece)
+    // } else if mv.is_en_passant() {
+    //     execute_en_passant_operations(&mut new_pos, mv, target)
+    } else if mv.is_double_pawn_push() {
+        execute_double_push_operations(&mut new_pos, mv, target)
     }
     // Change the turn and state
     new_pos.change_state();
@@ -63,21 +58,25 @@ fn execute_common_operations(pos: &mut Position, target: u64, src: u64, mv: &Mov
 }
 
 fn execute_capture_operations(pos: &mut Position, target: u64, src: u64, mv: &Move) {
-    let captured_piece = pos.their_piece_at(target);
-    let their_pieces = pos.mut_their_pieces();
-    // If capture has taken place, then their bitboard must be unset at the
-    // target positions
-    their_pieces.xor_assign(captured_piece, target);
-    their_pieces.any ^= target;
-    // If their rook has been captured, check if it's a rook from on their
-    // starting square. If so, unset their corresponding castling right
-    if captured_piece == 2 {
-        if target == pos.their_ks_rook_starting_sq() {
-            pos.set_their_ksc(false)
+    if !mv.is_en_passant() {
+        let captured_piece = pos.their_piece_at(target);
+        let their_pieces = pos.mut_their_pieces();
+        // If capture has taken place, then their bitboard must be unset at the
+        // target positions
+        their_pieces.xor_assign(captured_piece, target);
+        their_pieces.any ^= target;
+        // If their rook has been captured, check if it's a rook from on their
+        // starting square. If so, unset their corresponding castling right
+        if captured_piece == 2 {
+            if target == pos.their_ks_rook_starting_sq() {
+                pos.set_their_ksc(false)
+            }
+            if target == pos.their_qs_rook_starting_sq() {
+                pos.set_their_qsc(false)
+            }
         }
-        if target == pos.their_qs_rook_starting_sq() {
-            pos.set_their_qsc(false)
-        }
+    } else {
+        execute_en_passant_operations(pos, mv, target)
     }
 }
 
@@ -112,7 +111,7 @@ fn set_halfmove_clock(pos: &mut Position, mv: &Move, moved_piece: usize) {
 fn execute_promotion_operations(pos: &mut Position, mv: &Move, target: u64) {
     let our_pieces = pos.mut_our_pieces();
     // Set target square on promotion piece bitboard
-    our_pieces.bit_or_assign(disc!(mv.promotion_piece), target);
+    our_pieces.bit_or_assign(mv.promotion_piece(), target);
     // Unset the pawn from our pawn bitboard
     our_pieces.xor_assign(disc!(Piece::Pawn), target)
 }
