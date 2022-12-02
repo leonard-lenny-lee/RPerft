@@ -1,4 +1,4 @@
-/// Tests to guarantee move generation fidelity and benchmarking 
+/// Tests to guarantee move enumeration fidelity and benchmarking 
 
 use chess_engine::engine::*;
 use search::move_generation::find_moves;

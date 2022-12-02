@@ -40,12 +40,10 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
     }
 
     // Add all moves to the move vector
-    for move_type in PawnMove::iter() {
-        find_pawn_moves(
-            &mut move_vec, pos, move_type, capture_mask,
-            push_mask, pinned_pieces
-        )
-    }
+    find_single_pushes(&mut move_vec, pos, push_mask, pinned_pieces);
+    find_double_pushes(&mut move_vec, pos, push_mask, pinned_pieces);
+    find_right_captures(&mut move_vec, pos, capture_mask, pinned_pieces);
+    find_left_captures(&mut move_vec, pos, capture_mask, pinned_pieces);
     find_knight_moves(
         &mut move_vec, pos, capture_mask,
         push_mask, pinned_pieces
@@ -70,35 +68,15 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
 }
 
 /// Move generation functions. These accept a mutable move vector reference as
-/// an argument and pushes legal pawn moves in a position to the move vector
+/// an argument and pushes legal moves in a position to the move vector
 
-/// General move generation function for pawns in a position.
-pub fn find_pawn_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, move_type: PawnMove,
-    capture_mask: u64, push_mask: u64, pinned_pieces: u64
+/// Move generation function to find all pawn single pushes in a position.
+pub fn find_single_pushes(
+    move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
+    pinned_pieces: u64
 ) {
-    let mut targets;
-    let mut srcs;
-    let mut special_move_flag = SpecialMove::None;
-    match move_type {
-        PawnMove::SinglePush => {
-            targets = pos.pawn_sgl_push_targets() & push_mask;
-            srcs = pos.pawn_sgl_push_srcs(targets)
-        },
-        PawnMove::DoublePush => {
-            targets = pos.pawn_dbl_push_targets() & push_mask;
-            srcs = pos.pawn_dbl_push_srcs(targets);
-            special_move_flag = SpecialMove::DoublePush
-        },
-        PawnMove::CaptureLeft => {
-            targets = pos.pawn_lcap_targets() & capture_mask;
-            srcs = pos.pawn_lcap_srcs(targets)
-        },
-        PawnMove::CaptureRight => {
-            targets = pos.pawn_rcap_targets() & capture_mask;
-            srcs = pos.pawn_rcap_srcs(targets)
-        }
-    }
+    let mut targets = pos.pawn_sgl_push_targets() & push_mask;
+    let mut srcs = pos.pawn_sgl_push_srcs(targets);
     while targets != EMPTY_BB {
         let target = bt::pop_lsb(&mut targets);
         let src = bt::pop_lsb(&mut srcs);
@@ -114,18 +92,103 @@ pub fn find_pawn_moves(
         }       
         // Check if the target is a promotion square
         if target & pos.promotion_rank() == EMPTY_BB {
-            move_vec.push(
-                Move::new(
-                    target,
-                    src,
-                    Piece::Pawn,
-                    Promotion::None,
-                    special_move_flag,
-                    pos
-                )
-            )
+            move_vec.push(Move::new_quiet_move(target, src))
         } else {
-            find_promotions(move_vec, pos, target, src)
+            // Push all the permutations of a quiet promotion
+            move_vec.push(Move::new_queen_promotion(target, src));
+            move_vec.push(Move::new_knight_promotion(target, src));
+            move_vec.push(Move::new_bishop_promotion(target, src));
+            move_vec.push(Move::new_rook_promotion(target, src))
+        }
+    }
+}
+
+/// Move generation function to find all pawn double pushes in a position
+pub fn find_double_pushes(
+    move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
+    pinned_pieces: u64
+) {
+    let mut targets = pos.pawn_dbl_push_targets() & push_mask;
+    let mut srcs = pos.pawn_dbl_push_srcs(targets);
+    while targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut targets);
+        let src = bt::pop_lsb(&mut srcs);
+        // Check if the pawn is pinned, only allow moves towards/away from king
+        if src & pinned_pieces != EMPTY_BB {
+            let pin_mask = bt::ray_axis(
+                pos.our_pieces().king,
+                src
+            );
+            if target & pin_mask == EMPTY_BB {
+                continue;
+            }
+        }       
+        move_vec.push(Move::new_double_pawn_push(target, src))
+    }
+}
+
+/// Move generation function to find all pawn left captures in a position
+pub fn find_left_captures(
+    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    pinned_pieces: u64
+) {
+    let mut targets = pos.pawn_lcap_targets() & capture_mask;
+    let mut srcs = pos.pawn_lcap_srcs(targets);
+    while targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut targets);
+        let src = bt::pop_lsb(&mut srcs);
+        // Check if the pawn is pinned, only allow moves towards/away from king
+        if src & pinned_pieces != EMPTY_BB {
+            let pin_mask = bt::ray_axis(
+                pos.our_pieces().king,
+                src
+            );
+            if target & pin_mask == EMPTY_BB {
+                continue;
+            }
+        }       
+        // Check if the target is a promotion square
+        if target & pos.promotion_rank() == EMPTY_BB {
+            move_vec.push(Move::new_capture(target, src))
+        } else {
+            // Push all the permutations of a quiet promotion
+            move_vec.push(Move::new_queen_promo_capture(target, src));
+            move_vec.push(Move::new_knight_promo_capture(target, src));
+            move_vec.push(Move::new_bishop_promo_capture(target, src));
+            move_vec.push(Move::new_rook_promo_capture(target, src))
+        }
+    }
+}
+
+/// Move generation function to find all pawn right captures in a position
+pub fn find_right_captures(
+    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    pinned_pieces: u64
+) {
+    let mut targets = pos.pawn_rcap_targets() & capture_mask;
+    let mut srcs = pos.pawn_rcap_srcs(targets);
+    while targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut targets);
+        let src = bt::pop_lsb(&mut srcs);
+        // Check if the pawn is pinned, only allow moves towards/away from king
+        if src & pinned_pieces != EMPTY_BB {
+            let pin_mask = bt::ray_axis(
+                pos.our_pieces().king,
+                src
+            );
+            if target & pin_mask == EMPTY_BB {
+                continue;
+            }
+        }       
+        // Check if the target is a promotion square
+        if target & pos.promotion_rank() == EMPTY_BB {
+            move_vec.push(Move::new_capture(target, src))
+        } else {
+            // Push all the permutations of a quiet promotion
+            move_vec.push(Move::new_queen_promo_capture(target, src));
+            move_vec.push(Move::new_knight_promo_capture(target, src));
+            move_vec.push(Move::new_bishop_promo_capture(target, src));
+            move_vec.push(Move::new_rook_promo_capture(target, src))
         }
     }
 }
@@ -147,19 +210,7 @@ pub fn find_knight_moves(
             // If knight is pinned, there are no legal moves
             continue;
         }
-        while targets != EMPTY_BB {
-            let target = bt::pop_lsb(&mut targets);
-            move_vec.push(
-                Move::new(
-                    target,
-                    src,
-                    Piece::Knight,
-                    Promotion::None,
-                    SpecialMove::None,
-                    pos,
-                )
-            )
-        }
+        find_quiet_moves_and_captures(move_vec, pos, targets, src)
     }
 }
 
@@ -174,19 +225,7 @@ pub fn find_king_moves(
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
     targets &= !unsafe_squares;
-    while targets != EMPTY_BB {
-        let target = bt::pop_lsb(&mut targets);
-        move_vec.push(
-            Move::new(
-                target,
-                src,
-                Piece::King,
-                Promotion::None,
-                SpecialMove::None,
-                pos,
-            )
-        )
-    }
+    find_quiet_moves_and_captures(move_vec, pos, targets, src)
 }
 
 /// General move generation function for sliding pieces - Rooks, Bishops and
@@ -197,23 +236,19 @@ pub fn find_sliding_moves(
 ) {
     let our_pieces = pos.our_pieces();
     let mut srcs;
-    let moved_piece;
     let target_gen_func: fn(u64, u64) -> u64;
     match piece {
         SlidingPiece::Bishop => {
             srcs = our_pieces.bishop;
             target_gen_func = bt::da_hyp_quint;
-            moved_piece = Piece::Bishop;
         },
         SlidingPiece::Rook => {
             srcs = our_pieces.rook;
             target_gen_func = bt::hv_hyp_quint;
-            moved_piece = Piece::Rook;
         },
         SlidingPiece::Queen => {
             srcs = our_pieces.queen;
             target_gen_func = bt::all_hyp_quint;
-            moved_piece = Piece::Queen;
         }
     }
     while srcs != EMPTY_BB {
@@ -229,42 +264,11 @@ pub fn find_sliding_moves(
             );
             targets &= pin_mask;
         }
-        while targets != EMPTY_BB {
-            let target = bt::pop_lsb(&mut targets);
-            move_vec.push(
-                Move::new(
-                    target,
-                    src,
-                    moved_piece,
-                    Promotion::None,
-                    SpecialMove::None,
-                    pos,
-                )
-            )
-        }
+        find_quiet_moves_and_captures(move_vec, pos, targets, src)
     }
 }
 
 // Special Moves
-
-/// Move generation function for promotions, this is called by the general
-/// pawn generation function if a target square is on the promotion rank
-fn find_promotions(
-    move_vec: &mut Vec<Move>, pos: &Position, target: u64, src: u64
-) {
-    for piece in Promotion::iterator() {
-        move_vec.push(
-            Move::new(
-                target,
-                src,
-                Piece::Pawn,
-                piece,
-                SpecialMove::Promotion,
-                pos,                    
-            )
-        )
-    }
-}
 
 /// Move generation function for en passant captures
 pub fn find_en_passant_moves(
@@ -303,16 +307,7 @@ pub fn find_en_passant_moves(
                 continue;
             }
         }
-        move_vec.push(
-            Move::new(
-                target,
-                src,
-                Piece::Pawn,
-                Promotion::None,
-                SpecialMove::EnPassant,
-                pos,
-            )
-        )
+        move_vec.push(Move::new_ep_capture(target, src))
     }
     
 }
@@ -326,32 +321,32 @@ pub fn find_castling_moves(
         && (pos.kingside_castle_mask() & pos.data.occ) == EMPTY_BB
         && (pos.kingside_castle_mask() & unsafe_squares) == EMPTY_BB 
     {
-        move_vec.push(
-            Move::new(
-                bt::east_two(src),
-                src,
-                Piece::King,
-                Promotion::None,
-                SpecialMove::Castling,
-                pos
-            )
-        )
+        move_vec.push(Move::new_short_castle(bt::east_two(src), src))
     }
     // Queenside castle
     if pos.our_queenside_castle()
         && (pos.queenside_castle_mask_free() & pos.data.occ) == EMPTY_BB
         && (pos.queenside_castle_mask_safe() & unsafe_squares) == EMPTY_BB
     {
-        move_vec.push(
-            Move::new(
-                bt::west_two(src),
-                src,
-                Piece::King,
-                Promotion::None,
-                SpecialMove::Castling,
-                pos
-            )
-        )
+        move_vec.push(Move::new_long_castle(bt::west_two(src), src))
+    }
+}
+
+/// Helper function for non-pawn moves, where the capture status is
+/// indeterminate. Seperates out the capture moves from the quiet moves and
+/// adds them to the move vector
+fn find_quiet_moves_and_captures(
+    move_vec: &mut Vec<Move>, pos: &Position, targets: u64, src: u64
+) {
+    let mut capture_targets = targets & pos.their_pieces().any;
+    let mut quiet_targets = targets & pos.data.free;
+    while capture_targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut capture_targets);
+        move_vec.push(Move::new_capture(target, src))
+    }
+    while quiet_targets != EMPTY_BB {
+        let target = bt::pop_lsb(&mut quiet_targets);
+        move_vec.push(Move::new_quiet_move(target, src))
     }
 }
 
@@ -378,14 +373,7 @@ mod tests {
     ) {
         let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
-        find_pawn_moves(
-            &mut move_vec,
-            &pos,
-            PawnMove::SinglePush,
-            FILLED_BB,
-            FILLED_BB,
-            EMPTY_BB
-        );
+        find_single_pushes( &mut move_vec, &pos, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_vec.len() as i32);
         let targets = generate_targets(move_vec);
         let expected_targets = squares_to_bitboard(expected_targets);
@@ -400,14 +388,7 @@ mod tests {
     ) {
         let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
-        find_pawn_moves(
-            &mut move_vec,
-            &pos,
-            PawnMove::DoublePush,
-            FILLED_BB,
-            FILLED_BB,
-            EMPTY_BB
-        );
+        find_double_pushes(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_vec.len() as i32);
         let targets = generate_targets(move_vec);
         let expected_targets = squares_to_bitboard(expected_targets);
@@ -421,14 +402,7 @@ mod tests {
     ) {
         let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
-        find_pawn_moves(
-            &mut move_vec,
-            &pos, 
-            PawnMove::CaptureLeft,
-            FILLED_BB,
-            FILLED_BB,
-            EMPTY_BB
-        );
+        find_left_captures(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_vec.len() as i32);
         let targets = generate_targets(move_vec);
         let expected_targets = squares_to_bitboard(expected_targets);
@@ -443,21 +417,15 @@ mod tests {
     ) {
         let pos = Position::new_from_fen(fen.to_string());
         let mut move_vec = Vec::new();
-        find_pawn_moves(
-            &mut move_vec,
-            &pos,
-            PawnMove::CaptureRight,
-            FILLED_BB,
-            FILLED_BB,
-            EMPTY_BB
-        );
+        find_right_captures(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_vec.len() as i32);
         let targets = generate_targets(move_vec);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
     #[test_case(DEFAULT_FEN, 4, vec![16, 18, 21, 23]; "starting")]
-    #[test_case(POSITION_2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53]; "position_two")]
+    #[test_case(POSITION_2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53];
+        "position_two")]
     fn test_knight_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
@@ -495,7 +463,8 @@ mod tests {
     }
 
     #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 11, vec![2, 20, 29, 38, 47, 3, 5, 19, 26, 33, 40]; "position_two")]
+    #[test_case(POSITION_2, 11, vec![2, 20, 29, 38, 47, 3, 5, 19, 26, 33, 40];
+        "position_two")]
     fn test_bishop_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
@@ -537,7 +506,8 @@ mod tests {
     }
 
     #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 9, vec![19, 20, 22, 23, 29, 37, 45, 30, 39]; "position_two")]
+    #[test_case(POSITION_2, 9, vec![19, 20, 22, 23, 29, 37, 45, 30, 39];
+        "position_two")]
     fn test_queen_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {

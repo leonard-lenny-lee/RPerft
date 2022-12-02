@@ -1,81 +1,40 @@
 use crate::disc;
 
 use super::*;
-use position::Position;
 
 const FROM_TO: u8 = 63;    // xx111111
 const SPECIAL_1: u8 = 128; // 10xxxxxx
 const SPECIAL_2: u8 = 64;  // 01xxxxxx
 const SPECIAL_X: u8 = 192; // 11xxxxxx
 
+/*
+    Moves are encoded in two 8 bit integers.
+    Bits 0-5 of word_one and word_two encode the source
+    and target square, respectively. Bits 6 and 7 encode
+    special move flags with the encoding below:
+    CODES
+    -----
+    1  2  <- word
+    76 76 <- index
+    00 00 - quiet moves
+    00 01 - double pawn push
+    00 10 - king castle
+    00 11 - queen castle
+    x1 xx - capture flag
+    01 01 - en passant capture
+    1x xx - promotion flag
+    1x 00 - knight promotion
+    1x 01 - bishop promotion
+    1x 10 - rook promotion
+    1x 11 - queen promotion
+*/
+
 pub struct Move {
     word_one: u8,
     word_two: u8,
-    /*
-        CODES
-        -----
-        1  2  <- word
-        87 87 <- index
-        00 00 - quiet moves
-        00 01 - double pawn push
-        00 10 - king castle
-        00 11 - queen castle
-        x1 xx - capture flag
-        01 01 - en passant capture
-        1x xx - promotion flag
-        1x 00 - knight promotion
-        1x 01 - bishop promotion
-        1x 10 - rook promotion
-        1x 11 - queen promotion
-    */
 }
 
 impl Move {
-    pub fn new(
-        target: u64, src: u64, moved_piece: Piece, 
-        promotion_piece: Promotion, special_move_flag: SpecialMove, 
-        pos: &Position
-    ) -> Move {
-        // Identify which piece has been captured
-        let is_capture = pos.their_pieces().any & target != EMPTY_BB;
-        match special_move_flag {
-            SpecialMove::Promotion => {
-                if is_capture {
-                    match promotion_piece {
-                        Promotion::Queen => Move::new_queen_promo_capture(target, src),
-                        Promotion::Knight => Move::new_knight_promo_capture(target, src),
-                        Promotion::Rook => Move::new_rook_promo_capture(target, src),
-                        Promotion::Bishop => Move::new_bishop_promo_capture(target, src),
-                        Promotion::None => panic!("ERROR")
-                    }
-                } else {
-                    match promotion_piece {
-                        Promotion::Queen => Move::new_queen_promotion(target, src),
-                        Promotion::Knight => Move::new_knight_promotion(target, src),
-                        Promotion::Rook => Move::new_rook_promotion(target, src),
-                        Promotion::Bishop => Move::new_bishop_promotion(target, src),
-                        Promotion::None => panic!("ERROR")
-                    }
-                }
-            },
-            SpecialMove::DoublePush => Move::new_double_pawn_push(target, src),
-            SpecialMove::Castling => {
-                if bt::ilsb_u8(target) / 8 == 6 {
-                    Move::new_short_castle(target, src)
-                } else {
-                    Move::new_long_castle(target, src)
-                }
-            },
-            SpecialMove::EnPassant => Move::new_ep_capture(target, src),
-            SpecialMove::None => {
-                if is_capture {
-                    Move::new_capture(target, src)
-                } else {
-                    Move::new_quiet_move(target, src)
-                }
-            }
-        }
-    }
 
     pub fn new_quiet_move(target: u64, src: u64) -> Move {
         return Move {

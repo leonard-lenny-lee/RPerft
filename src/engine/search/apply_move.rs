@@ -13,12 +13,18 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
     let moved_piece = pos.our_piece_at(src);
     // Common operations for all moves
     modify_universal_bitboards(&mut new_pos, target, src);
-    execute_common_operations(&mut new_pos, target, src, mv, moved_piece);
+    execute_common_operations(&mut new_pos, target, src, moved_piece);
     // Free the squares on the their bitboards if the piece is a capture
     if mv.is_capture() {
-        execute_capture_operations(&mut new_pos, target, src, mv)
+        // En passant moves are marked as captures but must be treated 
+        // differently
+        if !mv.is_en_passant() {
+            execute_capture_operations(&mut new_pos, target)
+        } else {
+            execute_en_passant_operations(&mut new_pos, target)
+        }
     }
-    set_castling_rights(&mut new_pos, target, src, mv, moved_piece);
+    set_castling_rights(&mut new_pos, src, moved_piece);
     set_halfmove_clock(&mut new_pos, mv, moved_piece);
     // Set en passant target sq to empty, this will be set to a value only
     // if the move was a pawn double push
@@ -29,11 +35,9 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
     } else if mv.is_promotion() {
         execute_promotion_operations(&mut new_pos, mv, target)
     } else if mv.is_castle() {
-        execute_castling_operations(&mut new_pos, mv, target, moved_piece)
-    // } else if mv.is_en_passant() {
-    //     execute_en_passant_operations(&mut new_pos, mv, target)
+        execute_castling_operations(&mut new_pos, target, moved_piece)
     } else if mv.is_double_pawn_push() {
-        execute_double_push_operations(&mut new_pos, mv, target)
+        execute_double_push_operations(&mut new_pos, target)
     }
     // Change the turn and state
     new_pos.change_state();
@@ -49,7 +53,9 @@ fn modify_universal_bitboards(pos: &mut Position, target: u64, src: u64) {
     pos.data.occ |= target;
 }
 
-fn execute_common_operations(pos: &mut Position, target: u64, src: u64, mv: &Move, moved_piece: usize) {
+fn execute_common_operations(
+    pos: &mut Position, target: u64, src: u64, moved_piece: usize
+) {
     let our_pieces = pos.mut_our_pieces();
     let move_mask = src | target;
     // Our bitboards must be flipped at target and source
@@ -57,30 +63,26 @@ fn execute_common_operations(pos: &mut Position, target: u64, src: u64, mv: &Mov
     our_pieces.any ^= move_mask;
 }
 
-fn execute_capture_operations(pos: &mut Position, target: u64, src: u64, mv: &Move) {
-    if !mv.is_en_passant() {
-        let captured_piece = pos.their_piece_at(target);
-        let their_pieces = pos.mut_their_pieces();
-        // If capture has taken place, then their bitboard must be unset at the
-        // target positions
-        their_pieces.xor_assign(captured_piece, target);
-        their_pieces.any ^= target;
-        // If their rook has been captured, check if it's a rook from on their
-        // starting square. If so, unset their corresponding castling right
-        if captured_piece == 2 {
-            if target == pos.their_ks_rook_starting_sq() {
-                pos.set_their_ksc(false)
-            }
-            if target == pos.their_qs_rook_starting_sq() {
-                pos.set_their_qsc(false)
-            }
+fn execute_capture_operations(pos: &mut Position, target: u64) {
+    let captured_piece = pos.their_piece_at(target);
+    let their_pieces = pos.mut_their_pieces();
+    // If capture has taken place, then their bitboard must be unset at the
+    // target positions
+    their_pieces.xor_assign(captured_piece, target);
+    their_pieces.any ^= target;
+    // If their rook has been captured, check if it's a rook from on their
+    // starting square. If so, unset their corresponding castling right
+    if captured_piece == 2 {
+        if target == pos.their_ks_rook_starting_sq() {
+            pos.set_their_ksc(false)
         }
-    } else {
-        execute_en_passant_operations(pos, mv, target)
+        if target == pos.their_qs_rook_starting_sq() {
+            pos.set_their_qsc(false)
+        }
     }
 }
 
-fn set_castling_rights(pos: &mut Position, target: u64, src: u64, mv: &Move, moved_piece: usize) {
+fn set_castling_rights(pos: &mut Position, src: u64, moved_piece: usize) {
     // If our king has moved, either normally or through castling, immediately
     // remove all further rights to castle
     if moved_piece == disc!(Piece::King) {
@@ -116,7 +118,7 @@ fn execute_promotion_operations(pos: &mut Position, mv: &Move, target: u64) {
     our_pieces.xor_assign(disc!(Piece::Pawn), target)
 }
 
-fn execute_castling_operations(pos: &mut Position, mv: &Move, target: u64, moved_piece: usize) {
+fn execute_castling_operations(pos: &mut Position, target: u64, moved_piece: usize) {
     let our_pieces = pos.mut_our_pieces();
     assert!(moved_piece == disc!(Piece::King));
     // For castling moves, we also need the update our rook and any bitboards
@@ -140,7 +142,7 @@ fn execute_castling_operations(pos: &mut Position, mv: &Move, target: u64, moved
     pos.data.free ^= castle_mask;
 }
 
-fn execute_en_passant_operations(pos: &mut Position, mv: &Move, target: u64) {
+fn execute_en_passant_operations(pos: &mut Position, target: u64) {
     // If white made the en passant capture, then the square at which the 
     // capture takes place is on square south of the target square and the
     // opposite for black
@@ -154,7 +156,7 @@ fn execute_en_passant_operations(pos: &mut Position, mv: &Move, target: u64) {
     pos.data.free ^= ep_capture_sq;
 }
 
-fn execute_double_push_operations(pos: &mut Position, mv: &Move, target: u64) {
+fn execute_double_push_operations(pos: &mut Position, target: u64) {
     // If white made the double pawn push, then the ep target
     // square must be one square south of the target square and vice versa
     // for black

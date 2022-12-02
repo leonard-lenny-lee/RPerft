@@ -53,11 +53,9 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
     c.bench_function(
         "find_pawn_moves",
         |b| b.iter(
-            || find_pawn_moves(
+            || find_single_pushes(
                 black_box(&mut move_vec),
                 black_box(&pos),
-                black_box(PawnMove::DoublePush),
-                FILLED_BB,
                 FILLED_BB,
                 EMPTY_BB,
             )
