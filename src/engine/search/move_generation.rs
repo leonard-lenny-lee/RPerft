@@ -26,7 +26,7 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
         // 2. The attacking piece is captured
         // 3. The attacking piece is blocked, if the piece is a sliding piece
         capture_mask = checkers;
-        if analysis_tools::their_piece_at_is_slider(pos, checkers) {
+        if pos.their_piece_at_is_slider(checkers) {
             // If the attacker is a sliding piece, then check can be blocked by
             // another piece moving to the intervening squares
             push_mask = bt::connect_squares(
@@ -365,7 +365,7 @@ mod tests {
     fn generate_targets(move_vec: Vec<Move>) -> u64 {
         let mut targets = EMPTY_BB;
         for mv in move_vec {
-            targets |= mv.target;
+            targets |= mv.target();
         }
         return targets
     }
@@ -606,7 +606,7 @@ mod tests {
         let move_vec = find_moves(&pos);
         let mut n_captures = 0;
         for mv in &move_vec {
-            if mv.is_capture {
+            if mv.is_capture() {
                 n_captures += 1
             }
         }

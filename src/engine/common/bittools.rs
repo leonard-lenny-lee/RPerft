@@ -129,9 +129,9 @@ pub fn ilsb(n: u64) -> usize {
     return n.trailing_zeros() as usize;
 }
 
-/// Return the index of the least significant bit as a u16
-pub fn ilsb_u16(n: u64) -> u16 {
-    return n.trailing_zeros() as u16
+/// Return the index of the least significant bit as a u8
+pub fn ilsb_u8(n: u64) -> u8 {
+    return n.trailing_zeros() as u8
 }
 
 /// Decomposes a bitboard into a vector of single bit boardboard

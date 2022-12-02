@@ -168,5 +168,42 @@ impl Position {
     pub fn mut_their_pieces(&mut self) -> &mut PieceSet {
         self.state.mut_their_pieces(&mut self.data)
     }
+
+    /// Identify which opponent piece is a particular position as the index
+    /// of the array representation of the pieceset
+    pub fn their_piece_at(&self, bb: u64) -> usize {
+        assert!(bb.count_ones() == 1);
+        let their_piece_array = self.their_pieces().as_array();
+        for piece in 1..7 {
+            if their_piece_array[piece] & bb != EMPTY_BB {
+                return piece
+            }
+        }
+        panic!(
+            "their_piece_at could not locate the requested bit {}",
+            bb.trailing_zeros()
+        );
+    }
+
+    /// Identify which of our pieces is a particular position as the index
+    /// of the array representation of the pieceset
+    pub fn our_piece_at(&self, bb: u64) -> usize {
+        assert!(bb.count_ones() == 1);
+        let our_piece_array = self.our_pieces().as_array();
+        for piece in 1..7 {
+            if our_piece_array[piece] & bb != EMPTY_BB {
+                return piece
+            }
+        }
+        panic!(
+            "their_piece_at could not locate the requested bit {}",
+            bb.trailing_zeros()
+        );
+    }
+
+    /// Identify if the piece at the specified square is a sliding piece
+    pub fn their_piece_at_is_slider(&self, n: u64) -> bool {
+        matches!(self.their_piece_at(n), 2 | 4 | 5) 
+    }
     
 }

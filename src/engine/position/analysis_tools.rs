@@ -112,26 +112,6 @@ pub fn get_color_at(pos: &Position, n: u64) -> Color {
     return color;
 }
 
-/// Identify which opponent piece is a particular position
-pub fn get_their_piece_at(pos: &Position, n: u64) -> u8 {
-    assert!(n.count_ones() == 1);
-    let their_piece_array = pos.their_pieces().as_array();
-    for piece in 1..7 {
-        if their_piece_array[piece] & n != EMPTY_BB {
-            return piece as u8
-        }
-    }
-    panic!(
-        "Function get_piece_at could not locate the requested bit {}",
-        n.trailing_zeros()
-    );
-}
-
-/// Identify if the piece at the specified square is a sliding piece
-pub fn their_piece_at_is_slider(pos: &Position, n: u64) -> bool {
-    matches!(get_their_piece_at(pos, n), 2 | 4 | 5) 
-}
-
 /// Identify which pieces are pinned for a particular color in a position
 pub fn get_pinned_pieces_for(pos: &Position) -> u64 {
     // Initialise variables

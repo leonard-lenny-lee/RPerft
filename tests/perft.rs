@@ -16,8 +16,8 @@ fn perft_divide(pos: &Position, depth: i8) -> i64 {
         let new_pos = apply_move(pos, mv);
         let branch_nodes = perft(&new_pos, depth-1);
         // Report branch
-        let src = bittools::bitmask_to_algebraic(mv.src);
-        let target = bittools::bitmask_to_algebraic(mv.target);
+        let src = bittools::bitmask_to_algebraic(mv.src());
+        let target = bittools::bitmask_to_algebraic(mv.target());
         let promotion_piece;
         match mv.promotion_piece {
             Promotion::None => promotion_piece = "",
