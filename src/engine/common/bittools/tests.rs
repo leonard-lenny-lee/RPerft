@@ -80,3 +80,10 @@ fn test_kiwipete_to_string() {
     let out = piecesets_to_string(data.w_pieces, data.b_pieces);
     print!("{}", out)
 }
+
+#[test]
+fn test_flip_vertical() {
+    let bb = 0x8040201;
+    let result = flip_vertical(bb);
+    assert_eq!(result, 0x102040800000000)
+}

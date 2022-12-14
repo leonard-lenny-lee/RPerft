@@ -6,7 +6,7 @@
 /// struct and only via the new() constructor static method.
 
 use super::*;
-use common::{*, bittools as bt};
+use common::bittools as bt;
 
 pub struct Maps {
     pub knight: [u64; 64],

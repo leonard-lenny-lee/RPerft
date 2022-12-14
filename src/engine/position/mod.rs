@@ -61,6 +61,12 @@ impl PieceSet {
          self.queen, self.king]
     }
 
+    // Order the bitboards in an array so the index positions are convenient
+    // for piece square table evaluation
+    pub fn as_pst_array(&self) -> [u64; 6] {
+        [self.pawn, self.rook, self.knight, self.bishop, self.queen, self.king]
+    }
+
     // Order the bitboards so the index positions are convenient for Zobrist
     // hashing
     pub fn as_hash_array(&self) -> [u64; 6] {

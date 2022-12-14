@@ -61,3 +61,14 @@ pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32) -> i32 {
     }
     return alpha
 }
+
+#[cfg(test)]
+mod search_tests {
+    use super::*;
+    #[test]
+    fn test_negamax() {
+        let pos = &Position::new_from_fen(POSITION_2.to_string());
+        let eval = nega_max(pos, 4);
+        println!("Eval {}", eval);
+    }
+}

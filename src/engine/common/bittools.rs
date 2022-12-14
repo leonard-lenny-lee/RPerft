@@ -129,6 +129,13 @@ pub fn ilsb(n: u64) -> usize {
     return n.trailing_zeros() as usize;
 }
 
+/// Pops off and returns the least significant set bit index
+pub fn pop_ilsb(n: &mut u64) -> usize {
+    let ilsb = n.trailing_zeros() as usize;
+    *n ^= 1 << ilsb;
+    return ilsb
+}
+
 /// Return the index of the least significant bit as a u8
 pub fn ilsb_u8(n: u64) -> u8 {
     return n.trailing_zeros() as u8
@@ -595,6 +602,10 @@ pub const fn no_we_we(bb: u64) -> u64 {
 
 pub const fn no_no_we(bb: u64) -> u64 {
     (bb & !FILE_A) << 15
+}
+
+pub fn flip_vertical(bb: u64) -> u64 {
+    bb.swap_bytes()
 }
 
 #[cfg(test)]

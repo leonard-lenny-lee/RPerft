@@ -130,6 +130,46 @@ impl Data {
         self.fullmove_clock = fullmove_clock;
     }
 
+    pub fn queen_diff(&self) -> i32 {
+        self.w_pieces.n_queens() - self.b_pieces.n_queens()
+    }
+
+    pub fn rook_diff(&self) -> i32 {
+        self.w_pieces.n_rooks() - self.b_pieces.n_rooks()
+    }
+
+    pub fn bishop_diff(&self) -> i32 {
+        self.w_pieces.n_bishops() - self.b_pieces.n_bishops()
+    }
+
+    pub fn knight_diff(&self) -> i32 {
+        self.w_pieces.n_knights() - self.b_pieces.n_knights()
+    }
+
+    pub fn pawn_diff(&self) -> i32 {
+        self.w_pieces.n_pawns() - self.b_pieces.n_pawns()
+    }
+
+    pub fn queen_sum(&self) -> i32 {
+        self.w_pieces.n_queens() + self.b_pieces.n_queens()
+    }
+
+    pub fn rook_sum(&self) -> i32 {
+        self.w_pieces.n_rooks() + self.b_pieces.n_rooks()
+    }
+
+    pub fn bishop_sum(&self) -> i32 {
+        self.w_pieces.n_bishops() + self.b_pieces.n_bishops()
+    }
+
+    pub fn knight_sum(&self) -> i32 {
+        self.w_pieces.n_knights() + self.b_pieces.n_knights()
+    }
+
+    pub fn pawn_sum(&self) -> i32 {
+        self.w_pieces.n_pawns() + self.b_pieces.n_pawns()
+    }
+
 }
 
 #[cfg(test)]
