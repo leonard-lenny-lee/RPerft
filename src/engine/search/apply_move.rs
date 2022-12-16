@@ -3,14 +3,16 @@ use position::Position;
 use crate::disc;
 
 /// Create a new position by applying move data to a position
-pub fn apply_move(pos: &Position, mv: &Move) -> Position {
+pub fn apply_move(node: &SearchNode, mv: &Move) -> SearchNode {
 
     // Create a copy of the current position to modify
-    let mut new_pos = Position::new(pos.data.clone());
+    let mut new_pos = Position::new(node.pos.data.clone());
+    let mut new_eval = node.eval.clone();
+    let mut new_hash = node.hash.clone();
     // Unpack move data
     let target = mv.target();
     let src = mv.src();
-    let moved_piece = pos.our_piece_at(src);
+    let moved_piece = new_pos.our_piece_at(src);
     // Common operations for all moves
     modify_universal_bitboards(&mut new_pos, target, src);
     execute_common_operations(&mut new_pos, target, src, moved_piece);
@@ -41,7 +43,7 @@ pub fn apply_move(pos: &Position, mv: &Move) -> Position {
     }
     // Change the turn and state
     new_pos.change_state();
-    return new_pos
+    return SearchNode {pos: new_pos, eval: new_eval, hash: new_hash}
 }
 
 fn modify_universal_bitboards(pos: &mut Position, target: u64, src: u64) {
