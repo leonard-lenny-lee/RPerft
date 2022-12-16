@@ -14,7 +14,7 @@ use position::{Position, ZobristKey};
 pub struct SearchNode {
     pub pos: Position,
     eval: Evaluation,
-    key: ZobristKey,
+    pub key: ZobristKey,
 }
 
 impl SearchNode {

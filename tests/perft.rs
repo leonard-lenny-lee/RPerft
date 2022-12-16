@@ -1,6 +1,7 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking 
 
 use chess_engine::engine::*;
+use transposition::TranspositionTable;
 use search::move_generation::find_moves;
 use search::apply_move::apply_move;
 use search::SearchNode;
@@ -43,7 +44,8 @@ fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
 
 fn perft(root_node: &SearchNode, depth: i8) -> i64 {
     assert!(depth >= 1);
-    perft_inner(root_node, depth)
+    let mut table = TranspositionTable::new(17_000_000);
+    perft_inner_with_table(root_node, depth, &mut table)
 }
 
 fn perft_inner(node: &SearchNode, depth: i8) -> i64 {
@@ -54,8 +56,28 @@ fn perft_inner(node: &SearchNode, depth: i8) -> i64 {
     let moves = find_moves(&node.pos);
     for mv in &moves {
         let new_node = apply_move(&node, mv);
-        nodes += perft(&new_node, depth-1);
+        nodes += perft_inner(&new_node, depth-1);
     }
+    return nodes
+}
+
+fn perft_inner_with_table(
+    node: &SearchNode, depth: i8, table: &mut TranspositionTable
+) -> i64 {
+    let mut nodes = 0;
+    match table.get(node.key.0, depth) {
+        Some(entry) => return entry.count,
+        None => ()
+    };
+    if depth == 1 {
+        return find_moves(&node.pos).len() as i64;
+    }
+    let moves = find_moves(&node.pos);
+    for mv in &moves {
+        let new_node = apply_move(&node, mv);
+        nodes += perft_inner_with_table(&new_node, depth-1, table);
+    }
+    table.set(node.key.0, nodes, depth);
     return nodes
 }
 
@@ -133,6 +155,6 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case(POSITION_6, 6923051137, 6; "position_six")]
 fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
     let node = SearchNode::new_from_fen(fen.to_string());
-    let result = perft_divided(&node, depth);
+    let result = perft(&node, depth);
     assert_eq!(result, expected_nodes)
 }

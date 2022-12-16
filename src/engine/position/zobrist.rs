@@ -4,7 +4,7 @@
 use super::*;
 
 #[derive(Clone, Copy)]
-pub struct ZobristKey (u64);
+pub struct ZobristKey (pub u64);
 
 impl ZobristKey {
 
