@@ -4,7 +4,7 @@
 
 use super::*;
 use common::{*, bittools as bt};
-pub use zobrist::ZobristHash;
+pub use zobrist::ZobristKey;
 
 mod data;
 mod interface;

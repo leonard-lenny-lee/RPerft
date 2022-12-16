@@ -9,7 +9,7 @@ pub fn apply_move(node: &SearchNode, mv: &Move) -> SearchNode {
     let mut new_node = SearchNode {
         pos: Position::new(node.pos.data.clone()),
         eval: node.eval.clone(),
-        hash: node.hash.clone(),
+        key: node.key.clone(),
     };
     // Unpack move data
     let target = mv.target();
@@ -45,7 +45,7 @@ pub fn apply_move(node: &SearchNode, mv: &Move) -> SearchNode {
     }
     // Change the turn and state
     new_node.pos.change_state();
-    new_node.hash.update_hash(moved_piece, src, target, &node.pos, &new_node.pos);
+    new_node.key.update_key(moved_piece, src, target, &node.pos, &new_node.pos);
     return new_node
 }
 
@@ -86,7 +86,7 @@ fn execute_capture_operations(node: &mut SearchNode, target: u64) {
         }
     }
     // Update Zobrist hash with the capture
-    node.hash.update_square(
+    node.key.update_square(
         captured_piece, target, !node.pos.data.white_to_move
     )
 }
@@ -127,8 +127,8 @@ fn execute_promotion_operations(node: &mut SearchNode, mv: &Move, target: u64) {
     // Unset the pawn from our pawn bitboard
     our_pieces.xor_assign(disc!(Piece::Pawn), target);
     // Update the Zobrist hashes
-    node.hash.update_square(disc!(Piece::Pawn), target, node.pos.data.white_to_move);
-    node.hash.update_square(promotion_piece, target, node.pos.data.white_to_move);
+    node.key.update_square(disc!(Piece::Pawn), target, node.pos.data.white_to_move);
+    node.key.update_square(promotion_piece, target, node.pos.data.white_to_move);
 }
 
 fn execute_castling_operations(node: &mut SearchNode, target: u64, moved_piece: usize) {
@@ -158,7 +158,7 @@ fn execute_castling_operations(node: &mut SearchNode, target: u64, moved_piece: 
     node.pos.data.occ ^= castle_mask;
     node.pos.data.free ^= castle_mask;
     // Update the Zobrist hash for the rook movement
-    node.hash.update_moved_piece(
+    node.key.update_moved_piece(
         disc!(Piece::Rook), rook_src, rook_target, node.pos.data.white_to_move
     )
 }
@@ -176,7 +176,7 @@ fn execute_en_passant_operations(node: &mut SearchNode, target: u64) {
     node.pos.data.occ ^= ep_capture_sq;
     node.pos.data.free ^= ep_capture_sq;
     // Update Zobrist hash
-    node.hash.update_square(
+    node.key.update_square(
         disc!(Piece::Pawn), ep_capture_sq,
         !node.pos.data.white_to_move
     )

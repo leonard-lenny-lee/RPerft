@@ -4,13 +4,13 @@
 use super::*;
 
 #[derive(Clone, Copy)]
-pub struct ZobristHash (u64);
+pub struct ZobristKey (u64);
 
-impl ZobristHash {
+impl ZobristKey {
 
     /// Generate a Zobrist hash key to encode the position. Used for 
     /// the transposition table
-    pub fn hash(pos: &Position) -> Self {
+    pub fn new(pos: &Position) -> Self {
         Self(
             Self::hash_board(pos) ^ Self::hash_castling(pos)
             ^ Self::hash_en_passant(pos) ^ Self::hash_turn(pos)
@@ -68,7 +68,7 @@ impl ZobristHash {
     }
 
     /// Common hash update function
-    pub fn update_hash(
+    pub fn update_key(
         &mut self, moved_piece: usize, src: u64, target: u64,
         pos: &Position, new_pos: &Position
     ) {
@@ -77,9 +77,9 @@ impl ZobristHash {
         // Update at both source and target squares for the piece
         self.update_moved_piece(moved_piece, src, target, pos.data.white_to_move);
         // Update en passant hash
-        self.0 ^= ZobristHash::update_en_passant_target(pos, new_pos);
+        self.0 ^= ZobristKey::update_en_passant_target(pos, new_pos);
         // Update castle hashing
-        self.0 ^= ZobristHash::update_castling_rights(pos, new_pos);
+        self.0 ^= ZobristKey::update_castling_rights(pos, new_pos);
     }
 
     /// Update at both source and target squares for the piece
@@ -97,7 +97,7 @@ impl ZobristHash {
     }
 
     fn update_en_passant_target(pos: &Position, new_pos: &Position) -> u64 {
-        ZobristHash::hash_en_passant(pos) ^ ZobristHash::hash_en_passant(new_pos)
+        ZobristKey::hash_en_passant(pos) ^ ZobristKey::hash_en_passant(new_pos)
     }
 
     fn update_castling_rights(pos: &Position, new_pos: &Position) -> u64 {
@@ -342,7 +342,7 @@ mod test {
     #[test_case("rnbqkbnr/p1pppppp/8/8/P6P/R1p5/1P1PPPP1/1NBQKBNR b Kkq - 0 4", 0x5c3f9b829b279560; "9")]
     fn test_zobrist_polyglot_hash(fen: &str, expected_hash: u64) {
         let pos = Position::new_from_fen(fen.to_string());
-        let hash = ZobristHash::hash(&pos);
+        let hash = ZobristKey::new(&pos);
         assert_eq!(hash.0, expected_hash);
     }
 }

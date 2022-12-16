@@ -9,19 +9,19 @@ pub mod move_;
 
 pub use move_::Move;
 use evaluation::Evaluation;
-use position::{Position, ZobristHash};
+use position::{Position, ZobristKey};
 
 pub struct SearchNode {
     pub pos: Position,
     eval: Evaluation,
-    hash: ZobristHash,
+    key: ZobristKey,
 }
 
 impl SearchNode {
     pub fn new_from_fen(fen: String) -> SearchNode {
         let pos = Position::new_from_fen(fen);
         let eval = Evaluation::new_from_position(&pos);
-        let hash = ZobristHash::hash(&pos);
-        return SearchNode {pos, eval, hash}
+        let key = ZobristKey::new(&pos);
+        return SearchNode {pos, eval, key}
     } 
 }
