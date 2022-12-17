@@ -1,7 +1,7 @@
 /// Module containing functions to extract information from a position
 
 use super::*;
-use crate::{disc, engine::common::bittools as bt};
+use crate::engine::common::bittools as bt;
 
 /// Get all the squares the opponent pieces are attacking in a position and 
 /// the location of all the opponent pieces that are checking the king

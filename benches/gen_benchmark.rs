@@ -1,10 +1,14 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use chess_engine::engine::*;
+use chess_engine::engine::{*, search::SearchNode};
 use position::Position;
 use common::*;
 
 fn setup() -> Position {
     Position::new_from_fen(POSITION_2.to_string())
+}
+
+fn setup_node() -> SearchNode {
+    SearchNode::new_from_fen(POSITION_2.to_string())
 }
 
 pub fn find_moves_benchmark(c: &mut Criterion) {
@@ -130,14 +134,14 @@ pub fn apply_move_benchmark(c: &mut Criterion) {
     use search::move_generation::*;
     use search::apply_move::apply_move;
 
-    let pos = &setup();
-    let move_vec = find_moves(pos);
+    let node = &setup_node();
+    let move_vec = find_moves(&node.pos);
 
     c.bench_function(
         "apply_move",
         |b| b.iter(
             || apply_move(
-                pos,
+                node,
                 &move_vec[0]
             )
         )
