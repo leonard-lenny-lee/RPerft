@@ -236,24 +236,24 @@ pub fn find_sliding_moves(
 ) {
     let our_pieces = pos.our_pieces();
     let mut srcs;
-    let target_gen_func: fn(u64, u64) -> u64;
+    let target_gen_func: fn(usize, u64) -> u64;
     match piece {
         SlidingPiece::Bishop => {
             srcs = our_pieces.bishop;
-            target_gen_func = bt::da_hyp_quint;
+            target_gen_func = magics::get_bishop_attacks;
         },
         SlidingPiece::Rook => {
             srcs = our_pieces.rook;
-            target_gen_func = bt::hv_hyp_quint;
+            target_gen_func = magics::get_rook_attacks;
         },
         SlidingPiece::Queen => {
             srcs = our_pieces.queen;
-            target_gen_func = bt::all_hyp_quint;
+            target_gen_func = magics::get_queen_attacks;
         }
     }
     while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
-        let mut targets: u64 = target_gen_func(pos.data.occ, src);
+        let mut targets: u64 = target_gen_func(bt::ilsb(src), pos.data.occ);
         targets &= !our_pieces.any;
         targets &= capture_mask | push_mask;
         // If piece is pinned, it can only move the direction directly to 

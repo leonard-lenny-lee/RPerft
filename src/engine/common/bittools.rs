@@ -154,7 +154,7 @@ pub fn forward_scan(mut n: u64) -> Vec<u64> {
 
 /// Uses the o-2s bit fiddling technique to find valid squares for sliding
 /// pieces, taking into account the occupancy of the current board
-pub fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
+pub const fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
     let m = masks[s.trailing_zeros() as usize];
     let mut forward: u64 = o & m;
     let mut reverse: u64 = forward.reverse_bits();
@@ -167,7 +167,7 @@ pub fn hyp_quint(o: u64, s: u64, masks: &[u64; 64]) -> u64 {
 
 /// Combined hyperbola quintesscence for the horizontal and vertical directions
 /// - the rook movement pattern
-pub fn hv_hyp_quint(o: u64, s: u64) -> u64 {
+pub const fn hv_hyp_quint(o: u64, s: u64) -> u64 {
     let mut result = EMPTY_BB;
     result |= hyp_quint(o, s, &MAPS.file);
     result |= hyp_quint(o, s, &MAPS.rank);
@@ -176,7 +176,7 @@ pub fn hv_hyp_quint(o: u64, s: u64) -> u64 {
 
 /// Combined hyperbola quintessence for the diagonal and anti-diagonal
 /// directions - the bishop movement pattern
-pub fn da_hyp_quint(o: u64, s: u64) -> u64 {
+pub const fn da_hyp_quint(o: u64, s: u64) -> u64 {
     let mut result = EMPTY_BB;
     result |= hyp_quint(o, s, &MAPS.diag);
     result |= hyp_quint(o, s, &MAPS.adiag);

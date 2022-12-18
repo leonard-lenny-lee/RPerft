@@ -8,6 +8,8 @@ use search::SearchNode;
 use common::*;
 use test_case::test_case;
 
+const HASHING_ENABLED: bool = true;
+
 /// Provides the number of nodes for down each branch of the first depth layer
 /// search. Useful for perft debugging purposes
 fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
@@ -44,8 +46,12 @@ fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
 
 fn perft(root_node: &SearchNode, depth: i8) -> i64 {
     assert!(depth >= 1);
-    let mut table = TranspositionTable::new(17_000_000);
-    perft_inner_with_table(root_node, depth, &mut table)
+    if HASHING_ENABLED {
+        let mut table = TranspositionTable::new(17_000_000);
+        perft_inner_with_table(root_node, depth, &mut table)
+    } else {
+        perft_inner(root_node, depth)
+    }
 }
 
 fn perft_inner(node: &SearchNode, depth: i8) -> i64 {
