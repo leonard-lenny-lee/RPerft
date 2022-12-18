@@ -5,6 +5,7 @@ use strum_macros::EnumIter;
 use super::*;
 
 pub mod bittools;
+pub mod magics;
 mod maps;
 
 pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

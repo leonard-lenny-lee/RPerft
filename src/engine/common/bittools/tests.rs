@@ -81,6 +81,13 @@ fn test_kiwipete_to_string() {
     print!("{}", out)
 }
 
+#[ignore]
+#[test]
+fn test_print_bb() {
+    let out = bitboard_to_string(0x000101010101017E);
+    print!("{}", out)
+}
+
 #[test]
 fn test_flip_vertical() {
     let bb = 0x8040201;
