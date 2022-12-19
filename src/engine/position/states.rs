@@ -11,6 +11,10 @@ pub(crate) trait State {
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
     fn color(&self) -> Color;
+    fn pawn_sgl_push(&self, src: u64) -> u64;
+    fn pawn_dbl_push(&self, src: u64) -> u64;
+    fn pawn_left_capture(&self, src: u64) -> u64;
+    fn pawn_right_capture(&self, src: u64) -> u64;
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64;
     fn pawn_dbl_push_targets(&self, pos: &Position) -> u64;
     fn pawn_lcap_targets(&self, pos: &Position) -> u64;
@@ -46,7 +50,7 @@ pub(crate) trait State {
 
 impl State for White {
 
-    fn promotion_rank(&self) -> u64 {RANK_8}
+    fn promotion_rank(&self) -> u64 {RANK_7}
     fn ep_capture_rank(&self) -> u64 {RANK_5}
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
@@ -62,6 +66,22 @@ impl State for White {
     fn our_qs_rook_starting_sq(&self) -> u64 {WQROOK}
     fn their_ks_rook_starting_sq(&self) -> u64 {BKROOK}
     fn their_qs_rook_starting_sq(&self) -> u64 {BQROOK}
+
+    fn pawn_sgl_push(&self, src: u64) -> u64 {
+        bt::north_one(src)
+    }
+
+    fn pawn_dbl_push(&self, src: u64) -> u64 {
+        bt::north_two(src)
+    }
+
+    fn pawn_left_capture(&self, src: u64) -> u64 {
+        bt::nort_west(src)
+    }
+
+    fn pawn_right_capture(&self, src: u64) -> u64 {
+        bt::nort_east(src)
+    }
 
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
         bt::north_one(
@@ -153,7 +173,7 @@ impl State for White {
 
 impl State for Black {
 
-    fn promotion_rank(&self) -> u64 {RANK_1}
+    fn promotion_rank(&self) -> u64 {RANK_2}
     fn ep_capture_rank(&self) -> u64 {RANK_4}
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
@@ -169,6 +189,22 @@ impl State for Black {
     fn our_qs_rook_starting_sq(&self) -> u64 {BQROOK}
     fn their_ks_rook_starting_sq(&self) -> u64 {WKROOK}
     fn their_qs_rook_starting_sq(&self) -> u64 {WQROOK}
+
+    fn pawn_sgl_push(&self, src: u64) -> u64 {
+        bt::south_one(src)
+    }
+
+    fn pawn_dbl_push(&self, src: u64) -> u64 {
+        bt::south_two(src)
+    }
+
+    fn pawn_left_capture(&self, src: u64) -> u64 {
+        bt::sout_west(src)
+    }
+
+    fn pawn_right_capture(&self, src: u64) -> u64 {
+        bt::sout_east(src)
+    }
 
     fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
         bt::south_one(

@@ -8,7 +8,7 @@ use search::SearchNode;
 use common::*;
 use test_case::test_case;
 
-const HASHING_ENABLED: bool = true;
+const HASHING_ENABLED: bool = false;
 
 /// Provides the number of nodes for down each branch of the first depth layer
 /// search. Useful for perft debugging purposes

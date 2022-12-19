@@ -75,32 +75,47 @@ pub fn find_single_pushes(
     move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
     pinned_pieces: u64
 ) {
-    let mut targets = pos.pawn_sgl_push_targets() & push_mask;
-    let mut srcs = pos.pawn_sgl_push_srcs(targets);
-    while targets != EMPTY_BB {
-        let target = bt::pop_lsb(&mut targets);
-        let src = bt::pop_lsb(&mut srcs);
-        // Check if the pawn is pinned, only allow moves towards/away from king
-        if src & pinned_pieces != EMPTY_BB {
-            let pin_mask = bt::ray_axis(
-                pos.our_pieces().king,
-                src
-            );
-            if target & pin_mask == EMPTY_BB {
-                continue;
-            }
-        }       
-        // Check if the target is a promotion square
-        if target & pos.promotion_rank() == EMPTY_BB {
+    let targets = pos.pawn_sgl_push_targets() & push_mask;
+    let srcs = pos.pawn_sgl_push_srcs(targets);
+    // Separate promoting pawns from non-promoting pawns
+    let mut promotion_pawns = srcs & pos.promotion_rank();
+    let mut normal_pawns = srcs ^ promotion_pawns;
+    // Separate pinned pawns
+    let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
+    promotion_pawns ^= pinned_promotion_pawns;
+    let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
+    normal_pawns ^= pinned_normal_pawns;
+    
+    // Normal pawns
+    while normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut normal_pawns);
+        let target = pos.pawn_sgl_push(src);
+        move_vec.push(Move::new_quiet_move(target, src))
+    }
+    // Promotion pawns
+    while promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut promotion_pawns);
+        let target = pos.pawn_sgl_push(src);
+        push_promotions(move_vec, target, src)
+    }
+    // For pinned pieces, only allow moves towards / away from the king
+    while pinned_normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_normal_pawns);
+        let mut target = pos.pawn_sgl_push(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
             move_vec.push(Move::new_quiet_move(target, src))
-        } else {
-            // Push all the permutations of a quiet promotion
-            move_vec.push(Move::new_queen_promotion(target, src));
-            move_vec.push(Move::new_knight_promotion(target, src));
-            move_vec.push(Move::new_bishop_promotion(target, src));
-            move_vec.push(Move::new_rook_promotion(target, src))
         }
     }
+    while pinned_promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_promotion_pawns);
+        let mut target = pos.pawn_sgl_push(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
+            push_promotions(move_vec, target, src)
+        }
+    }
+
 }
 
 /// Move generation function to find all pawn double pushes in a position
@@ -108,22 +123,23 @@ pub fn find_double_pushes(
     move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
     pinned_pieces: u64
 ) {
-    let mut targets = pos.pawn_dbl_push_targets() & push_mask;
+    let targets = pos.pawn_dbl_push_targets() & push_mask;
     let mut srcs = pos.pawn_dbl_push_srcs(targets);
-    while targets != EMPTY_BB {
-        let target = bt::pop_lsb(&mut targets);
+    let mut pinned_srcs = srcs & pinned_pieces;
+    srcs ^= pinned_srcs;
+    while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
-        // Check if the pawn is pinned, only allow moves towards/away from king
-        if src & pinned_pieces != EMPTY_BB {
-            let pin_mask = bt::ray_axis(
-                pos.our_pieces().king,
-                src
-            );
-            if target & pin_mask == EMPTY_BB {
-                continue;
-            }
-        }       
+        let target = pos.pawn_dbl_push(src);    
         move_vec.push(Move::new_double_pawn_push(target, src))
+    }
+    // For pinned pieces, only allow moves towards / away from the king
+    while pinned_srcs != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_srcs);
+        let mut target = pos.pawn_dbl_push(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
+            move_vec.push(Move::new_double_pawn_push(target, src))
+        }
     }
 }
 
@@ -132,30 +148,44 @@ pub fn find_left_captures(
     move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
     pinned_pieces: u64
 ) {
-    let mut targets = pos.pawn_lcap_targets() & capture_mask;
-    let mut srcs = pos.pawn_lcap_srcs(targets);
-    while targets != EMPTY_BB {
-        let target = bt::pop_lsb(&mut targets);
-        let src = bt::pop_lsb(&mut srcs);
-        // Check if the pawn is pinned, only allow moves towards/away from king
-        if src & pinned_pieces != EMPTY_BB {
-            let pin_mask = bt::ray_axis(
-                pos.our_pieces().king,
-                src
-            );
-            if target & pin_mask == EMPTY_BB {
-                continue;
-            }
-        }       
-        // Check if the target is a promotion square
-        if target & pos.promotion_rank() == EMPTY_BB {
+    let targets = pos.pawn_lcap_targets() & capture_mask;
+    let srcs = pos.pawn_lcap_srcs(targets);
+    // Separate promotion pawns from non-promoting pawns
+    let mut promotion_pawns = srcs & pos.promotion_rank();
+    let mut normal_pawns = srcs ^ promotion_pawns;
+    // Separate pinned pawns
+    let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
+    promotion_pawns ^= pinned_promotion_pawns;
+    let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
+    normal_pawns ^= pinned_normal_pawns;
+
+    // Normal pawns
+    while normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut normal_pawns);
+        let target = pos.pawn_left_capture(src);
+        move_vec.push(Move::new_capture(target, src))
+    }
+    // Promotion pawns
+    while promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut promotion_pawns);
+        let target = pos.pawn_left_capture(src);
+        push_promo_captures(move_vec, target, src)
+    }
+    // For pinned pieces, only allow moves towards / away from the king
+    while pinned_normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_normal_pawns);
+        let mut target = pos.pawn_left_capture(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
             move_vec.push(Move::new_capture(target, src))
-        } else {
-            // Push all the permutations of a quiet promotion
-            move_vec.push(Move::new_queen_promo_capture(target, src));
-            move_vec.push(Move::new_knight_promo_capture(target, src));
-            move_vec.push(Move::new_bishop_promo_capture(target, src));
-            move_vec.push(Move::new_rook_promo_capture(target, src))
+        }
+    }
+    while pinned_promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_promotion_pawns);
+        let mut target = pos.pawn_left_capture(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
+            push_promo_captures(move_vec, target, src)
         }
     }
 }
@@ -165,33 +195,48 @@ pub fn find_right_captures(
     move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
     pinned_pieces: u64
 ) {
-    let mut targets = pos.pawn_rcap_targets() & capture_mask;
-    let mut srcs = pos.pawn_rcap_srcs(targets);
-    while targets != EMPTY_BB {
-        let target = bt::pop_lsb(&mut targets);
-        let src = bt::pop_lsb(&mut srcs);
-        // Check if the pawn is pinned, only allow moves towards/away from king
-        if src & pinned_pieces != EMPTY_BB {
-            let pin_mask = bt::ray_axis(
-                pos.our_pieces().king,
-                src
-            );
-            if target & pin_mask == EMPTY_BB {
-                continue;
-            }
-        }       
-        // Check if the target is a promotion square
-        if target & pos.promotion_rank() == EMPTY_BB {
+    let targets = pos.pawn_rcap_targets() & capture_mask;
+    let srcs = pos.pawn_rcap_srcs(targets);
+    // Separate promotion pawns from non-promoting pawns
+    let mut promotion_pawns = srcs & pos.promotion_rank();
+    let mut normal_pawns = srcs ^ promotion_pawns;
+    // Separate pinned pawns
+    let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
+    promotion_pawns ^= pinned_promotion_pawns;
+    let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
+    normal_pawns ^= pinned_normal_pawns;
+
+    // Normal pawns
+    while normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut normal_pawns);
+        let target = pos.pawn_right_capture(src);
+        move_vec.push(Move::new_capture(target, src))
+    }
+    // Promotion pawns
+    while promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut promotion_pawns);
+        let target = pos.pawn_right_capture(src);
+        push_promo_captures(move_vec, target, src)
+    }
+    // For pinned pieces, only allow moves towards / away from the king
+    while pinned_normal_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_normal_pawns);
+        let mut target = pos.pawn_right_capture(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
             move_vec.push(Move::new_capture(target, src))
-        } else {
-            // Push all the permutations of a quiet promotion
-            move_vec.push(Move::new_queen_promo_capture(target, src));
-            move_vec.push(Move::new_knight_promo_capture(target, src));
-            move_vec.push(Move::new_bishop_promo_capture(target, src));
-            move_vec.push(Move::new_rook_promo_capture(target, src))
+        }
+    }
+    while pinned_promotion_pawns != EMPTY_BB {
+        let src = bt::pop_lsb(&mut pinned_promotion_pawns);
+        let mut target = pos.pawn_right_capture(src);
+        target &= bt::ray_axis(pos.our_pieces().king, src);
+        if target != EMPTY_BB {
+            push_promo_captures(move_vec, target, src)
         }
     }
 }
+
 
 /// Move generation function for knights
 pub fn find_knight_moves(
@@ -200,16 +245,14 @@ pub fn find_knight_moves(
 ) {
     let our_pieces = pos.our_pieces();
     let mut srcs = our_pieces.knight;
+    // Filter out knights which are pinned - pinned knights have no legal moves
+    srcs &= !pinned_pieces;
     while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
         let mut targets = MAPS.get_knight_map(src) & !our_pieces.any;
         // Only allow moves which either capture a checking piece or blocks
         // the check. These masks should be a FILLED_BB when no check.
         targets &= capture_mask | push_mask;
-        if src & pinned_pieces != EMPTY_BB {
-            // If knight is pinned, there are no legal moves
-            continue;
-        }
         find_quiet_moves_and_captures(move_vec, pos, targets, src)
     }
 }
@@ -256,13 +299,8 @@ pub fn find_sliding_moves(
         let mut targets: u64 = target_gen_func(bt::ilsb(src), pos.data.occ);
         targets &= !our_pieces.any;
         targets &= capture_mask | push_mask;
-        // If piece is pinned, it can only move the direction directly to 
-        // or from the king
-        if pinned_pieces & src != EMPTY_BB {
-            let pin_mask = bt::ray_axis(
-                our_pieces.king, src
-            );
-            targets &= pin_mask;
+        if src & pinned_pieces != EMPTY_BB {
+            targets &= bt::ray_axis(our_pieces.king, src);
         }
         find_quiet_moves_and_captures(move_vec, pos, targets, src)
     }
@@ -348,6 +386,22 @@ fn find_quiet_moves_and_captures(
         let target = bt::pop_lsb(&mut quiet_targets);
         move_vec.push(Move::new_quiet_move(target, src))
     }
+}
+
+/// Push all the permutations of a quiet promotion
+fn push_promotions(move_vec: &mut Vec<Move>, target: u64, src: u64) {
+    move_vec.push(Move::new_queen_promotion(target, src));
+    move_vec.push(Move::new_knight_promotion(target, src));
+    move_vec.push(Move::new_bishop_promotion(target, src));
+    move_vec.push(Move::new_rook_promotion(target, src))
+}
+
+/// Push all the permuations of a capture promotion
+fn push_promo_captures(move_vec: &mut Vec<Move>, target: u64, src: u64) {
+    move_vec.push(Move::new_queen_promo_capture(target, src));
+    move_vec.push(Move::new_knight_promo_capture(target, src));
+    move_vec.push(Move::new_bishop_promo_capture(target, src));
+    move_vec.push(Move::new_rook_promo_capture(target, src))
 }
 
 #[cfg(test)]

@@ -64,6 +64,18 @@ impl Position {
     pub fn their_qs_rook_starting_sq(&self) -> u64 {
         self.state.their_qs_rook_starting_sq()
     }
+    pub fn pawn_sgl_push(&self, src: u64) -> u64 {
+        self.state.pawn_sgl_push(src)
+    }
+    pub fn pawn_dbl_push(&self, src: u64) -> u64 {
+        self.state.pawn_dbl_push(src)
+    }
+    pub fn pawn_left_capture(&self, src: u64) -> u64 {
+        self.state.pawn_left_capture(src)
+    }
+    pub fn pawn_right_capture(&self, src: u64) -> u64 {
+        self.state.pawn_right_capture(src)
+    }
     /// Return the single push target squares of our pawns
     pub fn pawn_sgl_push_targets(&self) -> u64 {
         self.state.pawn_sgl_push_targets(self)
