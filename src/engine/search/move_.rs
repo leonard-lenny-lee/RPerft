@@ -34,113 +34,180 @@ pub struct Move {
     word_two: u8,
 }
 
+pub struct MoveList {
+    move_list: Vec<Move>
+}
+
+impl MoveList {
+
+    pub fn new() -> MoveList {
+        MoveList {
+            // Based on an average branching factor of 35
+            move_list: Vec::with_capacity(45)
+        }
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<Move> {
+        self.move_list.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.move_list.len()
+    }
+    
+    pub fn add_quiet_move(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_quiet_move(target, src))
+    }
+
+    pub fn add_double_pawn_push(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_double_pawn_push(target, src))
+    }
+
+    pub fn add_short_castle(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_short_castle(target, src))
+    }
+
+    pub fn add_long_castle(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_long_castle(target, src))
+    }
+
+    pub fn add_capture(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_capture(target, src))
+    }
+
+    pub fn add_en_passant_capture(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_ep_capture(target, src))
+    }
+
+    pub fn add_promotions(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_queen_promotion(target, src));
+        self.move_list.push(Move::new_knight_promotion(target, src));
+        self.move_list.push(Move::new_rook_promotion(target, src));
+        self.move_list.push(Move::new_bishop_promotion(target, src))
+    }
+
+    pub fn add_promotion_captures(&mut self, target: u64, src: u64) {
+        self.move_list.push(Move::new_queen_promo_capture(target, src));
+        self.move_list.push(Move::new_knight_promo_capture(target, src));
+        self.move_list.push(Move::new_rook_promo_capture(target, src));
+        self.move_list.push(Move::new_bishop_promo_capture(target, src))
+    }
+
+}
+
+impl std::ops::Index<usize> for MoveList {
+
+    type Output = Move;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.move_list.index(index)
+    }
+
+}
+
 impl Move {
 
-    pub fn new_quiet_move(target: u64, src: u64) -> Move {
+    fn new_quiet_move(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src),
-            word_two: Move::encode_target(target),
+            word_one: Move::encode_square(src),
+            word_two: Move::encode_square(target),
         }
     }
 
-    pub fn new_double_pawn_push(target: u64, src: u64) -> Move {
+    fn new_double_pawn_push(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src),
-            word_two: Move::encode_target(target) | SPECIAL_2
+            word_one: Move::encode_square(src),
+            word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    pub fn new_short_castle(target: u64, src: u64) -> Move {
+    fn new_short_castle(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src),
-            word_two: Move::encode_target(target) | SPECIAL_1
+            word_one: Move::encode_square(src),
+            word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    pub fn new_long_castle(target: u64, src: u64) -> Move {
+    fn new_long_castle(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src),
-            word_two: Move::encode_target(target) | SPECIAL_X
+            word_one: Move::encode_square(src),
+            word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    pub fn new_capture(target: u64, src: u64) -> Move {
+    fn new_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_2,
-            word_two: Move::encode_target(target)
+            word_one: Move::encode_square(src) | SPECIAL_2,
+            word_two: Move::encode_square(target)
         }
     }
 
-    pub fn new_ep_capture(target: u64, src: u64) -> Move {
+    fn new_ep_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_2,
-            word_two: Move::encode_target(target) | SPECIAL_2
+            word_one: Move::encode_square(src) | SPECIAL_2,
+            word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    pub fn new_knight_promotion(target: u64, src: u64) -> Move {
+    fn new_knight_promotion(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_1,
-            word_two: Move::encode_target(target)
+            word_one: Move::encode_square(src) | SPECIAL_1,
+            word_two: Move::encode_square(target)
         }
     }
 
-    pub fn new_bishop_promotion(target: u64, src: u64) -> Move {
+    fn new_bishop_promotion(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_1,
-            word_two: Move::encode_target(target) | SPECIAL_2
+            word_one: Move::encode_square(src) | SPECIAL_1,
+            word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    pub fn new_rook_promotion(target: u64, src: u64) -> Move {
+    fn new_rook_promotion(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_1,
-            word_two: Move::encode_target(target) | SPECIAL_1
+            word_one: Move::encode_square(src) | SPECIAL_1,
+            word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    pub fn new_queen_promotion(target: u64, src: u64) -> Move {
+    fn new_queen_promotion(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_1,
-            word_two: Move::encode_target(target) | SPECIAL_X
+            word_one: Move::encode_square(src) | SPECIAL_1,
+            word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    pub fn new_knight_promo_capture(target: u64, src: u64) -> Move {
+    fn new_knight_promo_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_X,
-            word_two: Move::encode_target(target)
+            word_one: Move::encode_square(src) | SPECIAL_X,
+            word_two: Move::encode_square(target)
         }
     }
 
-    pub fn new_bishop_promo_capture(target: u64, src: u64) -> Move {
+    fn new_bishop_promo_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_X,
-            word_two: Move::encode_target(target) | SPECIAL_2
+            word_one: Move::encode_square(src) | SPECIAL_X,
+            word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    pub fn new_rook_promo_capture(target: u64, src: u64) -> Move {
+    fn new_rook_promo_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_X,
-            word_two: Move::encode_target(target) | SPECIAL_1
+            word_one: Move::encode_square(src) | SPECIAL_X,
+            word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    pub fn new_queen_promo_capture(target: u64, src: u64) -> Move {
+    fn new_queen_promo_capture(target: u64, src: u64) -> Move {
         return Move {
-            word_one: Move::encode_src(src) | SPECIAL_X,
-            word_two: Move::encode_target(target) | SPECIAL_X
+            word_one: Move::encode_square(src) | SPECIAL_X,
+            word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    fn encode_target(target: u64) -> u8 {
-        bt::ilsb_u8(target)
+    fn encode_square(square: u64) -> u8 {
+        bt::ilsb_u8(square)
     }
-
-    fn encode_src(src: u64) -> u8 {
-        bt::ilsb_u8(src)
-    } 
 
     /// Decode the target into a one bit bitmask
     pub fn target(&self) -> u64 {

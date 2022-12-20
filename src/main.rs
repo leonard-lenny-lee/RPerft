@@ -1,13 +1,8 @@
-use chess_engine::*;
-// fn init(fen: Option<String>) -> global::State {
-//     let ctx = global::State::new_from_fen(common::DEFAULT_FEN.to_string());
-//     return ctx;
-// }
+use chess_engine::engine::*;
+use global::Global;
+
 fn main() {
-    let attacker: u64 = 1 << 48;
-    let king = 1 << 20;
-    let string = engine::common::bittools::bitboard_to_string(
-        engine::common::bittools::connect_squares(attacker, king)
-    );
-    print!("{}", string)
+    let mut global = Global {
+        hashing_enabled: true
+    };
 }

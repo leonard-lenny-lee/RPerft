@@ -5,9 +5,9 @@ use position::{Position, analysis_tools};
 
 /// The master move finding function - finds all legal moves in a
 /// position and returns the list of legal moves as a vector of moves
-pub fn find_moves(pos: &Position) -> Vec<Move> {
+pub fn find_moves(pos: &Position) -> MoveList {
     // Initialise variables
-    let mut move_vec: Vec<Move> = Vec::new();
+    let mut move_list: MoveList = MoveList::new();
     let unsafe_squares = analysis_tools::find_unsafe_squares(pos);
     let checkers = analysis_tools::find_checkers(pos);
     let pinned_pieces = analysis_tools::get_pinned_pieces_for(pos);
@@ -17,8 +17,8 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
     let mut push_mask: u64 = FILLED_BB;
     // If the king is in double check, only king moves to safe squares are valid
     if n_checkers > 1 {
-        find_king_moves(&mut move_vec, pos, unsafe_squares);
-        return move_vec;
+        find_king_moves(&mut move_list, pos, unsafe_squares);
+        return move_list;
     }
     if n_checkers == 1 {
         // This means the king is in single check so moves are only legal if
@@ -40,31 +40,31 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
     }
 
     // Add all moves to the move vector
-    find_single_pushes(&mut move_vec, pos, push_mask, pinned_pieces);
-    find_double_pushes(&mut move_vec, pos, push_mask, pinned_pieces);
-    find_right_captures(&mut move_vec, pos, capture_mask, pinned_pieces);
-    find_left_captures(&mut move_vec, pos, capture_mask, pinned_pieces);
+    find_single_pushes(&mut move_list, pos, push_mask, pinned_pieces);
+    find_double_pushes(&mut move_list, pos, push_mask, pinned_pieces);
+    find_right_captures(&mut move_list, pos, capture_mask, pinned_pieces);
+    find_left_captures(&mut move_list, pos, capture_mask, pinned_pieces);
     find_knight_moves(
-        &mut move_vec, pos, capture_mask,
+        &mut move_list, pos, capture_mask,
         push_mask, pinned_pieces
     );
     find_king_moves(
-        &mut move_vec, pos, unsafe_squares
+        &mut move_list, pos, unsafe_squares
     );
     for piece in SlidingPiece::iter() {
         find_sliding_moves(
-            &mut move_vec, pos, piece, capture_mask, 
+            &mut move_list, pos, piece, capture_mask, 
             push_mask, pinned_pieces
         )
     }
     // Castling is only allowed if not in check
     if n_checkers == 0 {
-        find_castling_moves(&mut move_vec, pos, unsafe_squares);
+        find_castling_moves(&mut move_list, pos, unsafe_squares);
     }
     find_en_passant_moves(
-        &mut move_vec, pos, capture_mask, push_mask, pinned_pieces
+        &mut move_list, pos, capture_mask, push_mask, pinned_pieces
     );
-    return move_vec;
+    return move_list;
 }
 
 /// Move generation functions. These accept a mutable move vector reference as
@@ -72,7 +72,7 @@ pub fn find_moves(pos: &Position) -> Vec<Move> {
 
 /// Move generation function to find all pawn single pushes in a position.
 pub fn find_single_pushes(
-    move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
+    move_list: &mut MoveList, pos: &Position, push_mask: u64,
     pinned_pieces: u64
 ) {
     let targets = pos.pawn_sgl_push_targets() & push_mask;
@@ -90,13 +90,13 @@ pub fn find_single_pushes(
     while normal_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut normal_pawns);
         let target = pos.pawn_sgl_push(src);
-        move_vec.push(Move::new_quiet_move(target, src))
+        move_list.add_quiet_move(target, src);
     }
     // Promotion pawns
     while promotion_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut promotion_pawns);
         let target = pos.pawn_sgl_push(src);
-        push_promotions(move_vec, target, src)
+        move_list.add_promotions(target, src);
     }
     // For pinned pieces, only allow moves towards / away from the king
     while pinned_normal_pawns != EMPTY_BB {
@@ -104,7 +104,7 @@ pub fn find_single_pushes(
         let mut target = pos.pawn_sgl_push(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            move_vec.push(Move::new_quiet_move(target, src))
+            move_list.add_quiet_move(target, src);
         }
     }
     while pinned_promotion_pawns != EMPTY_BB {
@@ -112,7 +112,7 @@ pub fn find_single_pushes(
         let mut target = pos.pawn_sgl_push(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            push_promotions(move_vec, target, src)
+            move_list.add_promotions(target, src);
         }
     }
 
@@ -120,7 +120,7 @@ pub fn find_single_pushes(
 
 /// Move generation function to find all pawn double pushes in a position
 pub fn find_double_pushes(
-    move_vec: &mut Vec<Move>, pos: &Position, push_mask: u64,
+    move_list: &mut MoveList, pos: &Position, push_mask: u64,
     pinned_pieces: u64
 ) {
     let targets = pos.pawn_dbl_push_targets() & push_mask;
@@ -130,7 +130,7 @@ pub fn find_double_pushes(
     while srcs != EMPTY_BB {
         let src = bt::pop_lsb(&mut srcs);
         let target = pos.pawn_dbl_push(src);    
-        move_vec.push(Move::new_double_pawn_push(target, src))
+        move_list.add_double_pawn_push(target, src);
     }
     // For pinned pieces, only allow moves towards / away from the king
     while pinned_srcs != EMPTY_BB {
@@ -138,14 +138,14 @@ pub fn find_double_pushes(
         let mut target = pos.pawn_dbl_push(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            move_vec.push(Move::new_double_pawn_push(target, src))
+            move_list.add_double_pawn_push(target, src);
         }
     }
 }
 
 /// Move generation function to find all pawn left captures in a position
 pub fn find_left_captures(
-    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    move_list: &mut MoveList, pos: &Position, capture_mask: u64,
     pinned_pieces: u64
 ) {
     let targets = pos.pawn_lcap_targets() & capture_mask;
@@ -163,13 +163,13 @@ pub fn find_left_captures(
     while normal_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut normal_pawns);
         let target = pos.pawn_left_capture(src);
-        move_vec.push(Move::new_capture(target, src))
+        move_list.add_capture(target, src);
     }
     // Promotion pawns
     while promotion_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut promotion_pawns);
         let target = pos.pawn_left_capture(src);
-        push_promo_captures(move_vec, target, src)
+        move_list.add_promotion_captures(target, src);
     }
     // For pinned pieces, only allow moves towards / away from the king
     while pinned_normal_pawns != EMPTY_BB {
@@ -177,7 +177,7 @@ pub fn find_left_captures(
         let mut target = pos.pawn_left_capture(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            move_vec.push(Move::new_capture(target, src))
+            move_list.add_capture(target, src);
         }
     }
     while pinned_promotion_pawns != EMPTY_BB {
@@ -185,14 +185,14 @@ pub fn find_left_captures(
         let mut target = pos.pawn_left_capture(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            push_promo_captures(move_vec, target, src)
+            move_list.add_promotion_captures(target, src);
         }
     }
 }
 
 /// Move generation function to find all pawn right captures in a position
 pub fn find_right_captures(
-    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    move_list: &mut MoveList, pos: &Position, capture_mask: u64,
     pinned_pieces: u64
 ) {
     let targets = pos.pawn_rcap_targets() & capture_mask;
@@ -210,13 +210,13 @@ pub fn find_right_captures(
     while normal_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut normal_pawns);
         let target = pos.pawn_right_capture(src);
-        move_vec.push(Move::new_capture(target, src))
+        move_list.add_capture(target, src);
     }
     // Promotion pawns
     while promotion_pawns != EMPTY_BB {
         let src = bt::pop_lsb(&mut promotion_pawns);
         let target = pos.pawn_right_capture(src);
-        push_promo_captures(move_vec, target, src)
+        move_list.add_promotion_captures(target, src);
     }
     // For pinned pieces, only allow moves towards / away from the king
     while pinned_normal_pawns != EMPTY_BB {
@@ -224,7 +224,7 @@ pub fn find_right_captures(
         let mut target = pos.pawn_right_capture(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            move_vec.push(Move::new_capture(target, src))
+            move_list.add_capture(target, src);
         }
     }
     while pinned_promotion_pawns != EMPTY_BB {
@@ -232,7 +232,7 @@ pub fn find_right_captures(
         let mut target = pos.pawn_right_capture(src);
         target &= bt::ray_axis(pos.our_pieces().king, src);
         if target != EMPTY_BB {
-            push_promo_captures(move_vec, target, src)
+            move_list.add_promotion_captures(target, src);
         }
     }
 }
@@ -240,7 +240,7 @@ pub fn find_right_captures(
 
 /// Move generation function for knights
 pub fn find_knight_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, 
+    move_list: &mut MoveList, pos: &Position, 
     capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
@@ -253,13 +253,13 @@ pub fn find_knight_moves(
         // Only allow moves which either capture a checking piece or blocks
         // the check. These masks should be a FILLED_BB when no check.
         targets &= capture_mask | push_mask;
-        find_quiet_moves_and_captures(move_vec, pos, targets, src)
+        find_quiet_moves_and_captures(move_list, pos, targets, src)
     }
 }
 
 /// Move generation function for kings
 pub fn find_king_moves(
-    move_vec: &mut Vec<Move>, pos: &Position,
+    move_list: &mut MoveList, pos: &Position,
     unsafe_squares: u64
 ) {
     let our_pieces = pos.our_pieces();
@@ -268,13 +268,13 @@ pub fn find_king_moves(
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
     targets &= !unsafe_squares;
-    find_quiet_moves_and_captures(move_vec, pos, targets, src)
+    find_quiet_moves_and_captures(move_list, pos, targets, src)
 }
 
 /// General move generation function for sliding pieces - Rooks, Bishops and
 /// Queens
 pub fn find_sliding_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, piece: SlidingPiece,
+    move_list: &mut MoveList, pos: &Position, piece: SlidingPiece,
     capture_mask: u64, push_mask: u64, pinned_pieces: u64,
 ) {
     let our_pieces = pos.our_pieces();
@@ -302,7 +302,7 @@ pub fn find_sliding_moves(
         if src & pinned_pieces != EMPTY_BB {
             targets &= bt::ray_axis(our_pieces.king, src);
         }
-        find_quiet_moves_and_captures(move_vec, pos, targets, src)
+        find_quiet_moves_and_captures(move_list, pos, targets, src)
     }
 }
 
@@ -310,7 +310,7 @@ pub fn find_sliding_moves(
 
 /// Move generation function for en passant captures
 pub fn find_en_passant_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, capture_mask: u64,
+    move_list: &mut MoveList, pos: &Position, capture_mask: u64,
     push_mask: u64, pinned_pieces: u64
 ) {
     let target = pos.data.en_passant_target_sq;
@@ -345,13 +345,13 @@ pub fn find_en_passant_moves(
                 continue;
             }
         }
-        move_vec.push(Move::new_ep_capture(target, src))
+        move_list.add_en_passant_capture(target, src);
     }
     
 }
 
 pub fn find_castling_moves(
-    move_vec: &mut Vec<Move>, pos: &Position, unsafe_squares: u64
+    move_list: &mut MoveList, pos: &Position, unsafe_squares: u64
 ) {
     let src = pos.our_pieces().king;
     // Kingside castle
@@ -359,14 +359,14 @@ pub fn find_castling_moves(
         && (pos.kingside_castle_mask() & pos.data.occ) == EMPTY_BB
         && (pos.kingside_castle_mask() & unsafe_squares) == EMPTY_BB 
     {
-        move_vec.push(Move::new_short_castle(bt::east_two(src), src))
+        move_list.add_short_castle(bt::east_two(src), src)
     }
     // Queenside castle
     if pos.our_queenside_castle()
         && (pos.queenside_castle_mask_free() & pos.data.occ) == EMPTY_BB
         && (pos.queenside_castle_mask_safe() & unsafe_squares) == EMPTY_BB
     {
-        move_vec.push(Move::new_long_castle(bt::west_two(src), src))
+        move_list.add_long_castle(bt::west_two(src), src)
     }
 }
 
@@ -374,34 +374,18 @@ pub fn find_castling_moves(
 /// indeterminate. Seperates out the capture moves from the quiet moves and
 /// adds them to the move vector
 fn find_quiet_moves_and_captures(
-    move_vec: &mut Vec<Move>, pos: &Position, targets: u64, src: u64
+    move_list: &mut MoveList, pos: &Position, targets: u64, src: u64
 ) {
     let mut capture_targets = targets & pos.their_pieces().any;
     let mut quiet_targets = targets & pos.data.free;
     while capture_targets != EMPTY_BB {
         let target = bt::pop_lsb(&mut capture_targets);
-        move_vec.push(Move::new_capture(target, src))
+        move_list.add_capture(target, src);
     }
     while quiet_targets != EMPTY_BB {
         let target = bt::pop_lsb(&mut quiet_targets);
-        move_vec.push(Move::new_quiet_move(target, src))
+        move_list.add_quiet_move(target, src);
     }
-}
-
-/// Push all the permutations of a quiet promotion
-fn push_promotions(move_vec: &mut Vec<Move>, target: u64, src: u64) {
-    move_vec.push(Move::new_queen_promotion(target, src));
-    move_vec.push(Move::new_knight_promotion(target, src));
-    move_vec.push(Move::new_bishop_promotion(target, src));
-    move_vec.push(Move::new_rook_promotion(target, src))
-}
-
-/// Push all the permuations of a capture promotion
-fn push_promo_captures(move_vec: &mut Vec<Move>, target: u64, src: u64) {
-    move_vec.push(Move::new_queen_promo_capture(target, src));
-    move_vec.push(Move::new_knight_promo_capture(target, src));
-    move_vec.push(Move::new_bishop_promo_capture(target, src));
-    move_vec.push(Move::new_rook_promo_capture(target, src))
 }
 
 #[cfg(test)]
@@ -411,9 +395,9 @@ mod tests {
 
     use test_case::test_case;
 
-    fn generate_targets(move_vec: Vec<Move>) -> u64 {
+    fn generate_targets(move_list: MoveList) -> u64 {
         let mut targets = EMPTY_BB;
-        for mv in move_vec {
+        for mv in move_list.iter() {
             targets |= mv.target();
         }
         return targets
@@ -426,10 +410,10 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
-        find_single_pushes( &mut move_vec, &pos, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        let mut move_list = MoveList::new();
+        find_single_pushes( &mut move_list, &pos, FILLED_BB, EMPTY_BB);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets);
     }
@@ -441,10 +425,10 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
-        find_double_pushes(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        let mut move_list = MoveList::new();
+        find_double_pushes(&mut move_list, &pos, FILLED_BB, EMPTY_BB);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -455,10 +439,10 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
-        find_left_captures(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        let mut move_list = MoveList::new();
+        find_left_captures(&mut move_list, &pos, FILLED_BB, EMPTY_BB);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -470,10 +454,10 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
-        find_right_captures(&mut move_vec, &pos, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        let mut move_list = MoveList::new();
+        find_right_captures(&mut move_list, &pos, FILLED_BB, EMPTY_BB);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -484,16 +468,16 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_knight_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             FILLED_BB,
             FILLED_BB, 
             EMPTY_BB,
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -504,14 +488,14 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_king_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             EMPTY_BB
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -523,17 +507,17 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_sliding_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             SlidingPiece::Bishop, 
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -544,17 +528,17 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_sliding_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             SlidingPiece::Rook,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -566,17 +550,17 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_sliding_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             SlidingPiece::Queen,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB, 
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -587,16 +571,16 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_en_passant_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             FILLED_BB,
             FILLED_BB,
             EMPTY_BB,
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -607,14 +591,14 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_targets: Vec<i32>
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let mut move_vec = Vec::new();
+        let mut move_list = MoveList::new();
         find_castling_moves(
-            &mut move_vec,
+            &mut move_list,
             &pos,
             EMPTY_BB,
         );
-        assert_eq!(expected_nodes, move_vec.len() as i32);
-        let targets = generate_targets(move_vec);
+        assert_eq!(expected_nodes, move_list.len() as i32);
+        let targets = generate_targets(move_list);
         let expected_targets = squares_to_bitboard(expected_targets);
         assert_eq!(expected_targets, targets)
     }
@@ -627,14 +611,14 @@ mod tests {
         fen: &str, expected_nodes: i32, expected_captures: i32,
     ) {
         let pos = Position::new_from_fen(fen.to_string());
-        let move_vec = find_moves(&pos);
+        let move_list = find_moves(&pos);
         let mut n_captures = 0;
-        for mv in &move_vec {
+        for mv in move_list.iter() {
             if mv.is_capture() {
                 n_captures += 1
             }
         }
-        assert_eq!(expected_nodes, move_vec.len() as i32, "nodes");
+        assert_eq!(expected_nodes, move_list.len() as i32, "nodes");
         assert_eq!(expected_captures, n_captures, "captures")
     }
 }

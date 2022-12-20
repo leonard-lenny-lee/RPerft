@@ -51,17 +51,16 @@ pub enum ASCIIBases {
     Zero = 48,
 }
 
-pub enum Promotion {
-    None = 0,
+pub enum PromotionPiece {
     Rook = 2,
     Knight = 3,
     Bishop = 4,
     Queen = 5,
 }
 
-impl Promotion {
-    pub fn iterator() -> Vec<Promotion> {
-        use Promotion::*;
+impl PromotionPiece {
+    pub fn iterator() -> Vec<PromotionPiece> {
+        use PromotionPiece::*;
         return vec![Rook, Knight, Bishop, Queen];
     }
 }

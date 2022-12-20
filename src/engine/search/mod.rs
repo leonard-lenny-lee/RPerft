@@ -7,7 +7,7 @@ pub mod move_generation;
 pub mod apply_move;
 pub mod move_;
 
-pub use move_::Move;
+pub use move_::{Move, MoveList};
 use evaluation::Evaluation;
 use position::{Position, ZobristKey};
 

@@ -15,8 +15,8 @@ const HASHING_ENABLED: bool = false;
 fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
     assert!(depth >= 1);
     let mut nodes = 0;
-    let moves = find_moves(&root_node.pos);
-    for mv in &moves {
+    let move_list = find_moves(&root_node.pos);
+    for mv in move_list.iter() {
         let new_node = apply_move(root_node, mv);
         let branch_nodes;
         if depth == 1 {
@@ -59,8 +59,8 @@ fn perft_inner(node: &SearchNode, depth: i8) -> i64 {
     if depth == 1 {
         return find_moves(&node.pos).len() as i64;
     }
-    let moves = find_moves(&node.pos);
-    for mv in &moves {
+    let move_list = find_moves(&node.pos);
+    for mv in move_list.iter() {
         let new_node = apply_move(&node, mv);
         nodes += perft_inner(&new_node, depth-1);
     }
@@ -78,8 +78,8 @@ fn perft_inner_with_table(
     if depth == 1 {
         return find_moves(&node.pos).len() as i64;
     }
-    let moves = find_moves(&node.pos);
-    for mv in &moves {
+    let move_list = find_moves(&node.pos);
+    for mv in move_list.iter() {
         let new_node = apply_move(&node, mv);
         nodes += perft_inner_with_table(&new_node, depth-1, table);
     }

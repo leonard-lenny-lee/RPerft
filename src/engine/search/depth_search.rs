@@ -12,8 +12,8 @@ pub fn nega_max(node: &SearchNode, depth: i8) -> i32 {
     if depth == 0 {
         return node.eval.get_eval()
     }
-    let moves = find_moves(&node.pos);
-    if moves.len() == 0 {
+    let move_list = find_moves(&node.pos);
+    if move_list.len() == 0 {
         let n_checkers = find_checkers(&node.pos).count_ones();
         if n_checkers > 0 {
             return NEGATIVE_INFINITY // Checkmate
@@ -22,7 +22,7 @@ pub fn nega_max(node: &SearchNode, depth: i8) -> i32 {
         }
     }
     let mut max_evaluation = NEGATIVE_INFINITY;
-    for mv in moves {
+    for mv in move_list.iter() {
         let new_node = apply_move(&node, &mv);
         let evaluation = -nega_max(&new_node, depth - 1);
         if evaluation > max_evaluation {
@@ -39,8 +39,8 @@ pub fn alpha_beta(
     if depth == 0 {
         return node.eval.get_eval()
     }
-    let moves = find_moves(&node.pos);
-    if moves.len() == 0 {
+    let move_list = find_moves(&node.pos);
+    if move_list.len() == 0 {
         let n_checkers = find_checkers(&node.pos).count_ones();
         if n_checkers > 0 {
             return NEGATIVE_INFINITY // Checkmate
@@ -48,7 +48,7 @@ pub fn alpha_beta(
             return 0 // Stalemate
         }
     }
-    for mv in moves {
+    for mv in move_list.iter() {
         let new_pos = apply_move(node, &mv);
         let evaluation = -alpha_beta(
             &new_pos, depth - 1, -alpha, -beta

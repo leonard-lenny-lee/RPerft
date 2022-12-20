@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use chess_engine::engine::{*, search::SearchNode};
+use chess_engine::engine::{*, search::{SearchNode, MoveList}};
 use position::Position;
 use common::*;
 
@@ -16,7 +16,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
     use position::analysis_tools::*;
 
     let pos = &setup();
-    let mut move_vec = Vec::new();
+    let mut move_list = MoveList::new();
 
     c.bench_function(
         "find_moves",
@@ -58,7 +58,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_pawn_moves",
         |b| b.iter(
             || find_single_pushes(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 FILLED_BB,
                 EMPTY_BB,
@@ -70,7 +70,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_knight_moves",
         |b| b.iter(
             || find_knight_moves(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 FILLED_BB,
                 FILLED_BB,
@@ -83,7 +83,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_king_moves",
         |b| b.iter(
             || find_king_moves(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 EMPTY_BB
             )
@@ -94,7 +94,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_sliding_moves",
         |b| b.iter(
             || find_sliding_moves(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 SlidingPiece::Bishop,
                 FILLED_BB,
@@ -108,7 +108,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_en_passant",
         |b| b.iter(
             || find_en_passant_moves(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 FILLED_BB,
                 FILLED_BB,
@@ -121,7 +121,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
         "find_castling",
         |b| b.iter(
             || find_castling_moves(
-                black_box(&mut move_vec),
+                black_box(&mut move_list),
                 black_box(&pos),
                 EMPTY_BB,
             )
