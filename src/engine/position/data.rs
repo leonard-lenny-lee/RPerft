@@ -49,7 +49,7 @@ impl Data {
         let rev_board = &split_board.join("")[..];
         let mut i = 0;
         for mut char in rev_board.chars() {
-            let mask: u64 = 1 << i;
+            let mask = BB::from_index(i as usize);
             if char.is_alphabetic() {
                 // If the character is alphabetic, then it represents a piece;
                 // populate the relevant bitboard
@@ -105,7 +105,7 @@ impl Data {
         if epts == "-" {
             target_sq = EMPTY_BB;
         } else {
-            target_sq = bittools::algebraic_to_bitmask(epts);
+            target_sq = BB::from_algebraic(epts);
         }
         self.en_passant_target_sq = target_sq;
     }
@@ -175,7 +175,6 @@ impl Data {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bittools::squares_to_bitboard as stb;
     use test_case::test_case;
 
     #[test]
@@ -196,19 +195,19 @@ mod tests {
         // White pieces
         assert_eq!(data.w_pieces.any, RANK_1 | RANK_2, "w.any");
         assert_eq!(data.w_pieces.pawn, RANK_2, "w.pawn");
-        assert_eq!(data.w_pieces.rook, stb(vec![0, 7]), "w.rook");
-        assert_eq!(data.w_pieces.knight, stb(vec![1, 6]), "w.knight");
-        assert_eq!(data.w_pieces.bishop, stb(vec![2, 5]), "w.bishop");
-        assert_eq!(data.w_pieces.queen, stb(vec![3]), "w.queen");
-        assert_eq!(data.w_pieces.king, stb(vec![4]), "w.king");
+        assert_eq!(data.w_pieces.rook, BB::from_indices(vec![0, 7]), "w.rook");
+        assert_eq!(data.w_pieces.knight, BB::from_indices(vec![1, 6]), "w.knight");
+        assert_eq!(data.w_pieces.bishop, BB::from_indices(vec![2, 5]), "w.bishop");
+        assert_eq!(data.w_pieces.queen, BB::from_indices(vec![3]), "w.queen");
+        assert_eq!(data.w_pieces.king, BB::from_indices(vec![4]), "w.king");
         // Black pieces
         assert_eq!(data.b_pieces.any, RANK_7 | RANK_8, "b.any");
         assert_eq!(data.b_pieces.pawn, RANK_7, "b.pawn");
-        assert_eq!(data.b_pieces.rook, stb(vec![56, 63]), "b.rook");
-        assert_eq!(data.b_pieces.knight, stb(vec![57, 62]), "b.knight");
-        assert_eq!(data.b_pieces.bishop, stb(vec![58, 61]), "b.bishop");
-        assert_eq!(data.b_pieces.queen, stb(vec![59]), "b.queen");
-        assert_eq!(data.b_pieces.king, stb(vec![60]), "b.king");
+        assert_eq!(data.b_pieces.rook, BB::from_indices(vec![56, 63]), "b.rook");
+        assert_eq!(data.b_pieces.knight, BB::from_indices(vec![57, 62]), "b.knight");
+        assert_eq!(data.b_pieces.bishop, BB::from_indices(vec![58, 61]), "b.bishop");
+        assert_eq!(data.b_pieces.queen, BB::from_indices(vec![59]), "b.queen");
+        assert_eq!(data.b_pieces.king, BB::from_indices(vec![60]), "b.king");
         // Universal bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
         let expected_free = !expected_occ;
@@ -246,8 +245,8 @@ mod tests {
     }
 
     #[test_case("-", EMPTY_BB; "empty")]
-    #[test_case("e6", 1 << 44; "e6")]
-    fn test_set_en_passant(test: &str, expected: u64) {
+    #[test_case("e6", BB::from_index(44); "e6")]
+    fn test_set_en_passant(test: &str, expected: BB) {
         let mut data = Data::new();
         data.set_en_passant(test);
         assert_eq!(data.en_passant_target_sq, expected)
@@ -265,5 +264,15 @@ mod tests {
         let mut data = Data::new();
         data.set_fullmove_clock("0");
         assert_eq!(data.fullmove_clock, 0)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_position() {
+        let position = Position::new_from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2".to_string());
+        let out = position.to_string();
+        print!("{}\nEn passant square: {}\nCastling: {} {} {} {}\n", 
+        out, position.data.en_passant_target_sq.to_index(), position.data.w_kingside_castle,
+        position.data.w_queenside_castle, position.data.b_kingside_castle, position.data.b_queenside_castle);
     }
 }

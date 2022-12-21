@@ -1,5 +1,3 @@
-use crate::disc;
-
 use super::*;
 
 const FROM_TO: u8 = 63;    // xx111111
@@ -55,38 +53,38 @@ impl MoveList {
         self.move_list.len()
     }
     
-    pub fn add_quiet_move(&mut self, target: u64, src: u64) {
+    pub fn add_quiet_move(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_quiet_move(target, src))
     }
 
-    pub fn add_double_pawn_push(&mut self, target: u64, src: u64) {
+    pub fn add_double_pawn_push(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_double_pawn_push(target, src))
     }
 
-    pub fn add_short_castle(&mut self, target: u64, src: u64) {
+    pub fn add_short_castle(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_short_castle(target, src))
     }
 
-    pub fn add_long_castle(&mut self, target: u64, src: u64) {
+    pub fn add_long_castle(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_long_castle(target, src))
     }
 
-    pub fn add_capture(&mut self, target: u64, src: u64) {
+    pub fn add_capture(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_capture(target, src))
     }
 
-    pub fn add_en_passant_capture(&mut self, target: u64, src: u64) {
+    pub fn add_en_passant_capture(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_ep_capture(target, src))
     }
 
-    pub fn add_promotions(&mut self, target: u64, src: u64) {
+    pub fn add_promotions(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_queen_promotion(target, src));
         self.move_list.push(Move::new_knight_promotion(target, src));
         self.move_list.push(Move::new_rook_promotion(target, src));
         self.move_list.push(Move::new_bishop_promotion(target, src))
     }
 
-    pub fn add_promotion_captures(&mut self, target: u64, src: u64) {
+    pub fn add_promotion_captures(&mut self, target: BB, src: BB) {
         self.move_list.push(Move::new_queen_promo_capture(target, src));
         self.move_list.push(Move::new_knight_promo_capture(target, src));
         self.move_list.push(Move::new_rook_promo_capture(target, src));
@@ -96,127 +94,125 @@ impl MoveList {
 }
 
 impl std::ops::Index<usize> for MoveList {
-
     type Output = Move;
 
     fn index(&self, index: usize) -> &Self::Output {
         self.move_list.index(index)
     }
-
 }
 
 impl Move {
 
-    fn new_quiet_move(target: u64, src: u64) -> Move {
+    fn new_quiet_move(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src),
             word_two: Move::encode_square(target),
         }
     }
 
-    fn new_double_pawn_push(target: u64, src: u64) -> Move {
+    fn new_double_pawn_push(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src),
             word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    fn new_short_castle(target: u64, src: u64) -> Move {
+    fn new_short_castle(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src),
             word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    fn new_long_castle(target: u64, src: u64) -> Move {
+    fn new_long_castle(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src),
             word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    fn new_capture(target: u64, src: u64) -> Move {
+    fn new_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_2,
             word_two: Move::encode_square(target)
         }
     }
 
-    fn new_ep_capture(target: u64, src: u64) -> Move {
+    fn new_ep_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_2,
             word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    fn new_knight_promotion(target: u64, src: u64) -> Move {
+    fn new_knight_promotion(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_1,
             word_two: Move::encode_square(target)
         }
     }
 
-    fn new_bishop_promotion(target: u64, src: u64) -> Move {
+    fn new_bishop_promotion(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_1,
             word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    fn new_rook_promotion(target: u64, src: u64) -> Move {
+    fn new_rook_promotion(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_1,
             word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    fn new_queen_promotion(target: u64, src: u64) -> Move {
+    fn new_queen_promotion(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_1,
             word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    fn new_knight_promo_capture(target: u64, src: u64) -> Move {
+    fn new_knight_promo_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_X,
             word_two: Move::encode_square(target)
         }
     }
 
-    fn new_bishop_promo_capture(target: u64, src: u64) -> Move {
+    fn new_bishop_promo_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_X,
             word_two: Move::encode_square(target) | SPECIAL_2
         }
     }
 
-    fn new_rook_promo_capture(target: u64, src: u64) -> Move {
+    fn new_rook_promo_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_X,
             word_two: Move::encode_square(target) | SPECIAL_1
         }
     }
 
-    fn new_queen_promo_capture(target: u64, src: u64) -> Move {
+    fn new_queen_promo_capture(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src) | SPECIAL_X,
             word_two: Move::encode_square(target) | SPECIAL_X
         }
     }
 
-    fn encode_square(square: u64) -> u8 {
-        bt::ilsb_u8(square)
+    fn encode_square(square: BB) -> u8 {
+        square.to_index_u8()
     }
 
     /// Decode the target into a one bit bitmask
-    pub fn target(&self) -> u64 {
-        1 << (self.word_two & FROM_TO)
+    pub fn target(&self) -> BB {
+        BB::from_index((self.word_two & FROM_TO).into())
     }
 
     /// Decode the source into a one bit bitmask
-    pub fn src(&self) -> u64 {
-        1 << (self.word_one & FROM_TO)
+    pub fn src(&self) -> BB {
+        BB::from_index((self.word_one & FROM_TO).into())
     }
 
     pub fn is_quiet(&self) -> bool {
@@ -260,10 +256,10 @@ impl Move {
 
     pub fn promotion_piece(&self) -> usize {
         match self.word_two & SPECIAL_X {
-            0 => disc!(Piece::Knight),
-            SPECIAL_1 => disc!(Piece::Rook),
-            SPECIAL_2 => disc!(Piece::Bishop),
-            SPECIAL_X => disc!(Piece::Queen),
+            0 => Piece::Knight.value(),
+            SPECIAL_1 => Piece::Rook.value(),
+            SPECIAL_2 => Piece::Bishop.value(),
+            SPECIAL_X => Piece::Queen.value(),
             _ => 0
         }
     }

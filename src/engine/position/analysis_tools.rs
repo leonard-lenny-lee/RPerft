@@ -1,163 +1,90 @@
 /// Module containing functions to extract information from a position
 
 use super::*;
-use crate::engine::common::bittools as bt;
 
-/// Get all the squares the opponent pieces are attacking in a position and 
-/// the location of all the opponent pieces that are checking the king
-pub fn find_unsafe_squares(pos: &Position) -> u64 {
-    // Initialise variables
-    let mut unsafe_squares: u64 = EMPTY_BB;
-    // Remove our king from the occupancy bitboard for sliding piece move
-    // generation to prevent the king from blocking other unsafe squares
-    let occ = pos.data.occ ^ pos.our_pieces().king;
-    // Calculate pawn attacks
-    unsafe_squares |= pos.unsafe_squares_pawn();
-    // Calculate attacks in horizontal and vertical directions
-    find_hv_unsafe_squares(&mut unsafe_squares, pos, occ);
-    // Calculate attacks in the diagonal and anti-diagonal directions
-    find_ad_unsafe_squares(&mut unsafe_squares, pos, occ);
-    // Calculate knight attacks
-    find_knight_attack_squares(&mut unsafe_squares, pos);
-    // Calculate king attacks
-    unsafe_squares |= MAPS.get_king_map(pos.their_pieces().king);
-    return unsafe_squares
-}
 
-/// Find horizontal and vertical unsafe squares
-fn find_hv_unsafe_squares(
-    unsafe_squares: &mut u64,
-    pos: &Position,
-    occ: u64
-) {
-    let pieces = pos.their_pieces().rook | pos.their_pieces().queen;
-    let attacks = bt::rook_attacks(pieces, occ);
-    *unsafe_squares |= attacks;
-}
+impl Position {
 
-/// Find diagonal and antidiagonal unsafe squares
-fn find_ad_unsafe_squares(
-    unsafe_squares: &mut u64,
-    pos: &Position,
-    occ: u64
-) {
-    let pieces = pos.their_pieces().bishop | pos.their_pieces().queen;
-    let attacks = bt::bishop_attacks(pieces, occ);
-    *unsafe_squares |= attacks;
-}
-
-/// Find knight attack squares
-fn find_knight_attack_squares(
-    unsafe_squares: &mut u64,
-    pos: &Position,
-) {
-    let mut knights = pos.their_pieces().knight;
-    while knights != 0 {
-        let knight = bt::ilsb(knights);
-        let attacks = MAPS.knight[knight];
-        *unsafe_squares |= attacks;
-        knights ^= 1 << knight;
+    /// Return a bitboard with all squares the opponent pieces are attacking
+    pub fn unsafe_squares(&self) -> BB {
+        let mut unsafe_squares = EMPTY_BB;
+        // Remove our king from the occupancy bitboard for sliding piece move
+        // generation to prevent the king from blocking other unsafe squares
+        let occ = self.data.occ ^ self.our_pieces().king;
+        // Calculate pawn attacks
+        unsafe_squares |= self.unsafe_squares_pawn();
+        // Calculate attacks in horizontal and vertical directions
+        unsafe_squares |= (
+            self.their_pieces().rook | self.their_pieces().queen
+        ).rook_attacks(occ);
+        // Calculate attacks in the diagonal and anti-diagonal directions
+        unsafe_squares |= (
+            self.their_pieces().bishop | self.their_pieces().queen
+        ).bishop_attacks(occ);
+        // Calculate knight attacks
+        unsafe_squares |= self.unsafe_squares_knight();
+        // Calculate king attacks
+        unsafe_squares |= MAPS.get_king_map(self.their_pieces().king);
+        return unsafe_squares
     }
-}
 
-pub fn find_checkers(pos: &Position) -> u64 {
-    let mut checkers: u64 = EMPTY_BB;
-    // Find checking pawns
-    checkers |= pos.their_checking_pawns();
-    // Find horizontal and vertical checkers
-    find_hv_checkers(&mut checkers, pos);
-    // Find diagonal and antidiagonal checkers
-    find_ad_checkers(&mut checkers, pos);
-    // Find knight checkers
-    find_knight_checkers(&mut checkers, pos);
-    checkers
-}
-
-fn find_hv_checkers(checkers: &mut u64, pos: &Position) {
-    let mut pseudo_attacks = bt::hv_hyp_quint(
-        pos.data.occ, pos.our_pieces().king,
-    );
-    pseudo_attacks &= pos.their_pieces().rook | pos.their_pieces().queen;
-    *checkers |= pseudo_attacks
-}
-
-fn find_ad_checkers(checkers: &mut u64, pos: &Position) {
-    let mut pseudo_attacks = bt::da_hyp_quint(
-        pos.data.occ, pos.our_pieces().king
-    );
-    pseudo_attacks &= pos.their_pieces().bishop | pos.their_pieces().queen;
-    *checkers |= pseudo_attacks
-}
-
-fn find_knight_checkers(checkers: &mut u64, pos: &Position) {
-    let king = pos.our_pieces().king;
-    let pseudo_attacks = MAPS.knight[bt::ilsb(king)];
-    *checkers |= pseudo_attacks & pos.their_pieces().knight
-}
-
-/// Get the colour at a particular square
-pub fn get_color_at(pos: &Position, n: u64) -> Color {
-    assert!(n.count_ones() == 1);
-    let color;
-    if n & pos.data.w_pieces.any != EMPTY_BB {
-        color = Color::White
-    } else if n & pos.data.b_pieces.any != EMPTY_BB {
-        color = Color::Black
-    } else {
-        panic!(
-            "Function get_color_at could not locate the requested bit {}",
-            n.trailing_zeros()
-        )
+    /// Return all the squares attacked by opponent knights
+    pub fn unsafe_squares_knight(&self) -> BB {
+        let mut knights = self.their_pieces().knight;
+        let mut unsafe_squares = EMPTY_BB;
+        while knights.is_any() {
+            let knight = knights.pop_ls1b();
+            let attacks = knight.lookup_knight_attack_squares();
+            unsafe_squares |= attacks;
+        }
+        unsafe_squares
     }
-    return color;
-}
 
-/// Identify which pieces are pinned for a particular color in a position
-pub fn get_pinned_pieces_for(pos: &Position) -> u64 {
-    // Initialise variables
-    let our_pieces = pos.our_pieces();
-    let their_pieces = pos.their_pieces();
-    let mut pinned_pieces: u64 = EMPTY_BB;
+    /// Return a bitboard of opponent pieces giving check
+    pub fn find_checkers(&self) -> BB {
+        let mut checkers = EMPTY_BB;
+        // Find checking pawns
+        checkers |= self.their_checking_pawns();
+        // Find checkers along the files and ranks
+        checkers |= self.file_and_rank_checkers();
+        // Find checkers along the diagonals
+        checkers |= self.diag_and_adiag_checkers();
+        // Find knight checkers
+        checkers |= self.knight_checkers();
+        checkers
+    }
 
-    // Calculate the rays from the king
-    let king_rays = calculate_king_rays(pos, our_pieces.king);
-    let hv_pieces = their_pieces.rook | their_pieces.queen;
-    let da_pieces = their_pieces.bishop | their_pieces.queen;
+    fn file_and_rank_checkers(&self) -> BB {
+        let pseudo_attacks = self.our_pieces().king.lookup_rook_attacks(self.data.occ);
+        pseudo_attacks & (self.their_pieces().rook | self.their_pieces().queen)
+    }
 
-    // Calculate horizontal pins
-    let h_attacks = bt::rank_attacks(hv_pieces, pos.data.occ);
-    pinned_pieces |= h_attacks & king_rays[0];
+    fn diag_and_adiag_checkers(&self) -> BB {
+        let pseudo_attacks = self.our_pieces().king.lookup_bishop_attacks(self.data.occ);
+        pseudo_attacks & (self.their_pieces().bishop | self.their_pieces().queen)
+    }
 
-    // Calculate vertical pins
-    let v_attacks = bt::file_attacks(hv_pieces, pos.data.occ);
-    pinned_pieces |= v_attacks & king_rays[1];
+    fn knight_checkers(&self) -> BB {
+        let pseudo_attacks = self.our_pieces().king.lookup_knight_attack_squares();
+        pseudo_attacks & self.their_pieces().knight
+    }
 
-    // Calculate diagonal pins
-    let d_attacks = bt::diag_attacks(da_pieces, pos.data.occ);
-    pinned_pieces |= d_attacks & king_rays[2];
+    /// Return a bitboard of all pinned pieces
+    pub fn pinned_pieces(&self) -> BB {
 
-    // Calculate antidiagonal pins
-    let a_attacks = bt::adiag_attacks(da_pieces, pos.data.occ);
-    pinned_pieces |= a_attacks & king_rays[3];
-    return pinned_pieces
+        let (king, their_pieces) = (self.our_pieces().king, self.their_pieces());
+        let file_rank_pieces = their_pieces.rook | their_pieces.queen;
+        let diag_adiag_pieces = their_pieces.bishop | their_pieces.queen;
+        let occ = self.data.occ;
 
-}
+        // Pinned pieces are located where a king's "attack ray" meets an
+        // attacking piece's attack ray; if the rays are cast along the same
+        // axis
+        let file_pins = king.hyp_quint(occ, Axis::File) & file_rank_pieces.file_attacks(occ);
+        let rank_pins = king.hyp_quint(occ, Axis::Rank) & file_rank_pieces.rank_attacks(occ);
+        let diag_pins = king.hyp_quint(occ, Axis::Diagonal) & diag_adiag_pieces.diag_attacks(occ);
+        let adiag_pins = king.hyp_quint(occ, Axis::AntiDiagonal) & diag_adiag_pieces.adiag_attacks(occ);
 
-/// Calculate the rays from the king along the four axes which the piece may 
-/// be pinned to. Returns an array of bitboards representing the horizontal,
-/// vertical, diagonal and antidiagonal rays, respectively
-fn calculate_king_rays(pos: &Position, king: u64) -> [u64; 4] {
-    let h_rays = bt::hyp_quint(
-        pos.data.occ, king, &MAPS.rank
-    );
-    let v_rays = bt::hyp_quint(
-        pos.data.occ, king, &MAPS.file
-    );
-    let d_rays = bt::hyp_quint(
-        pos.data.occ, king, &MAPS.diag
-    );
-    let a_rays = bt::hyp_quint(
-        pos.data.occ, king, &MAPS.adiag
-    );
-    return [h_rays, v_rays, d_rays, a_rays]
+        file_pins | rank_pins | diag_pins | adiag_pins
+    }
 }

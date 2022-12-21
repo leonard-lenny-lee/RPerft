@@ -3,7 +3,8 @@
 /// bitboards required for move generation and evaluation
 
 use super::*;
-use common::{*, bittools as bt};
+use common::*;
+
 pub use zobrist::ZobristKey;
 
 mod data;
@@ -21,27 +22,27 @@ pub struct Position {
 pub struct Data {
     pub w_pieces: PieceSet,
     pub b_pieces: PieceSet,
-    pub occ: u64,
-    pub free: u64,
+    pub occ: BB,
+    pub free: BB,
     pub white_to_move: bool,
     pub w_kingside_castle: bool,
     pub b_kingside_castle: bool,
     pub w_queenside_castle: bool,
     pub b_queenside_castle: bool,
-    pub en_passant_target_sq: u64,
+    pub en_passant_target_sq: BB,
     pub halfmove_clock: i8,
     pub fullmove_clock: i8,
 }
 
 #[derive(Clone, Copy)]
 pub struct PieceSet {
-    pub any: u64,
-    pub pawn: u64,
-    pub rook: u64,
-    pub knight: u64,
-    pub bishop: u64,
-    pub queen: u64,
-    pub king: u64
+    pub any: BB,
+    pub pawn: BB,
+    pub rook: BB,
+    pub knight: BB,
+    pub bishop: BB,
+    pub queen: BB,
+    pub king: BB
 }
 
 impl PieceSet {
@@ -57,58 +58,58 @@ impl PieceSet {
         }
     }
 
-    pub fn as_array(&self) -> [u64; 7] {
+    pub fn as_array(&self) -> [BB; 7] {
         [self.any, self.pawn, self.rook, self.knight, self.bishop, 
          self.queen, self.king]
     }
 
     // Order the bitboards in an array so the index positions are convenient
     // for piece square table evaluation
-    pub fn as_pst_array(&self) -> [u64; 6] {
+    pub fn as_pst_array(&self) -> [BB; 6] {
         [self.pawn, self.rook, self.knight, self.bishop, self.queen, self.king]
     }
 
     // Order the bitboards so the index positions are convenient for Zobrist
     // hashing
-    pub fn as_hash_array(&self) -> [u64; 6] {
+    pub fn as_hash_array(&self) -> [BB; 6] {
         [self.pawn, self.knight, self.bishop, self.rook, self.queen, self.king]
     }
 
-    fn as_mut_array(&mut self) -> [&mut u64; 7] {
+    fn as_mut_array(&mut self) -> [&mut BB; 7] {
         [&mut self.any, &mut self.pawn, &mut self.rook, &mut self.knight, 
          &mut self.bishop, &mut self.queen, &mut self.king]
     }
 
-    pub fn bit_or_assign(&mut self, index: usize, rhs: u64) {
+    pub fn bitor_assign(&mut self, index: usize, rhs: BB) {
         *self.as_mut_array()[index] |= rhs
     }
 
-    pub fn xor_assign(&mut self, index: usize, rhs: u64) {
+    pub fn bitxor_assign(&mut self, index: usize, rhs: BB) {
         *self.as_mut_array()[index] ^= rhs;
     }
 
     pub fn n_kings(&self) -> i32 {
-        self.king.count_ones() as i32
+        self.king.pop_count() as i32
     }
 
     pub fn n_queens(&self) -> i32 {
-        self.queen.count_ones() as i32
+        self.queen.pop_count() as i32
     }
 
     pub fn n_rooks(&self) -> i32 {
-        self.rook.count_ones() as i32
+        self.rook.pop_count() as i32
     }
 
     pub fn n_bishops(&self) -> i32 {
-        self.bishop.count_ones() as i32
+        self.bishop.pop_count() as i32
     }
 
     pub fn n_knights(&self) -> i32 {
-        self.knight.count_ones() as i32
+        self.knight.pop_count() as i32
     }
 
     pub fn n_pawns(&self) -> i32 {
-        self.pawn.count_ones() as i32
+        self.pawn.pop_count() as i32
     }
 
 }

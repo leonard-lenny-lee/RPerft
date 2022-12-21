@@ -2,20 +2,19 @@
 
 use chess_engine::engine::*;
 use transposition::TranspositionTable;
-use search::move_generation::find_moves;
 use search::apply_move::apply_move;
 use search::SearchNode;
 use common::*;
 use test_case::test_case;
 
-const HASHING_ENABLED: bool = false;
+const HASHING_ENABLED: bool = true;
 
 /// Provides the number of nodes for down each branch of the first depth layer
 /// search. Useful for perft debugging purposes
 fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
     assert!(depth >= 1);
     let mut nodes = 0;
-    let move_list = find_moves(&root_node.pos);
+    let move_list = root_node.pos.find_moves();
     for mv in move_list.iter() {
         let new_node = apply_move(root_node, mv);
         let branch_nodes;
@@ -25,8 +24,8 @@ fn perft_divided(root_node: &SearchNode, depth: i8) -> i64 {
             branch_nodes = perft_inner(&new_node, depth-1)
         }
         // Report branch
-        let src = bittools::bitmask_to_algebraic(mv.src());
-        let target = bittools::bitmask_to_algebraic(mv.target());
+        let src = mv.src().to_algebraic();
+        let target = mv.target().to_algebraic();
         let mut promotion_piece = "";
         if mv.is_promotion() {
             match mv.promotion_piece() {
@@ -57,9 +56,9 @@ fn perft(root_node: &SearchNode, depth: i8) -> i64 {
 fn perft_inner(node: &SearchNode, depth: i8) -> i64 {
     let mut nodes = 0;
     if depth == 1 {
-        return find_moves(&node.pos).len() as i64;
+        return node.pos.find_moves().len() as i64;
     }
-    let move_list = find_moves(&node.pos);
+    let move_list = node.pos.find_moves();
     for mv in move_list.iter() {
         let new_node = apply_move(&node, mv);
         nodes += perft_inner(&new_node, depth-1);
@@ -76,9 +75,9 @@ fn perft_inner_with_table(
         None => ()
     };
     if depth == 1 {
-        return find_moves(&node.pos).len() as i64;
+        return node.pos.find_moves().len() as i64;
     }
-    let move_list = find_moves(&node.pos);
+    let move_list = node.pos.find_moves();
     for mv in move_list.iter() {
         let new_node = apply_move(&node, mv);
         nodes += perft_inner_with_table(&new_node, depth-1, table);
@@ -136,7 +135,7 @@ fn perft_debug() {
 /// Medium depth perft tests. Extension of the light perft test suite. Note 
 /// these may be slow to run and so would recommend running in release mode 
 /// with cargo test --release after removing the ignore flag.
-#[ignore]
+// #[ignore]
 #[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]

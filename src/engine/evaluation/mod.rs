@@ -1,5 +1,4 @@
 use super::*;
-use common::bittools as bt;
 use weights::*;
 use position::Position;
 
@@ -70,14 +69,14 @@ impl Evaluation {
             // Pop bits from the bitboards and use index positions to lookup the
             // relevant score from the piece square table
             while w_pieces != common::EMPTY_BB {
-                let bit_index = bt::pop_ilsb(&mut w_pieces);
+                let bit_index = w_pieces.pop_ils1b();
                 mg_pst += psts::MG_TABLES[bb_index][bit_index];
                 eg_pst += psts::EG_TABLES[bb_index][bit_index];
             }
             // Flip black pieces so their positions align with the map indices
-            let mut b_pieces = bt::flip_vertical(b_array[bb_index]);
+            let mut b_pieces = b_array[bb_index].flip_vertical();
             while b_pieces != common::EMPTY_BB {
-                let bit_index = bt::pop_ilsb(&mut b_pieces);
+                let bit_index = b_pieces.pop_ils1b();
                 mg_pst -= psts::MG_TABLES[bb_index][bit_index];
                 eg_pst -= psts::EG_TABLES[bb_index][bit_index];
             }

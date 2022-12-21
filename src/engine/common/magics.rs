@@ -99,78 +99,78 @@ const ROOK_MASKS: [u64; 64] = [
     0x6E10101010101000, 0x5E20202020202000, 0x3E40404040404000, 0x7E80808080808000
 ];
 
-const BISHOP_MAGIC_DB: [[u64; 512]; 64] = init_bishop_magic_db();
+const BISHOP_MAGIC_DB: [[BB; 512]; 64] = init_bishop_magic_db();
 
 // This is a hacky workaround the compiler const evaluation iteration limits.
 // By seperating the rook data and combining them, it stops any one const fn
 // being called which has an iteration count greater than the limit.
 
-const ROOK_00: [u64; 4096] = init_rook_db(0);
-const ROOK_01: [u64; 4096] = init_rook_db(1);
-const ROOK_02: [u64; 4096] = init_rook_db(2);
-const ROOK_03: [u64; 4096] = init_rook_db(3);
-const ROOK_04: [u64; 4096] = init_rook_db(4);
-const ROOK_05: [u64; 4096] = init_rook_db(5);
-const ROOK_06: [u64; 4096] = init_rook_db(6);
-const ROOK_07: [u64; 4096] = init_rook_db(7);
-const ROOK_08: [u64; 4096] = init_rook_db(8);
-const ROOK_09: [u64; 4096] = init_rook_db(9);
-const ROOK_10: [u64; 4096] = init_rook_db(10);
-const ROOK_11: [u64; 4096] = init_rook_db(11);
-const ROOK_12: [u64; 4096] = init_rook_db(12);
-const ROOK_13: [u64; 4096] = init_rook_db(13);
-const ROOK_14: [u64; 4096] = init_rook_db(14);
-const ROOK_15: [u64; 4096] = init_rook_db(15);
-const ROOK_16: [u64; 4096] = init_rook_db(16);
-const ROOK_17: [u64; 4096] = init_rook_db(17);
-const ROOK_18: [u64; 4096] = init_rook_db(18);
-const ROOK_19: [u64; 4096] = init_rook_db(19);
-const ROOK_20: [u64; 4096] = init_rook_db(20);
-const ROOK_21: [u64; 4096] = init_rook_db(21);
-const ROOK_22: [u64; 4096] = init_rook_db(22);
-const ROOK_23: [u64; 4096] = init_rook_db(23);
-const ROOK_24: [u64; 4096] = init_rook_db(24);
-const ROOK_25: [u64; 4096] = init_rook_db(25);
-const ROOK_26: [u64; 4096] = init_rook_db(26);
-const ROOK_27: [u64; 4096] = init_rook_db(27);
-const ROOK_28: [u64; 4096] = init_rook_db(28);
-const ROOK_29: [u64; 4096] = init_rook_db(29);
-const ROOK_30: [u64; 4096] = init_rook_db(30);
-const ROOK_31: [u64; 4096] = init_rook_db(31);
-const ROOK_32: [u64; 4096] = init_rook_db(32);
-const ROOK_33: [u64; 4096] = init_rook_db(33);
-const ROOK_34: [u64; 4096] = init_rook_db(34);
-const ROOK_35: [u64; 4096] = init_rook_db(35);
-const ROOK_36: [u64; 4096] = init_rook_db(36);
-const ROOK_37: [u64; 4096] = init_rook_db(37);
-const ROOK_38: [u64; 4096] = init_rook_db(38);
-const ROOK_39: [u64; 4096] = init_rook_db(39);
-const ROOK_40: [u64; 4096] = init_rook_db(40);
-const ROOK_41: [u64; 4096] = init_rook_db(41);
-const ROOK_42: [u64; 4096] = init_rook_db(42);
-const ROOK_43: [u64; 4096] = init_rook_db(43);
-const ROOK_44: [u64; 4096] = init_rook_db(44);
-const ROOK_45: [u64; 4096] = init_rook_db(45);
-const ROOK_46: [u64; 4096] = init_rook_db(46);
-const ROOK_47: [u64; 4096] = init_rook_db(47);
-const ROOK_48: [u64; 4096] = init_rook_db(48);
-const ROOK_49: [u64; 4096] = init_rook_db(49);
-const ROOK_50: [u64; 4096] = init_rook_db(50);
-const ROOK_51: [u64; 4096] = init_rook_db(51);
-const ROOK_52: [u64; 4096] = init_rook_db(52);
-const ROOK_53: [u64; 4096] = init_rook_db(53);
-const ROOK_54: [u64; 4096] = init_rook_db(54);
-const ROOK_55: [u64; 4096] = init_rook_db(55);
-const ROOK_56: [u64; 4096] = init_rook_db(56);
-const ROOK_57: [u64; 4096] = init_rook_db(57);
-const ROOK_58: [u64; 4096] = init_rook_db(58);
-const ROOK_59: [u64; 4096] = init_rook_db(59);
-const ROOK_60: [u64; 4096] = init_rook_db(60);
-const ROOK_61: [u64; 4096] = init_rook_db(61);
-const ROOK_62: [u64; 4096] = init_rook_db(62);
-const ROOK_63: [u64; 4096] = init_rook_db(63);
+const ROOK_00: [BB; 4096] = init_rook_db(0);
+const ROOK_01: [BB; 4096] = init_rook_db(1);
+const ROOK_02: [BB; 4096] = init_rook_db(2);
+const ROOK_03: [BB; 4096] = init_rook_db(3);
+const ROOK_04: [BB; 4096] = init_rook_db(4);
+const ROOK_05: [BB; 4096] = init_rook_db(5);
+const ROOK_06: [BB; 4096] = init_rook_db(6);
+const ROOK_07: [BB; 4096] = init_rook_db(7);
+const ROOK_08: [BB; 4096] = init_rook_db(8);
+const ROOK_09: [BB; 4096] = init_rook_db(9);
+const ROOK_10: [BB; 4096] = init_rook_db(10);
+const ROOK_11: [BB; 4096] = init_rook_db(11);
+const ROOK_12: [BB; 4096] = init_rook_db(12);
+const ROOK_13: [BB; 4096] = init_rook_db(13);
+const ROOK_14: [BB; 4096] = init_rook_db(14);
+const ROOK_15: [BB; 4096] = init_rook_db(15);
+const ROOK_16: [BB; 4096] = init_rook_db(16);
+const ROOK_17: [BB; 4096] = init_rook_db(17);
+const ROOK_18: [BB; 4096] = init_rook_db(18);
+const ROOK_19: [BB; 4096] = init_rook_db(19);
+const ROOK_20: [BB; 4096] = init_rook_db(20);
+const ROOK_21: [BB; 4096] = init_rook_db(21);
+const ROOK_22: [BB; 4096] = init_rook_db(22);
+const ROOK_23: [BB; 4096] = init_rook_db(23);
+const ROOK_24: [BB; 4096] = init_rook_db(24);
+const ROOK_25: [BB; 4096] = init_rook_db(25);
+const ROOK_26: [BB; 4096] = init_rook_db(26);
+const ROOK_27: [BB; 4096] = init_rook_db(27);
+const ROOK_28: [BB; 4096] = init_rook_db(28);
+const ROOK_29: [BB; 4096] = init_rook_db(29);
+const ROOK_30: [BB; 4096] = init_rook_db(30);
+const ROOK_31: [BB; 4096] = init_rook_db(31);
+const ROOK_32: [BB; 4096] = init_rook_db(32);
+const ROOK_33: [BB; 4096] = init_rook_db(33);
+const ROOK_34: [BB; 4096] = init_rook_db(34);
+const ROOK_35: [BB; 4096] = init_rook_db(35);
+const ROOK_36: [BB; 4096] = init_rook_db(36);
+const ROOK_37: [BB; 4096] = init_rook_db(37);
+const ROOK_38: [BB; 4096] = init_rook_db(38);
+const ROOK_39: [BB; 4096] = init_rook_db(39);
+const ROOK_40: [BB; 4096] = init_rook_db(40);
+const ROOK_41: [BB; 4096] = init_rook_db(41);
+const ROOK_42: [BB; 4096] = init_rook_db(42);
+const ROOK_43: [BB; 4096] = init_rook_db(43);
+const ROOK_44: [BB; 4096] = init_rook_db(44);
+const ROOK_45: [BB; 4096] = init_rook_db(45);
+const ROOK_46: [BB; 4096] = init_rook_db(46);
+const ROOK_47: [BB; 4096] = init_rook_db(47);
+const ROOK_48: [BB; 4096] = init_rook_db(48);
+const ROOK_49: [BB; 4096] = init_rook_db(49);
+const ROOK_50: [BB; 4096] = init_rook_db(50);
+const ROOK_51: [BB; 4096] = init_rook_db(51);
+const ROOK_52: [BB; 4096] = init_rook_db(52);
+const ROOK_53: [BB; 4096] = init_rook_db(53);
+const ROOK_54: [BB; 4096] = init_rook_db(54);
+const ROOK_55: [BB; 4096] = init_rook_db(55);
+const ROOK_56: [BB; 4096] = init_rook_db(56);
+const ROOK_57: [BB; 4096] = init_rook_db(57);
+const ROOK_58: [BB; 4096] = init_rook_db(58);
+const ROOK_59: [BB; 4096] = init_rook_db(59);
+const ROOK_60: [BB; 4096] = init_rook_db(60);
+const ROOK_61: [BB; 4096] = init_rook_db(61);
+const ROOK_62: [BB; 4096] = init_rook_db(62);
+const ROOK_63: [BB; 4096] = init_rook_db(63);
 
-const ROOK_MAGIC_DB: [&[u64; 4096]; 64] = [
+const ROOK_MAGIC_DB: [&[BB; 4096]; 64] = [
     &ROOK_00, &ROOK_01, &ROOK_02, &ROOK_03, &ROOK_04, &ROOK_05, &ROOK_06, &ROOK_07,
     &ROOK_08, &ROOK_09, &ROOK_10, &ROOK_11, &ROOK_12, &ROOK_13, &ROOK_14, &ROOK_15,
     &ROOK_16, &ROOK_17, &ROOK_18, &ROOK_19, &ROOK_20, &ROOK_21, &ROOK_22, &ROOK_23,
@@ -181,18 +181,16 @@ const ROOK_MAGIC_DB: [&[u64; 4096]; 64] = [
     &ROOK_56, &ROOK_57, &ROOK_58, &ROOK_59, &ROOK_60, &ROOK_61, &ROOK_62, &ROOK_63,
 ];
 
-const fn init_bishop_magic_db() -> [[u64; 512]; 64] {
+const fn init_bishop_magic_db() -> [[BB; 512]; 64] {
 
-    use bittools::da_hyp_quint;
-
-    let mut db = [[0; 512]; 64];
+    let mut db = [[BB(0); 512]; 64];
 
     let mut square = 0;
     while square < 64 {
         let magic = BISHOP_MAGICS[square];
         let n_bits_in_mask = BISHOP_MASKS[square].count_ones();
         let n_entries = 1 << n_bits_in_mask;
-        let mut square_db = [0; 512];
+        let mut square_db = [BB(0); 512];
         let mut db_idx = 0;
         while db_idx < n_entries {
             let mut mask = BISHOP_MASKS[square];
@@ -207,7 +205,7 @@ const fn init_bishop_magic_db() -> [[u64; 512]; 64] {
                 mask_idx += 1;
             }
             let key = (occ.wrapping_mul(magic) >> BISHOP_SHIFTS[square]) as usize;
-            square_db[key] = da_hyp_quint(occ, 1 << square);
+            square_db[key] = BB(1 << square).const_bishop_attacks_hyp_quint(occ);
             db_idx += 1;
         }
         db[square] = square_db;
@@ -216,14 +214,12 @@ const fn init_bishop_magic_db() -> [[u64; 512]; 64] {
     db
 }
 
-const fn init_rook_db(square: usize) -> [u64; 4096] {
-
-    use bittools::hv_hyp_quint;
+const fn init_rook_db(square: usize) -> [BB; 4096] {
 
     let magic = ROOK_MAGICS[square];
     let n_bits_in_mask = ROOK_MASKS[square].count_ones();
     let n_entries = 1 << n_bits_in_mask;
-    let mut square_db = [0; 4096];
+    let mut square_db = [BB(0); 4096];
     let mut db_idx = 0;
     while db_idx < n_entries {
         let mut mask = ROOK_MASKS[square];
@@ -238,31 +234,64 @@ const fn init_rook_db(square: usize) -> [u64; 4096] {
             mask_idx += 1;
         }
         let key = (occ.wrapping_mul(magic) >> ROOK_SHIFTS[square]) as usize;
-        square_db[key] = hv_hyp_quint(occ, 1 << square);
+        square_db[key] = BB(1 << square).const_rook_attacks_hyp_quint(occ);
         db_idx += 1;
     }
     square_db
 }
 
-pub fn get_rook_attacks(sq: usize, occ: u64) -> u64 {
-    let idx = ((occ & ROOK_MASKS[sq]).wrapping_mul(ROOK_MAGICS[sq]) >> ROOK_SHIFTS[sq]) as usize;
-    ROOK_MAGIC_DB[sq][idx]
-}
+impl BB {
 
-pub fn get_bishop_attacks(sq: usize, occ: u64) -> u64 {
-    let idx = ((occ & BISHOP_MASKS[sq]).wrapping_mul(BISHOP_MAGICS[sq]) >> BISHOP_SHIFTS[sq]) as usize;
-    BISHOP_MAGIC_DB[sq][idx]
-}
+    /// Find the rook attack squares by looking up the magic tables
+    pub fn lookup_rook_attacks(&self, occ: BB) -> BB {
+        let sq = self.ils1b();
+        // Hash the occulusion bitboard
+        let idx = (occ.0 & ROOK_MASKS[sq]).wrapping_mul(ROOK_MAGICS[sq]) >> ROOK_SHIFTS[sq];
+        ROOK_MAGIC_DB[sq][idx as usize]
+    }
 
-pub fn get_queen_attacks(sq: usize, occ: u64) -> u64 {
-    get_rook_attacks(sq, occ) | get_bishop_attacks(sq, occ)
+    /// Find the bishop attack squares by looking up the magic tables
+    pub fn lookup_bishop_attacks(&self, occ: BB) -> BB {
+        let sq = self.ils1b();
+        let idx = (occ.0 & BISHOP_MASKS[sq]).wrapping_mul(BISHOP_MAGICS[sq]) >> BISHOP_SHIFTS[sq];
+        BISHOP_MAGIC_DB[sq][idx as usize]
+    }
+
+    /// Find the queen attack squares by lookup up the magic tables
+    pub fn lookup_queen_attacks(&self, occ: BB) -> BB {
+        self.lookup_rook_attacks(occ) | self.lookup_bishop_attacks(occ)
+    }
+    
+    const fn const_hyp_quint(&self, occ: u64, axis: Axis) -> u64 {
+        let idx = self.0.trailing_zeros() as usize;
+        let mask = match axis {
+            Axis::File => MAPS.file_masks[idx],
+            Axis::Rank => MAPS.rank_masks[idx],
+            Axis::Diagonal => MAPS.diag_masks[idx],
+            Axis::AntiDiagonal => MAPS.adiag_masks[idx]
+        };
+        let mut forward = occ & mask.0;
+        let mut reverse = forward.reverse_bits();
+        forward = forward.wrapping_sub(self.0.wrapping_mul(2));
+        reverse = reverse.wrapping_sub(self.0.reverse_bits().wrapping_mul(2));
+        forward ^= reverse.reverse_bits();
+        forward &= mask.0;
+        return forward
+    }
+
+    const fn const_rook_attacks_hyp_quint(&self, occ: u64) -> BB {
+        BB(self.const_hyp_quint(occ, Axis::File) | self.const_hyp_quint(occ, Axis::Rank)) 
+    }
+
+    const fn const_bishop_attacks_hyp_quint(&self, occ: u64) -> BB {
+        BB(self.const_hyp_quint(occ, Axis::Diagonal) | self.const_hyp_quint(occ, Axis::AntiDiagonal))
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use bittools as bt;
     use test_case::test_case;
 
     #[test_case(BISHOP_MAGICS, BISHOP_MASKS, BISHOP_SHIFTS; "bishop")]
@@ -278,10 +307,11 @@ mod tests {
                 let mut mask = masks[square];
                 let mut occ: u64 = 0;
                 for mask_idx in 0..n_bits_in_mask {
-                    let bit = bt::pop_lsb(&mut mask);
+                    let bit = 1 << mask.trailing_zeros();
                     if (1 << mask_idx) & db_idx != 0 {
                         occ |= bit
                     }
+                    mask ^= bit;
                 }
                 let key = (occ.wrapping_mul(magic) >> shifts[square]) as usize;
                 if !db[key] {

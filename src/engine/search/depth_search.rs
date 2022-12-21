@@ -1,6 +1,4 @@
 use super::*;
-use position::{Position, analysis_tools::find_checkers};
-use move_generation::find_moves;
 use apply_move::apply_move;
 
 const NEGATIVE_INFINITY: i32 = -1000000;
@@ -12,9 +10,9 @@ pub fn nega_max(node: &SearchNode, depth: i8) -> i32 {
     if depth == 0 {
         return node.eval.get_eval()
     }
-    let move_list = find_moves(&node.pos);
+    let move_list = node.pos.find_moves();
     if move_list.len() == 0 {
-        let n_checkers = find_checkers(&node.pos).count_ones();
+        let n_checkers = node.pos.find_checkers().pop_count();
         if n_checkers > 0 {
             return NEGATIVE_INFINITY // Checkmate
         } else {
@@ -39,9 +37,9 @@ pub fn alpha_beta(
     if depth == 0 {
         return node.eval.get_eval()
     }
-    let move_list = find_moves(&node.pos);
+    let move_list = node.pos.find_moves();
     if move_list.len() == 0 {
-        let n_checkers = find_checkers(&node.pos).count_ones();
+        let n_checkers = node.pos.find_checkers().pop_count();
         if n_checkers > 0 {
             return NEGATIVE_INFINITY // Checkmate
         } else {

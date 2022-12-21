@@ -6,38 +6,38 @@ use super::*;
 /// to repeatedly use if white / black logic
 
 pub(crate) trait State {
-    fn promotion_rank(&self) -> u64;
-    fn ep_capture_rank(&self) -> u64;
+    fn promotion_rank(&self) -> BB;
+    fn ep_capture_rank(&self) -> BB;
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet;
     fn color(&self) -> Color;
-    fn pawn_sgl_push(&self, src: u64) -> u64;
-    fn pawn_dbl_push(&self, src: u64) -> u64;
-    fn pawn_left_capture(&self, src: u64) -> u64;
-    fn pawn_right_capture(&self, src: u64) -> u64;
-    fn pawn_sgl_push_targets(&self, pos: &Position) -> u64;
-    fn pawn_dbl_push_targets(&self, pos: &Position) -> u64;
-    fn pawn_lcap_targets(&self, pos: &Position) -> u64;
-    fn pawn_rcap_targets(&self, pos: &Position) -> u64;
-    fn pawn_sgl_push_srcs(&self, targets: u64) -> u64;
-    fn pawn_dbl_push_srcs(&self, targets: u64) -> u64;
-    fn pawn_lcap_srcs(&self, targets: u64) -> u64;
-    fn pawn_rcap_srcs(&self, targets: u64) -> u64;
-    fn pawn_en_passant_srcs(&self, pos: &Position) -> u64;
-    fn pawn_en_passant_cap(&self, pos: &Position) -> u64;
-    fn kscm(&self) -> u64;
-    fn qscms(&self) -> u64;
-    fn qscmf(&self) -> u64;
+    fn pawn_sgl_push(&self, src: BB) -> BB;
+    fn pawn_dbl_push(&self, src: BB) -> BB;
+    fn pawn_left_capture(&self, src: BB) -> BB;
+    fn pawn_right_capture(&self, src: BB) -> BB;
+    fn pawn_sgl_push_targets(&self, pos: &Position) -> BB;
+    fn pawn_dbl_push_targets(&self, pos: &Position) -> BB;
+    fn pawn_lcap_targets(&self, pos: &Position) -> BB;
+    fn pawn_rcap_targets(&self, pos: &Position) -> BB;
+    fn pawn_sgl_push_srcs(&self, targets: BB) -> BB;
+    fn pawn_dbl_push_srcs(&self, targets: BB) -> BB;
+    fn pawn_lcap_srcs(&self, targets: BB) -> BB;
+    fn pawn_rcap_srcs(&self, targets: BB) -> BB;
+    fn pawn_en_passant_srcs(&self, pos: &Position) -> BB;
+    fn pawn_en_passant_cap(&self, pos: &Position) -> BB;
+    fn kingside_castle_mask(&self) -> BB;
+    fn queenside_castle_mask_safe(&self) -> BB;
+    fn queenside_castle_mask_free(&self) -> BB;
     fn our_ksc(&self, pos: &Position) -> bool;
     fn our_sqc(&self, pos: &Position) -> bool;
     fn their_ksc(&self, pos: &Position) -> bool;
     fn their_qsc(&self, pos: &Position) -> bool;
-    fn unsafe_squares_pawn(&self, pos: &Position) -> u64;
-    fn pawn_checking_squares(&self, pos: &Position) -> u64;
-    fn our_ks_rook_starting_sq(&self) -> u64;
-    fn our_qs_rook_starting_sq(&self) -> u64;
-    fn their_ks_rook_starting_sq(&self) -> u64;
-    fn their_qs_rook_starting_sq(&self) -> u64;
+    fn unsafe_squares_pawn(&self, pos: &Position) -> BB;
+    fn pawn_checking_squares(&self, pos: &Position) -> BB;
+    fn our_ks_rook_starting_sq(&self) -> BB;
+    fn our_qs_rook_starting_sq(&self) -> BB;
+    fn their_ks_rook_starting_sq(&self) -> BB;
+    fn their_qs_rook_starting_sq(&self) -> BB;
     // Setters
     fn set_our_ksc(&self, data: &mut Data, value: bool);
     fn set_our_qsc(&self, data: &mut Data, value: bool);
@@ -50,99 +50,90 @@ pub(crate) trait State {
 
 impl State for White {
 
-    fn promotion_rank(&self) -> u64 {RANK_7}
-    fn ep_capture_rank(&self) -> u64 {RANK_5}
+    fn promotion_rank(&self) -> BB {RANK_7}
+    fn ep_capture_rank(&self) -> BB {RANK_5}
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
     fn our_ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
     fn our_sqc(&self, pos: &Position) -> bool {pos.data.w_queenside_castle}
     fn their_ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
     fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
-    fn kscm(&self) -> u64 {0x60}
-    fn qscms(&self) -> u64 {0xc}
-    fn qscmf(&self) -> u64 {0xe}
+    fn kingside_castle_mask(&self) -> BB {BB(0x60)}
+    fn queenside_castle_mask_safe(&self) -> BB {BB(0xc)}
+    fn queenside_castle_mask_free(&self) -> BB {BB(0xe)}
     fn color(&self) -> Color {Color::White}
-    fn our_ks_rook_starting_sq(&self) -> u64 {WKROOK}
-    fn our_qs_rook_starting_sq(&self) -> u64 {WQROOK}
-    fn their_ks_rook_starting_sq(&self) -> u64 {BKROOK}
-    fn their_qs_rook_starting_sq(&self) -> u64 {BQROOK}
+    fn our_ks_rook_starting_sq(&self) -> BB {W_KINGSIDE_ROOK_STARTING_SQ}
+    fn our_qs_rook_starting_sq(&self) -> BB {W_QUEENSIDE_ROOK_STARTING_SQ}
+    fn their_ks_rook_starting_sq(&self) -> BB {B_KINGSIDE_ROOK_STARTING_SQ}
+    fn their_qs_rook_starting_sq(&self) -> BB {B_QUEENSIDE_ROOK_STARTING_SQ}
 
-    fn pawn_sgl_push(&self, src: u64) -> u64 {
-        bt::north_one(src)
+    fn pawn_sgl_push(&self, src: BB) -> BB {
+        src.north_one()
     }
 
-    fn pawn_dbl_push(&self, src: u64) -> u64 {
-        bt::north_two(src)
+    fn pawn_dbl_push(&self, src: BB) -> BB {
+        src.north_two()
     }
 
-    fn pawn_left_capture(&self, src: u64) -> u64 {
-        bt::nort_west(src)
+    fn pawn_left_capture(&self, src: BB) -> BB {
+        src.nort_west()
     }
 
-    fn pawn_right_capture(&self, src: u64) -> u64 {
-        bt::nort_east(src)
+    fn pawn_right_capture(&self, src: BB) -> BB {
+        src.nort_east()
     }
 
-    fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
-        bt::north_one(
-            pos.data.w_pieces.pawn
-        ) & pos.data.free
+    fn pawn_sgl_push_targets(&self, pos: &Position) -> BB {
+        pos.data.w_pieces.pawn.north_one() & pos.data.free
     }
 
-    fn pawn_dbl_push_targets(&self, pos: &Position) -> u64 {
-        let sgl_push = bt::north_one(
-            pos.data.w_pieces.pawn & RANK_2
-        ) & pos.data.free;
-        bt::north_one(sgl_push) & pos.data.free
+    fn pawn_dbl_push_targets(&self, pos: &Position) -> BB {
+        let sgl_push = (pos.data.w_pieces.pawn & RANK_2).north_one() & pos.data.free;
+        sgl_push.north_one() & pos.data.free
     }
 
-    fn pawn_lcap_targets(&self, pos: &Position) -> u64 {
-        bt::nort_west(
-            pos.data.w_pieces.pawn
-        ) & pos.data.b_pieces.any
+    fn pawn_lcap_targets(&self, pos: &Position) -> BB {
+        pos.data.w_pieces.pawn.nort_west() & pos.data.b_pieces.any
     }
 
-    fn pawn_rcap_targets(&self, pos: &Position) -> u64 {
-        bt::nort_east(
-            pos.data.w_pieces.pawn
-        ) & pos.data.b_pieces.any
+    fn pawn_rcap_targets(&self, pos: &Position) -> BB {
+        pos.data.w_pieces.pawn.nort_east() & pos.data.b_pieces.any
     }
 
-    fn pawn_sgl_push_srcs(&self, targets: u64) -> u64 {
-        bt::south_one(targets)
+    fn pawn_sgl_push_srcs(&self, targets: BB) -> BB {
+        targets.south_one()
     }
 
-    fn pawn_dbl_push_srcs(&self, targets: u64) -> u64 {
-        bt::south_two(targets)
+    fn pawn_dbl_push_srcs(&self, targets: BB) -> BB {
+        targets.south_two()
     }
 
-    fn pawn_lcap_srcs(&self, targets: u64) -> u64 {
-        bt::sout_east(targets)
+    fn pawn_lcap_srcs(&self, targets: BB) -> BB {
+        targets.sout_east()
     }
 
-    fn pawn_rcap_srcs(&self, targets: u64) -> u64 {
-        bt::sout_west(targets)
+    fn pawn_rcap_srcs(&self, targets: BB) -> BB {
+        targets.sout_west()
     }
 
-    fn pawn_en_passant_srcs(&self, pos: &Position) -> u64 {
-        (bt::sout_west(pos.data.en_passant_target_sq) 
-            | bt::sout_east(pos.data.en_passant_target_sq))
+    fn pawn_en_passant_srcs(&self, pos: &Position) -> BB {
+        (pos.data.en_passant_target_sq.sout_west()
+            | pos.data.en_passant_target_sq.sout_east())
             & pos.data.w_pieces.pawn
             & RANK_5
     }
 
-    fn pawn_en_passant_cap(&self, pos: &Position) -> u64 {
-        bt::south_one(pos.data.en_passant_target_sq)
+    fn pawn_en_passant_cap(&self, pos: &Position) -> BB {
+        pos.data.en_passant_target_sq.south_one()
     }
 
-    fn unsafe_squares_pawn(&self, pos: &Position) -> u64 {
-        bt::sout_west(pos.data.b_pieces.pawn) 
-        | bt::sout_east(pos.data.b_pieces.pawn)
+    fn unsafe_squares_pawn(&self, pos: &Position) -> BB {
+        pos.data.b_pieces.pawn.sout_west() | pos.data.b_pieces.pawn.sout_east()
     }
 
-    fn pawn_checking_squares(&self, pos: &Position) -> u64 {
+    fn pawn_checking_squares(&self, pos: &Position) -> BB {
         let king = pos.data.w_pieces.king;
-        bt::nort_east(king) | bt::nort_west(king)
+        king.nort_east() | king.nort_west()
     }
 
     fn set_our_ksc(&self, data: &mut Data, value: bool) {
@@ -173,99 +164,90 @@ impl State for White {
 
 impl State for Black {
 
-    fn promotion_rank(&self) -> u64 {RANK_2}
-    fn ep_capture_rank(&self) -> u64 {RANK_4}
+    fn promotion_rank(&self) -> BB {RANK_2}
+    fn ep_capture_rank(&self) -> BB {RANK_4}
     fn our_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.b_pieces}
     fn their_pieces<'a>(&'a self, pos: &'a Position) -> &PieceSet {&pos.data.w_pieces}
     fn our_ksc(&self, pos: &Position) -> bool {pos.data.b_kingside_castle}
     fn our_sqc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
     fn their_ksc(&self, pos: &Position) -> bool {pos.data.w_kingside_castle}
     fn their_qsc(&self, pos: &Position) -> bool {pos.data.b_queenside_castle}
-    fn kscm(&self) -> u64 {0x6000000000000000}
-    fn qscms(&self) -> u64 {0xc00000000000000}
-    fn qscmf(&self) -> u64 {0xe00000000000000}
+    fn kingside_castle_mask(&self) -> BB {BB(0x6000000000000000)}
+    fn queenside_castle_mask_safe(&self) -> BB {BB(0xc00000000000000)}
+    fn queenside_castle_mask_free(&self) -> BB {BB(0xe00000000000000)}
     fn color(&self) -> Color {Color::Black}
-    fn our_ks_rook_starting_sq(&self) -> u64 {BKROOK}
-    fn our_qs_rook_starting_sq(&self) -> u64 {BQROOK}
-    fn their_ks_rook_starting_sq(&self) -> u64 {WKROOK}
-    fn their_qs_rook_starting_sq(&self) -> u64 {WQROOK}
+    fn our_ks_rook_starting_sq(&self) -> BB {B_KINGSIDE_ROOK_STARTING_SQ}
+    fn our_qs_rook_starting_sq(&self) -> BB {B_QUEENSIDE_ROOK_STARTING_SQ}
+    fn their_ks_rook_starting_sq(&self) -> BB {W_KINGSIDE_ROOK_STARTING_SQ}
+    fn their_qs_rook_starting_sq(&self) -> BB {W_QUEENSIDE_ROOK_STARTING_SQ}
 
-    fn pawn_sgl_push(&self, src: u64) -> u64 {
-        bt::south_one(src)
+    fn pawn_sgl_push(&self, src: BB) -> BB {
+        src.south_one()
     }
 
-    fn pawn_dbl_push(&self, src: u64) -> u64 {
-        bt::south_two(src)
+    fn pawn_dbl_push(&self, src: BB) -> BB {
+        src.south_two()
     }
 
-    fn pawn_left_capture(&self, src: u64) -> u64 {
-        bt::sout_west(src)
+    fn pawn_left_capture(&self, src: BB) -> BB {
+        src.sout_west()
     }
 
-    fn pawn_right_capture(&self, src: u64) -> u64 {
-        bt::sout_east(src)
+    fn pawn_right_capture(&self, src: BB) -> BB {
+        src.sout_east()
     }
 
-    fn pawn_sgl_push_targets(&self, pos: &Position) -> u64 {
-        bt::south_one(
-            pos.data.b_pieces.pawn
-        ) & pos.data.free
+    fn pawn_sgl_push_targets(&self, pos: &Position) -> BB {
+        pos.data.b_pieces.pawn.south_one() & pos.data.free
     }
 
-    fn pawn_dbl_push_targets(&self, pos: &Position) -> u64 {
-        let sgl_push: u64 = bt::south_one(
-            pos.data.b_pieces.pawn & RANK_7
-        ) & pos.data.free;
-        bt::south_one(sgl_push) & pos.data.free
+    fn pawn_dbl_push_targets(&self, pos: &Position) -> BB {
+        let sgl_push = (pos.data.b_pieces.pawn & RANK_7).south_one() & pos.data.free;
+        sgl_push.south_one() & pos.data.free
     }
 
-    fn pawn_lcap_targets(&self, pos: &Position) -> u64 {
-        bt::sout_west(
-            pos.data.b_pieces.pawn
-        ) & pos.data.w_pieces.any
+    fn pawn_lcap_targets(&self, pos: &Position) -> BB {
+        pos.data.b_pieces.pawn.sout_west() & pos.data.w_pieces.any
     }
 
-    fn pawn_rcap_targets(&self, pos: &Position) -> u64 {
-        bt::sout_east(
-            pos.data.b_pieces.pawn
-        ) & pos.data.w_pieces.any
+    fn pawn_rcap_targets(&self, pos: &Position) -> BB {
+        pos.data.b_pieces.pawn.sout_east() & pos.data.w_pieces.any
     }
 
-    fn pawn_sgl_push_srcs(&self, targets: u64) -> u64 {
-        bt::north_one(targets)
+    fn pawn_sgl_push_srcs(&self, targets: BB) -> BB {
+        targets.north_one()
     }
 
-    fn pawn_dbl_push_srcs(&self, targets: u64) -> u64 {
-        bt::north_two(targets)
+    fn pawn_dbl_push_srcs(&self, targets: BB) -> BB {
+        targets.north_two()
     }
 
-    fn pawn_lcap_srcs(&self, targets: u64) -> u64 {
-        bt::nort_east(targets)
+    fn pawn_lcap_srcs(&self, targets: BB) -> BB {
+        targets.nort_east()
     }
 
-    fn pawn_rcap_srcs(&self, targets: u64) -> u64 {
-        bt::nort_west(targets)
+    fn pawn_rcap_srcs(&self, targets: BB) -> BB {
+        targets.nort_west()
     }
 
-    fn pawn_en_passant_srcs(&self, pos: &Position) -> u64 {
-        (bt::nort_west(pos.data.en_passant_target_sq)
-        | bt::nort_east(pos.data.en_passant_target_sq))
+    fn pawn_en_passant_srcs(&self, pos: &Position) -> BB {
+        (pos.data.en_passant_target_sq.nort_west()
+        | pos.data.en_passant_target_sq.nort_east())
         & pos.data.b_pieces.pawn
         & RANK_4
     }
 
-    fn pawn_en_passant_cap(&self, pos: &Position) -> u64 {
-        bt::north_one(pos.data.en_passant_target_sq)
+    fn pawn_en_passant_cap(&self, pos: &Position) -> BB {
+        pos.data.en_passant_target_sq.north_one()
     }
 
-    fn unsafe_squares_pawn(&self, pos: &Position) -> u64 {
-        bt::nort_west(pos.data.w_pieces.pawn)
-        | bt::nort_east(pos.data.w_pieces.pawn)
+    fn unsafe_squares_pawn(&self, pos: &Position) -> BB {
+        pos.data.w_pieces.pawn.nort_west() | pos.data.w_pieces.pawn.nort_east()
     }
 
-    fn pawn_checking_squares(&self, pos: &Position) -> u64 {
+    fn pawn_checking_squares(&self, pos: &Position) -> BB {
         let king = pos.data.b_pieces.king;
-        bt::sout_east(king) | bt::sout_west(king)
+        king.sout_east() | king.sout_west()
     }
 
     fn set_our_ksc(&self, data: &mut Data, value: bool) {

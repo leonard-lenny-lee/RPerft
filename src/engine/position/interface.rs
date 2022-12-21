@@ -41,95 +41,95 @@ impl Position {
         self.state.their_pieces(self)
     }
     /// Return the promotion rank mask
-    pub fn promotion_rank(&self) -> u64 {
+    pub fn promotion_rank(&self) -> BB {
         self.state.promotion_rank()
     }
     /// Return the en passant capture rank mask
-    pub fn ep_capture_rank(&self) -> u64 {
+    pub fn ep_capture_rank(&self) -> BB {
         self.state.ep_capture_rank()
     }
     /// Return the color of our pieces
     pub fn color(&self) -> Color {
         self.state.color()
     }
-    pub fn our_ks_rook_starting_sq(&self) -> u64 {
+    pub fn our_ks_rook_starting_sq(&self) -> BB {
         self.state.our_ks_rook_starting_sq()
     }
-    pub fn our_qs_rook_starting_sq(&self) -> u64 {
+    pub fn our_qs_rook_starting_sq(&self) -> BB {
         self.state.our_qs_rook_starting_sq()
     }
-    pub fn their_ks_rook_starting_sq(&self) -> u64 {
+    pub fn their_ks_rook_starting_sq(&self) -> BB {
         self.state.their_ks_rook_starting_sq()
     }
-    pub fn their_qs_rook_starting_sq(&self) -> u64 {
+    pub fn their_qs_rook_starting_sq(&self) -> BB {
         self.state.their_qs_rook_starting_sq()
     }
-    pub fn pawn_sgl_push(&self, src: u64) -> u64 {
+    pub fn pawn_sgl_push(&self, src: BB) -> BB {
         self.state.pawn_sgl_push(src)
     }
-    pub fn pawn_dbl_push(&self, src: u64) -> u64 {
+    pub fn pawn_dbl_push(&self, src: BB) -> BB {
         self.state.pawn_dbl_push(src)
     }
-    pub fn pawn_left_capture(&self, src: u64) -> u64 {
+    pub fn pawn_left_capture(&self, src: BB) -> BB {
         self.state.pawn_left_capture(src)
     }
-    pub fn pawn_right_capture(&self, src: u64) -> u64 {
+    pub fn pawn_right_capture(&self, src: BB) -> BB {
         self.state.pawn_right_capture(src)
     }
     /// Return the single push target squares of our pawns
-    pub fn pawn_sgl_push_targets(&self) -> u64 {
+    pub fn pawn_sgl_push_targets(&self) -> BB {
         self.state.pawn_sgl_push_targets(self)
     }
     /// Return the double push target squares of our pawns
-    pub fn pawn_dbl_push_targets(&self) -> u64 {
+    pub fn pawn_dbl_push_targets(&self) -> BB {
         self.state.pawn_dbl_push_targets(self)
     }
     /// Return the left capture target squares of our pawns
-    pub fn pawn_lcap_targets(&self) -> u64 {
+    pub fn pawn_lcap_targets(&self) -> BB {
         self.state.pawn_lcap_targets(self)
     }
     /// Return the right capture target squares of our pawns
-    pub fn pawn_rcap_targets(&self) -> u64 {
+    pub fn pawn_rcap_targets(&self) -> BB {
         self.state.pawn_rcap_targets(self)
     }
     /// Return the single push pawn sources from a map of target squares
-    pub fn pawn_sgl_push_srcs(&self, targets: u64) -> u64 {
+    pub fn pawn_sgl_push_srcs(&self, targets: BB) -> BB {
         self.state.pawn_sgl_push_srcs(targets)
     }
     /// Return the double push pawn sources from a map of target squares
-    pub fn pawn_dbl_push_srcs(&self, targets: u64) -> u64 {
+    pub fn pawn_dbl_push_srcs(&self, targets: BB) -> BB {
         self.state.pawn_dbl_push_srcs(targets)
     }
     /// Return the left capture pawn sources from a map of target squares
-    pub fn pawn_lcap_srcs(&self, targets: u64) -> u64 {
+    pub fn pawn_lcap_srcs(&self, targets: BB) -> BB {
         self.state.pawn_lcap_srcs(targets)
     }
     /// Return the right capture pawn sources from a map of target squares
-    pub fn pawn_rcap_srcs(&self, targets: u64) -> u64 {
+    pub fn pawn_rcap_srcs(&self, targets: BB) -> BB {
         self.state.pawn_rcap_srcs(targets)
     }
     /// Return the en passant source squares of our pieces
-    pub fn pawn_en_passant_srcs(&self) -> u64 {
+    pub fn pawn_en_passant_srcs(&self) -> BB {
         self.state.pawn_en_passant_srcs(self)
     }
     /// Return the square of the piece being captured by en passant
-    pub fn pawn_en_passant_cap(&self) -> u64 {
+    pub fn pawn_en_passant_cap(&self) -> BB {
         self.state.pawn_en_passant_cap(self)
     }
     /// Return the mask of the squares the king must traverse to castle 
     /// kingside
-    pub fn kingside_castle_mask(&self) -> u64 {
-        self.state.kscm()
+    pub fn kingside_castle_mask(&self) -> BB {
+        self.state.kingside_castle_mask()
     }
     /// Return the mask of the squares the king must traverse to castle
     /// queenside so must be safe
-    pub fn queenside_castle_mask_safe(&self) -> u64 {
-        self.state.qscms()
+    pub fn queenside_castle_mask_safe(&self) -> BB {
+        self.state.queenside_castle_mask_safe()
     }
     /// Return the mask of the squares in between the king and the rook which
     /// must be free in order to castle
-    pub fn queenside_castle_mask_free(&self) -> u64 {
-        self.state.qscmf()
+    pub fn queenside_castle_mask_free(&self) -> BB {
+        self.state.queenside_castle_mask_free()
     }
     /// Return our king side castling rights
     pub fn our_kingside_castle(&self) -> bool {
@@ -148,11 +148,11 @@ impl Position {
         self.state.their_qsc(self)
     }
     /// Return all the squares attacked by their pawns
-    pub fn unsafe_squares_pawn(&self) -> u64 {
+    pub fn unsafe_squares_pawn(&self) -> BB {
         self.state.unsafe_squares_pawn(self)
     }
     /// Locate their pawns checking our king
-    pub fn their_checking_pawns(&self) -> u64 {
+    pub fn their_checking_pawns(&self) -> BB {
         self.state.pawn_checking_squares(self) 
         & self.their_pieces().pawn
     }
@@ -183,8 +183,8 @@ impl Position {
 
     /// Identify which opponent piece is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn their_piece_at(&self, bb: u64) -> usize {
-        assert!(bb.count_ones() == 1);
+    pub fn their_piece_at(&self, bb: BB) -> usize {
+        debug_assert!(bb.pop_count() == 1);
         let their_piece_array = self.their_pieces().as_array();
         for piece in 1..7 {
             if their_piece_array[piece] & bb != EMPTY_BB {
@@ -193,14 +193,14 @@ impl Position {
         }
         panic!(
             "their_piece_at could not locate the requested bit {}",
-            bb.trailing_zeros()
+            bb.to_index()
         );
     }
 
     /// Identify which of our pieces is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn our_piece_at(&self, bb: u64) -> usize {
-        assert!(bb.count_ones() == 1);
+    pub fn our_piece_at(&self, bb: BB) -> usize {
+        debug_assert!(bb.pop_count() == 1);
         let our_piece_array = self.our_pieces().as_array();
         for piece in 1..7 {
             if our_piece_array[piece] & bb != EMPTY_BB {
@@ -209,13 +209,66 @@ impl Position {
         }
         panic!(
             "their_piece_at could not locate the requested bit {}",
-            bb.trailing_zeros()
+            bb.to_index()
         );
     }
 
     /// Identify if the piece at the specified square is a sliding piece
-    pub fn their_piece_at_is_slider(&self, n: u64) -> bool {
+    pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
         matches!(self.their_piece_at(n), 2 | 4 | 5) 
+    }
+
+    /// Convert to string representation for printing to the standard output
+    pub fn to_string(&self) -> String {
+        let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
+        let w_array = self.data.w_pieces.as_array();
+        let b_array = self.data.b_pieces.as_array();
+        for i in 1..7 {
+            let mut char;
+            match i {
+                1 => char = 'p',
+                2 => char = 'r',
+                3 => char = 'n',
+                4 => char = 'b',
+                5 => char = 'q',
+                6 => char = 'k',
+                _ => char = ' ',
+            };
+            for bit in b_array[i].forward_scan() {
+                let index = bit.to_index();
+                let x = index / 8;
+                let y = index % 8;
+                array[x][y] = char;
+            }
+            char.make_ascii_uppercase();
+            for bit in w_array[i].forward_scan() {
+                let index = bit.to_index();
+                let x = index / 8;
+                let y = index % 8;
+                array[x][y] = char;
+            }
+        };
+        let mut out = String::new();
+        out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
+        for i in 0..8 {
+            let i2 = 7 - i;
+            let row = array[i2];
+            if i != 0 {
+                let rank = &(8 - i).to_string()[..];
+                out.push_str("|\n   --- --- --- --- --- --- --- --- \n");
+                out.push_str(rank);
+                out.push(' ');
+            }
+            for c in row {
+                out.push_str("| ");
+                out.push(c);
+                out.push(' ')
+            }
+        }
+        out.push_str(
+            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h "
+        );
+        return out
     }
     
 }

@@ -25,8 +25,8 @@ impl ZobristKey {
         ];
         for (color_idx, color_arr) in pieces.iter().enumerate() {
             for (piece_idx, piece_bb) in color_arr.iter().enumerate() {
-                for bit in bt::forward_scan(*piece_bb) {
-                    let bit_index = bt::ilsb(bit);
+                for bit in piece_bb.forward_scan() {
+                    let bit_index = bit.to_index();
                     let piece_id = piece_idx * 2 + color_idx;
                     let hash_array_index = 64 * piece_id + bit_index;
                     hash ^= HASH_KEYS[hash_array_index]
@@ -55,7 +55,7 @@ impl ZobristKey {
 
     fn hash_en_passant(pos: &Position) -> u64 {
         if pos.state.pawn_en_passant_srcs(pos) != EMPTY_BB {
-            return HASH_KEYS[772 + bt::ilsb(pos.data.en_passant_target_sq) % 8]
+            return HASH_KEYS[772 + pos.data.en_passant_target_sq.to_index() % 8]
         }
         return 0
     }
@@ -69,7 +69,7 @@ impl ZobristKey {
 
     /// Common hash update function
     pub fn update_key(
-        &mut self, moved_piece: usize, src: u64, target: u64,
+        &mut self, moved_piece: usize, src: BB, target: BB,
         pos: &Position, new_pos: &Position
     ) {
         // Turn has passed so we must xor turn
@@ -84,22 +84,25 @@ impl ZobristKey {
 
     /// Update at both source and target squares for the piece
     pub fn update_moved_piece(
-        &mut self, moved_piece: usize, src: u64, target: u64, white_to_move: bool
+        &mut self, moved_piece: usize, src: BB, target: BB, white_to_move: bool
     ) {
         let piece_idx = PIECE_TO_HASH_INDEX[moved_piece] * 2 + white_to_move as usize;
-        self.0 ^= HASH_KEYS[64 * piece_idx + bt::ilsb(src)];
-        self.0 ^= HASH_KEYS[64 * piece_idx + bt::ilsb(target)];
+        self.0 ^= HASH_KEYS[64 * piece_idx + src.to_index()];
+        self.0 ^= HASH_KEYS[64 * piece_idx + target.to_index()];
     }
 
-    pub fn update_square(&mut self, piece: usize, sq: u64, white_to_move: bool) {
+    /// Update hash only at one square
+    pub fn update_square(&mut self, piece: usize, sq: BB, white_to_move: bool) {
         let piece_idx = PIECE_TO_HASH_INDEX[piece] * 2 + white_to_move as usize;
-        self.0 ^= HASH_KEYS[64 * piece_idx + bt::ilsb(sq)];
+        self.0 ^= HASH_KEYS[64 * piece_idx + sq.to_index()];
     }
 
+    /// Generate the update hash for an en passant square update
     fn update_en_passant_target(pos: &Position, new_pos: &Position) -> u64 {
         ZobristKey::hash_en_passant(pos) ^ ZobristKey::hash_en_passant(new_pos)
     }
 
+    /// Generate the update hash for an update to castling rights
     fn update_castling_rights(pos: &Position, new_pos: &Position) -> u64 {
         let mut update_hash = 0;
         if pos.data.w_kingside_castle != new_pos.data.w_kingside_castle {
