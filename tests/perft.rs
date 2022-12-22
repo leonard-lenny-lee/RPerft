@@ -7,7 +7,7 @@ use search::SearchNode;
 use common::*;
 use test_case::test_case;
 
-const HASHING_ENABLED: bool = true;
+const HASHING_ENABLED: bool = false;
 
 /// Provides the number of nodes for down each branch of the first depth layer
 /// search. Useful for perft debugging purposes
@@ -129,13 +129,10 @@ fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
 fn perft_debug() {
     let fen = "r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1";
     let node = SearchNode::new_from_fen(fen.to_string());
-    perft_divided(&node, 2);
+    perft_divided(&node, 4);
 }
 
-/// Medium depth perft tests. Extension of the light perft test suite. Note 
-/// these may be slow to run and so would recommend running in release mode 
-/// with cargo test --release after removing the ignore flag.
-// #[ignore]
+/// Medium depth perft tests. Extension of the light perft test suite.
 #[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]
@@ -151,7 +148,7 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 }
 
 /// Highly intensive perft tests. Keep ignore flag to prevent from being 
-/// run in a normal test suite. Must run with the --release flag
+/// run in a normal test suite.
 #[ignore]
 #[test_case(DEFAULT_FEN, 3195901860, 7; "starting_position")]
 #[test_case(POSITION_2, 8031647685, 6; "position_two")]

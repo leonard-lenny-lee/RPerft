@@ -266,13 +266,4 @@ mod tests {
         assert_eq!(data.fullmove_clock, 0)
     }
 
-    #[test]
-    #[ignore]
-    fn test_position() {
-        let position = Position::new_from_fen("rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 2".to_string());
-        let out = position.to_string();
-        print!("{}\nEn passant square: {}\nCastling: {} {} {} {}\n", 
-        out, position.data.en_passant_target_sq.to_index(), position.data.w_kingside_castle,
-        position.data.w_queenside_castle, position.data.b_kingside_castle, position.data.b_queenside_castle);
-    }
 }

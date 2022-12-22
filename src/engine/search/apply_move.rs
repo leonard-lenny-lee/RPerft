@@ -3,7 +3,7 @@ use position::Position;
 
 /// Create a new position by applying move data to a position
 pub fn apply_move(node: &SearchNode, mv: &Move) -> SearchNode {
-
+    
     // Create a copy of the current position to modify
     let mut new_node = SearchNode {
         pos: Position::new(node.pos.data.clone()),
@@ -38,7 +38,7 @@ pub fn apply_move(node: &SearchNode, mv: &Move) -> SearchNode {
     } else if mv.is_promotion() {
         execute_promotion_operations(&mut new_node, mv, target)
     } else if mv.is_castle() {
-        execute_castling_operations(&mut new_node, target, moved_piece)
+        execute_castling_operations(&mut new_node, mv, target, moved_piece)
     } else if mv.is_double_pawn_push() {
         execute_double_push_operations(&mut new_node, target)
     }
@@ -131,7 +131,7 @@ fn execute_promotion_operations(node: &mut SearchNode, mv: &Move, target: BB) {
 }
 
 fn execute_castling_operations(
-    node: &mut SearchNode, target: BB, moved_piece: usize
+    node: &mut SearchNode, mv: &Move, target: BB, moved_piece: usize
 ) {
     let our_pieces = node.pos.mut_our_pieces();
     debug_assert!(moved_piece == Piece::King.value());
@@ -139,7 +139,7 @@ fn execute_castling_operations(
     // Calculate if kingside or queenside castle
     let rook_src: BB;
     let rook_target: BB;
-    if target.to_index() % 8 == 6 {
+    if mv.is_short_castle() {
         // For kingside castle, the rook has transported from a
         // position one east of the target square to one west
         rook_src = target.east_one();

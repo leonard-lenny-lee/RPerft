@@ -24,7 +24,7 @@ impl Position {
         // Calculate knight attacks
         unsafe_squares |= self.unsafe_squares_knight();
         // Calculate king attacks
-        unsafe_squares |= MAPS.get_king_map(self.their_pieces().king);
+        unsafe_squares |= self.their_pieces().king.lookup_king_attack_squares();
         return unsafe_squares
     }
 
@@ -78,8 +78,7 @@ impl Position {
         let occ = self.data.occ;
 
         // Pinned pieces are located where a king's "attack ray" meets an
-        // attacking piece's attack ray; if the rays are cast along the same
-        // axis
+        // attacking piece's attack ray, cast along the same axis
         let file_pins = king.hyp_quint(occ, Axis::File) & file_rank_pieces.file_attacks(occ);
         let rank_pins = king.hyp_quint(occ, Axis::Rank) & file_rank_pieces.rank_attacks(occ);
         let diag_pins = king.hyp_quint(occ, Axis::Diagonal) & diag_adiag_pieces.diag_attacks(occ);

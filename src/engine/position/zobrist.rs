@@ -23,11 +23,11 @@ impl ZobristKey {
             pos.data.b_pieces.as_hash_array(),
             pos.data.w_pieces.as_hash_array()
         ];
-        for (color_idx, color_arr) in pieces.iter().enumerate() {
-            for (piece_idx, piece_bb) in color_arr.iter().enumerate() {
-                for bit in piece_bb.forward_scan() {
+        for color in pieces.iter().enumerate() {
+            for piece in color.1.iter().enumerate() {
+                for bit in piece.1.forward_scan() {
                     let bit_index = bit.to_index();
-                    let piece_id = piece_idx * 2 + color_idx;
+                    let piece_id = piece.0 * 2 + color.0;
                     let hash_array_index = 64 * piece_id + bit_index;
                     hash ^= HASH_KEYS[hash_array_index]
                 }

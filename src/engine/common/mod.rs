@@ -1,15 +1,13 @@
 /// This file contains hardcoded masks and Enums which are required by many
 /// other parts of the program.
 
-use strum_macros::EnumIter;
-
-// pub mod bittools;
 pub mod magics;
 mod maps;
 mod bb;
 
 pub use bb::BB;
 
+// Standard chess positions useful for testing
 pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const POSITION_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 pub const POSITION_3: &str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";
@@ -27,9 +25,7 @@ pub const RANK_6: BB = BB(0x0000ff0000000000);
 pub const RANK_7: BB = BB(0x00ff000000000000);
 pub const RANK_8: BB = BB(0xff00000000000000);
 
-pub const RANK_MASKS: [BB; 8] = [
-    RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8
-];
+pub const RANK_MASKS: [BB; 8] = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
 
 // File Masks
 pub const FILE_A: BB = BB(0x0101010101010101);
@@ -41,12 +37,11 @@ pub const FILE_F: BB = BB(0x2020202020202020);
 pub const FILE_G: BB = BB(0x4040404040404040);
 pub const FILE_H: BB = BB(0x8080808080808080);
 
-pub const FILE_MASKS: [BB; 8] = [
-    FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H
-];
+pub const FILE_MASKS: [BB; 8] = [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H];
 
 pub const FILLED_BB: BB = BB(0xffffffffffffffff);
 pub const EMPTY_BB: BB = BB(0x0);
+
 pub const W_QUEENSIDE_ROOK_STARTING_SQ: BB = BB(0x1);
 pub const W_KINGSIDE_ROOK_STARTING_SQ: BB = BB(0x80);
 pub const B_QUEENSIDE_ROOK_STARTING_SQ: BB = BB(0x100000000000000);
@@ -60,44 +55,6 @@ pub enum ASCIIBases {
     Zero = 48,
 }
 
-pub enum PromotionPiece {
-    Rook = 2,
-    Knight = 3,
-    Bishop = 4,
-    Queen = 5,
-}
-
-impl PromotionPiece {
-    pub fn iterator() -> Vec<PromotionPiece> {
-        use PromotionPiece::*;
-        return vec![Rook, Knight, Bishop, Queen];
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum SpecialMove {
-    None,
-    Promotion,
-    EnPassant,
-    Castling,
-    DoublePush,
-}
-
-#[derive(EnumIter)]
-pub enum PawnMove {
-    SinglePush,
-    DoublePush,
-    CaptureLeft,
-    CaptureRight,
-}
-
-#[derive(EnumIter)]
-pub enum JumpingPiece {
-    Knight = 3,
-    King = 6,
-}
-
-#[derive(Clone, Copy)]
 pub enum Piece {
     Any,
     Pawn,
@@ -109,16 +66,10 @@ pub enum Piece {
 }
 
 impl Piece {
+    /// Returns the discriminant of the enum. Use for indexing arrays
     pub fn value (&self) -> usize {
         *self as usize
     }
-}
-
-#[derive(EnumIter)]
-pub enum SlidingPiece {
-    Rook = 2,
-    Bishop = 4,
-    Queen = 5,
 }
 
 pub enum Color {
@@ -131,12 +82,4 @@ pub enum Axis {
     File,
     Diagonal,
     AntiDiagonal,
-}
-
-#[macro_export]
-/// Returns the discriminant of an enum for indexing -> usize
-macro_rules! disc {
-    ($enum:expr) => {
-        $enum as usize
-    };
 }

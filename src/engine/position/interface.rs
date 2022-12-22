@@ -187,7 +187,7 @@ impl Position {
         debug_assert!(bb.pop_count() == 1);
         let their_piece_array = self.their_pieces().as_array();
         for piece in 1..7 {
-            if their_piece_array[piece] & bb != EMPTY_BB {
+            if (their_piece_array[piece] & bb).is_any() {
                 return piece
             }
         }
@@ -203,7 +203,7 @@ impl Position {
         debug_assert!(bb.pop_count() == 1);
         let our_piece_array = self.our_pieces().as_array();
         for piece in 1..7 {
-            if our_piece_array[piece] & bb != EMPTY_BB {
+            if (our_piece_array[piece] & bb).is_any() {
                 return piece
             }
         }
