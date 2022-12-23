@@ -7,10 +7,6 @@ fn setup() -> Position {
     Position::from_fen(POSITION_2.to_string())
 }
 
-fn setup_node() -> Position {
-    Position::from_fen(POSITION_2.to_string())
-}
-
 pub fn find_moves_benchmark(c: &mut Criterion) {
 
     let pos = setup();
@@ -46,16 +42,14 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
 }
 
 pub fn apply_move_benchmark(c: &mut Criterion) {
-    use makemove::make_move;
 
-    let node = &setup_node();
-    let move_vec = node.find_moves();
+    let pos = setup();
+    let move_vec = pos.find_moves();
 
     c.bench_function(
         "apply_move",
         |b| b.iter(
-            || make_move(
-                black_box(node),
+            || pos.make_move(
                 black_box(&move_vec[0])
             )
         )

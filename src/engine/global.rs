@@ -15,4 +15,8 @@ impl Global {
             table_size: TABLE_SIZE
         }
     }
+
+    pub fn report_config(&self) {
+        println!("Hashing: {}", self.hashing_enabled)
+    }
 }

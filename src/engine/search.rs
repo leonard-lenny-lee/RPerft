@@ -1,6 +1,6 @@
 use super::*;
 use position::Position;
-use makemove::make_move;
+
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
@@ -24,7 +24,7 @@ pub fn nega_max(pos: &Position, depth: i8) -> i32 {
     }
     let mut max_evaluation = NEGATIVE_INFINITY;
     for mv in move_list.iter() {
-        let new_pos = make_move(&pos, &mv);
+        let new_pos = pos.make_move(mv);
         let evaluation = -nega_max(&new_pos, depth - 1);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
@@ -50,7 +50,7 @@ pub fn alpha_beta(
         }
     }
     for mv in move_list.iter() {
-        let new_pos = make_move(pos, &mv);
+        let new_pos = pos.make_move(mv);
         let evaluation = -alpha_beta(
             &new_pos, depth - 1, -alpha, -beta
         );
@@ -70,7 +70,7 @@ pub mod perft {
     use transposition::PerftTable;
     use global::Global;
 
-    pub fn perft(pos: &Position, depth: i8, global: &Global) -> i64 {
+    pub fn perft(pos: &Position, depth: i8, global: &Global) -> (i64, f64, f64) {
         assert!(depth >= 1);
         let start = std::time::Instant::now();
         let nodes = if global.hashing_enabled {
@@ -81,8 +81,7 @@ pub mod perft {
         };
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
-        println!("\n{} nodes found in {:.2} seconds ({:.1}M/s)\n", nodes, duration, nodes_per_second);
-        return nodes
+        return (nodes, duration, nodes_per_second)
     }
 
     fn perft_inner(pos: &Position, depth: i8) -> i64 {
@@ -92,7 +91,7 @@ pub mod perft {
         }
         let move_list = pos.find_moves();
         for mv in move_list.iter() {
-            let new_pos = make_move(&pos, mv);
+            let new_pos = pos.make_move(mv);
             nodes += perft_inner(&new_pos, depth-1);
         }
         return nodes
@@ -110,7 +109,7 @@ pub mod perft {
         }
         let move_list = pos.find_moves();
         for mv in move_list.iter() {
-            let new_pos = make_move(&pos, mv);
+            let new_pos = pos.make_move(mv);
             nodes += perft_inner_with_table(&new_pos, depth-1, table);
         }
         table.set(pos.key.0, nodes, depth);
@@ -119,14 +118,14 @@ pub mod perft {
 
     /// Provides the number of nodes for down each branch of the first depth layer
     /// search. Useful for perft debugging purposes
-    pub fn perft_divided(root_node: &Position, depth: i8, global: &Global) -> i64 {
+    pub fn perft_divided(pos: &Position, depth: i8, global: &Global) -> i64 {
         assert!(depth >= 1);
         let start = std::time::Instant::now();
         let mut nodes = 0;
-        let move_list = root_node.find_moves();
+        let move_list = pos.find_moves();
         let mut table = PerftTable::new(global.table_size);
         for mv in move_list.iter() {
-            let new_pos = make_move(root_node, mv);
+            let new_pos = pos.make_move(mv);
             let branch_nodes;
             if depth == 1 {
                 branch_nodes = 1
@@ -156,8 +155,38 @@ pub mod perft {
         // Report perft results
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
-        println!("\n\n{} nodes found in {:.2} seconds ({:.1}M/s)", nodes, duration, nodes_per_second);
+        println!("{} nodes found in {:.2} seconds ({:.1}M/s)", nodes, duration, nodes_per_second);
         return nodes
+    }
+
+    macro_rules! run_suite {
+        ($n_tests: ident, $positions: ident, $depths: ident, $global: ident) => {
+            $global.report_config();
+            for i in 0..$n_tests {
+                let pos = Position::from_fen($positions[i].to_string());
+                let (nodes, duration, nodes_per_second) = perft(&pos, $depths[i], &$global);
+                println!(
+                    "Test #{}: {} nodes in {:.2} seconds ({:.2} M/s)",
+                    i + 1, nodes, duration, nodes_per_second 
+                )
+            }
+        };
+    }
+
+    pub fn run_perft_bench() {
+        let mut global = Global::init();
+
+        let positions = [DEFAULT_FEN, POSITION_2, POSITION_3, POSITION_4, POSITION_5, POSITION_6];
+        let depths = [6, 5, 7, 5, 5, 5];
+
+        assert_eq!(positions.len(), depths.len());
+        let n_tests = positions.len();
+
+        global.hashing_enabled = false;
+        run_suite!(n_tests, positions, depths, global);
+        global.hashing_enabled = true;
+        run_suite!(n_tests, positions, depths, global);
+
     }
 
 }

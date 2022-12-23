@@ -20,7 +20,7 @@ const GLOBAL: Global = Global::init();
 fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let node = Position::from_fen(fen.to_string());
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, &GLOBAL);
+        let result = perft(&node, dpt, &GLOBAL).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -43,7 +43,7 @@ fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", 4, 23527; "stalemate & checkmate #2")]
 fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
     let node = Position::from_fen(fen.to_string());
-    assert_eq!(perft(&node, depth, &GLOBAL), expected_nodes);
+    assert_eq!(perft(&node, depth, &GLOBAL).0, expected_nodes);
 }
 
 // Not part of perft test suite, useful for debugging.
@@ -65,7 +65,7 @@ fn perft_debug() {
 fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let node = Position::from_fen(fen.to_string());
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, &GLOBAL);
+        let result = perft(&node, dpt, &GLOBAL).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -80,6 +80,6 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case(POSITION_6, 6923051137, 6; "position_six")]
 fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
     let node = Position::from_fen(fen.to_string());
-    let result = perft(&node, depth, &GLOBAL);
+    let result = perft(&node, depth, &GLOBAL).0;
     assert_eq!(result, expected_nodes)
 }
