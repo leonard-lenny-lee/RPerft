@@ -1,15 +1,15 @@
 // Default configuration
 
-const HASHING_ENABLED: bool = true;
-const TABLE_SIZE: u64 = 17_000_000;
+const HASHING_ENABLED: bool = false;
+const TABLE_SIZE: usize = 17_000_000;
 
 pub struct Global {
     pub hashing_enabled: bool,
-    pub table_size: u64,
+    pub table_size: usize,
 }
 
 impl Global {
-    pub fn init() -> Global {
+    pub const fn init() -> Global {
         Global {
             hashing_enabled: HASHING_ENABLED,
             table_size: TABLE_SIZE

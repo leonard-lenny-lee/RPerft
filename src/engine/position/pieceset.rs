@@ -1,38 +1,5 @@
-/// Contains the Position struct, which holds the all the bitboards and data
-/// to describe the current position, as well as methods to derive other
-/// bitboards required for move generation and evaluation
-
 use super::*;
-use common::*;
 
-pub use zobrist::ZobristKey;
-
-mod data;
-mod interface;
-mod states;
-mod zobrist;
-pub mod analysis_tools;
-
-pub struct Position {
-    pub data: Data,
-    state: Box<dyn states::State>
-}
-
-#[derive(Clone, Copy)]
-pub struct Data {
-    pub w_pieces: PieceSet,
-    pub b_pieces: PieceSet,
-    pub occ: BB,
-    pub free: BB,
-    pub white_to_move: bool,
-    pub w_kingside_castle: bool,
-    pub b_kingside_castle: bool,
-    pub w_queenside_castle: bool,
-    pub b_queenside_castle: bool,
-    pub en_passant_target_sq: BB,
-    pub halfmove_clock: i8,
-    pub fullmove_clock: i8,
-}
 
 #[derive(Clone, Copy)]
 pub struct PieceSet {
@@ -113,6 +80,3 @@ impl PieceSet {
     }
 
 }
-
-struct White {}
-struct Black {}

@@ -3,22 +3,40 @@
 
 use super::*;
 
+#[derive(Clone, Copy)]
+pub struct Data {
+    pub w_pieces: PieceSet,
+    pub b_pieces: PieceSet,
+    pub occ: BB,
+    pub free: BB,
+    pub white_to_move: bool,
+    pub w_kingside_castle: bool,
+    pub b_kingside_castle: bool,
+    pub w_queenside_castle: bool,
+    pub b_queenside_castle: bool,
+    pub en_passant_target_sq: BB,
+    pub halfmove_clock: i8,
+    pub fullmove_clock: i8,
+}
+
 impl Data {
+
+    // Methods required to parse a FEN string into a Data struct
     
     pub fn from_fen(fen: String) -> Data {
         let split_fen: Vec<&str> = fen.trim().split(" ").collect();
         assert!(split_fen.len() == 6);
         let mut pos = Data::new();
-        pos.set_bitboards(split_fen[0]);
-        pos.set_white_to_move(split_fen[1]);
-        pos.set_castling_rights(split_fen[2]);
-        pos.set_en_passant(split_fen[3]);
-        pos.set_halfmove_clock(split_fen[4]);
-        pos.set_fullmove_clock(split_fen[5]);
+        pos.init_bitboards(split_fen[0]);
+        pos.init_white_to_move(split_fen[1]);
+        pos.init_castling_rights(split_fen[2]);
+        pos.init_en_passant(split_fen[3]);
+        pos.init_halfmove_clock(split_fen[4]);
+        pos.init_fullmove_clock(split_fen[5]);
         pos
     }
     
-    fn new() -> Data {
+    pub fn new() -> Data {
         Data {
             w_pieces: PieceSet::new(),
             b_pieces: PieceSet::new(),
@@ -38,7 +56,7 @@ impl Data {
     /// Initialise a set of bitboards for white and black pieces from the 
     /// portion of the FEN string representing the board. Also sets the master
     /// occupied and free bitboards 
-    fn set_bitboards(&mut self, board: &str) {
+    fn init_bitboards(&mut self, board: &str) {
         let mut w_pieces: PieceSet = PieceSet::new();
         let mut b_pieces: PieceSet = PieceSet::new();
         // Split the FEN string at "/"
@@ -53,21 +71,21 @@ impl Data {
             if char.is_alphabetic() {
                 // If the character is alphabetic, then it represents a piece;
                 // populate the relevant bitboard
-                let pieceset_to_modify;
+                let pieceinit_to_modify;
                 if char.is_uppercase() {
-                    pieceset_to_modify = &mut w_pieces;
+                    pieceinit_to_modify = &mut w_pieces;
                 } else {
-                    pieceset_to_modify = &mut b_pieces;
+                    pieceinit_to_modify = &mut b_pieces;
                     char.make_ascii_uppercase();
                 }
-                pieceset_to_modify.any |= mask;
+                pieceinit_to_modify.any |= mask;
                 match char {
-                    'P' => pieceset_to_modify.pawn |= mask,
-                    'R' => pieceset_to_modify.rook |= mask,
-                    'N' => pieceset_to_modify.knight |= mask,
-                    'B' => pieceset_to_modify.bishop |= mask,
-                    'Q' => pieceset_to_modify.queen |= mask,
-                    'K' => pieceset_to_modify.king |= mask,
+                    'P' => pieceinit_to_modify.pawn |= mask,
+                    'R' => pieceinit_to_modify.rook |= mask,
+                    'N' => pieceinit_to_modify.knight |= mask,
+                    'B' => pieceinit_to_modify.bishop |= mask,
+                    'Q' => pieceinit_to_modify.queen |= mask,
+                    'K' => pieceinit_to_modify.king |= mask,
                     _ => panic!("Invalid character {} in FEN", char)
                 }
                 i += 1;
@@ -86,13 +104,13 @@ impl Data {
     }
 
     /// Set white to move field
-    fn set_white_to_move(&mut self, code: &str) {
+    fn init_white_to_move(&mut self, code: &str) {
         assert!(code == "w" || code == "b");
         self.white_to_move = code == "w";
     }
 
     /// Set the castling rights of a position
-    fn set_castling_rights(&mut self, code: &str) {
+    fn init_castling_rights(&mut self, code: &str) {
         self.w_kingside_castle = code.contains("K");
         self.b_kingside_castle = code.contains("k");
         self.w_queenside_castle = code.contains("Q");
@@ -100,7 +118,7 @@ impl Data {
     }
 
     /// Calculate the en passant target square bitmask
-    fn set_en_passant(&mut self, epts: &str) {
+    fn init_en_passant(&mut self, epts: &str) {
         let target_sq;
         if epts == "-" {
             target_sq = EMPTY_BB;
@@ -111,7 +129,7 @@ impl Data {
     }
 
     /// Set the halfmove clock
-    fn set_halfmove_clock(&mut self, clock: &str) {
+    fn init_halfmove_clock(&mut self, clock: &str) {
         let halfmove_clock: i8;
         match clock.parse() {
             Ok(c) => halfmove_clock = c,
@@ -121,7 +139,7 @@ impl Data {
     }
 
     /// Set the fullmove clock
-    fn set_fullmove_clock(&mut self, clock: &str) {
+    fn init_fullmove_clock(&mut self, clock: &str) {
         let fullmove_clock: i8;
         match clock.parse() {
             Ok(c) => fullmove_clock = c,
@@ -130,42 +148,52 @@ impl Data {
         self.fullmove_clock = fullmove_clock;
     }
 
+    /// The difference between the number of queens on the board
     pub fn queen_diff(&self) -> i32 {
         self.w_pieces.n_queens() - self.b_pieces.n_queens()
     }
 
+    /// The difference between the number of rooks on the board
     pub fn rook_diff(&self) -> i32 {
         self.w_pieces.n_rooks() - self.b_pieces.n_rooks()
     }
 
+    /// The difference between the number of bishops on the board
     pub fn bishop_diff(&self) -> i32 {
         self.w_pieces.n_bishops() - self.b_pieces.n_bishops()
     }
 
+    /// The difference between the number of knights on the board
     pub fn knight_diff(&self) -> i32 {
         self.w_pieces.n_knights() - self.b_pieces.n_knights()
     }
 
+    /// The difference between the number of pawns on the board
     pub fn pawn_diff(&self) -> i32 {
         self.w_pieces.n_pawns() - self.b_pieces.n_pawns()
     }
 
+    /// The total number of queens on the board
     pub fn queen_sum(&self) -> i32 {
         self.w_pieces.n_queens() + self.b_pieces.n_queens()
     }
 
+    /// The total number of rooks on the board
     pub fn rook_sum(&self) -> i32 {
         self.w_pieces.n_rooks() + self.b_pieces.n_rooks()
     }
 
+    /// The total number of bishops on the board
     pub fn bishop_sum(&self) -> i32 {
         self.w_pieces.n_bishops() + self.b_pieces.n_bishops()
     }
 
+    /// The total number of knights on the board
     pub fn knight_sum(&self) -> i32 {
         self.w_pieces.n_knights() + self.b_pieces.n_knights()
     }
 
+    /// The total number of pawns on the board
     pub fn pawn_sum(&self) -> i32 {
         self.w_pieces.n_pawns() + self.b_pieces.n_pawns()
     }
@@ -188,10 +216,10 @@ mod tests {
     }
 
     #[test]
-    fn test_set_bitboards() {
+    fn test_init_bitboards() {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
         let mut data = Data::new();
-        data.set_bitboards(fen);
+        data.init_bitboards(fen);
         // White pieces
         assert_eq!(data.w_pieces.any, RANK_1 | RANK_2, "w.any");
         assert_eq!(data.w_pieces.pawn, RANK_2, "w.pawn");
@@ -218,9 +246,9 @@ mod tests {
 
     #[test_case("w", true; "white")]
     #[test_case("b", false; "black")]
-    fn test_set_white_to_move (test_case: &str, expected: bool) {
+    fn test_init_white_to_move (test_case: &str, expected: bool) {
         let mut data = Data::new();
-        data.set_white_to_move(test_case);
+        data.init_white_to_move(test_case);
         assert_eq!(data.white_to_move, expected)
     }
 
@@ -228,13 +256,13 @@ mod tests {
     #[should_panic]
     fn test_invalid_white_to_move() {
         let mut data = Data::new();
-        data.set_white_to_move("X")
+        data.init_white_to_move("X")
     }
 
     #[test]
-    fn test_set_castling_rights() {
+    fn test_init_castling_rights() {
         let mut data = Data::new();
-        data.set_castling_rights("KkQq");
+        data.init_castling_rights("KkQq");
         assert_eq!(
             data.w_kingside_castle 
             && data.b_kingside_castle
@@ -246,23 +274,23 @@ mod tests {
 
     #[test_case("-", EMPTY_BB; "empty")]
     #[test_case("e6", BB::from_index(44); "e6")]
-    fn test_set_en_passant(test: &str, expected: BB) {
+    fn test_init_en_passant(test: &str, expected: BB) {
         let mut data = Data::new();
-        data.set_en_passant(test);
+        data.init_en_passant(test);
         assert_eq!(data.en_passant_target_sq, expected)
     }
 
     #[test]
-    fn test_set_halfmove_clock() {
+    fn test_init_halfmove_clock() {
         let mut data = Data::new();
-        data.set_halfmove_clock("6");
+        data.init_halfmove_clock("6");
         assert_eq!(data.halfmove_clock, 6)
     }
 
     #[test]
-    fn test_set_fullmove_clock() {
+    fn test_init_fullmove_clock() {
         let mut data = Data::new();
-        data.set_fullmove_clock("0");
+        data.init_fullmove_clock("0");
         assert_eq!(data.fullmove_clock, 0)
     }
 

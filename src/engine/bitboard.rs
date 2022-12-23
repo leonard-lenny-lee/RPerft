@@ -202,7 +202,7 @@ impl BB {
 
     /// Return the attack squares of the knight
     /// * Uses bitwise shifting for compile time generation of lookup tables.
-    /// * Use lookup_knight_attack_squares for run time.
+    /// * Use lookup_knight_attacks for run time.
     pub const fn knight_attack_squares(&self) -> BB { 
         BB(
             self.no_no_ea().0 | self.no_ea_ea().0 | self.so_ea_ea().0 |
@@ -211,27 +211,15 @@ impl BB {
         )
     }
 
-    /// Return the attack squares of a single knight by lookup
-    pub fn lookup_knight_attack_squares(&self) -> BB {
-        debug_assert!(self.pop_count() == 1);
-        MAPS.knight_attack_squares[self.to_index()]
-    }
-
     /// Return the attack squares of the king
     /// * Uses bitwise shifting for compile time generation of lookup tables.
-    /// * Use lookup_king_attack_squares for run time.
+    /// * Use lookup_king_attacks for run time.
     pub const fn king_attack_squares(&self) -> BB {
         BB(
             self.north_one().0 | self.nort_east().0 | self.east_one().0 |
             self.sout_east().0 | self.south_one().0 | self.sout_west().0 |
             self.west_one().0 | self.nort_west().0
         )
-    }
-
-    /// Return the attack squares of a king by lookup
-    pub fn lookup_king_attack_squares(&self) -> BB {
-        debug_assert!(self.pop_count() == 1);
-        MAPS.king_attack_squares[self.to_index()]
     }
     
     /// Kogge-Stone north fill
@@ -488,25 +476,6 @@ impl BB {
         self.diag_attacks(other) | self.adiag_attacks(other)
     }
 
-    /// Use the o-2s trick to find valid squares for sliding pieces, taking
-    /// into account the occupancy of the current board
-    pub fn hyp_quint(&self, occ: BB, axis: Axis) -> BB {
-        debug_assert!(self.pop_count() == 1);
-        let mask = match axis {
-            Axis::File => MAPS.file_masks[self.ils1b()],
-            Axis::Rank => MAPS.rank_masks[self.ils1b()],
-            Axis::Diagonal => MAPS.diag_masks[self.ils1b()],
-            Axis::AntiDiagonal => MAPS.adiag_masks[self.ils1b()]
-        };
-        let mut forward = occ & mask;
-        let mut reverse = forward.reverse_bits();
-        forward -= *self * 2;
-        reverse -= self.reverse_bits() * 2;
-        forward ^= reverse.reverse_bits();
-        forward &= mask;
-        forward
-    }
-
     /// Uses hyperbola quintessence to find the attack squares of a single
     /// rook, taking into account the occupancy of the current board
     pub fn rook_attacks_hyp_quint(&self, occ: BB) -> BB {
@@ -574,16 +543,16 @@ impl BB {
         let translation = (this_sq as i32 - other_sq as i32).abs();
         if translation % 9 == 0 {
             // Diagonal translation
-            MAPS.diag_masks[this_sq]
+            self.lookup_diagonal_mask()
         } else if translation % 8 == 0 {
             // Vertical translation
-            MAPS.file_masks[this_sq]
+            self.lookup_file_mask()
         } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
             // Anti-diagonal translation
-            MAPS.adiag_masks[this_sq]
+            self.lookup_anti_diagonal_mask()
         } else if translation < 8 {
             // Horizontal translation
-            MAPS.rank_masks[this_sq]
+            self.lookup_rank_mask()
         } else {
             panic!("Squares {} and {} cannot be connected by a common axis", this_sq, other_sq)
         }

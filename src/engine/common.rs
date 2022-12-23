@@ -1,11 +1,7 @@
 /// This file contains hardcoded masks and Enums which are required by many
 /// other parts of the program.
 
-pub mod magics;
-mod maps;
-mod bb;
-
-pub use bb::BB;
+use super::*;
 
 // Standard chess positions useful for testing
 pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -46,8 +42,6 @@ pub const W_QUEENSIDE_ROOK_STARTING_SQ: BB = BB(0x1);
 pub const W_KINGSIDE_ROOK_STARTING_SQ: BB = BB(0x80);
 pub const B_QUEENSIDE_ROOK_STARTING_SQ: BB = BB(0x100000000000000);
 pub const B_KINGSIDE_ROOK_STARTING_SQ: BB = BB(0x8000000000000000);
-
-pub const MAPS: maps::Maps = maps::Maps::new();
 
 pub enum ASCIIBases {
     LowerA = 97,

@@ -27,11 +27,6 @@ const SPECIAL_X: u8 = 192; // 11xxxxxx
     1x 11 - queen promotion
 */
 
-pub struct Move {
-    word_one: u8,
-    word_two: u8,
-}
-
 pub struct MoveList {
     move_list: Vec<Move>
 }
@@ -99,6 +94,11 @@ impl std::ops::Index<usize> for MoveList {
     fn index(&self, index: usize) -> &Self::Output {
         self.move_list.index(index)
     }
+}
+
+pub struct Move {
+    word_one: u8,
+    word_two: u8,
 }
 
 impl Move {

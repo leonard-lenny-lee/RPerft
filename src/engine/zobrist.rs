@@ -2,26 +2,26 @@
 /// http://hgm.nubati.net/book_format.html
 
 use super::*;
+use position::Data;
 
 #[derive(Clone, Copy)]
 pub struct ZobristKey (pub u64);
 
 impl ZobristKey {
 
-    /// Generate a Zobrist hash key to encode the position. Used for 
-    /// the transposition table
-    pub fn new(pos: &Position) -> Self {
+    /// Generate a Zobrist hash key to encode the position data.
+    pub fn init_key(data: &Data) -> Self {
         Self(
-            Self::hash_board(pos) ^ Self::hash_castling(pos)
-            ^ Self::hash_en_passant(pos) ^ Self::hash_turn(pos)
+            Self::hash_board(data) ^ Self::hash_castling(data)
+            ^ Self::hash_en_passant(data) ^ Self::hash_turn(data)
         )
     }
 
-    fn hash_board(pos: &Position) -> u64 {
+    fn hash_board(data: &Data) -> u64 {
         let mut hash = 0;
         let pieces = [
-            pos.data.b_pieces.as_hash_array(),
-            pos.data.w_pieces.as_hash_array()
+            data.b_pieces.as_hash_array(),
+            data.w_pieces.as_hash_array()
         ];
         for color in pieces.iter().enumerate() {
             for piece in color.1.iter().enumerate() {
@@ -36,32 +36,37 @@ impl ZobristKey {
         return hash;
     }
 
-    fn hash_castling(pos: &Position) -> u64 {
+    fn hash_castling(data: &Data) -> u64 {
         let mut hash = 0;
-        if pos.data.w_kingside_castle {
+        if data.w_kingside_castle {
             hash ^= HASH_KEYS[768]
         }
-        if pos.data.w_queenside_castle {
+        if data.w_queenside_castle {
             hash ^= HASH_KEYS[769]
         }
-        if pos.data.b_kingside_castle {
+        if data.b_kingside_castle {
             hash ^= HASH_KEYS[770]
         }
-        if pos.data.b_queenside_castle {
+        if data.b_queenside_castle {
             hash ^= HASH_KEYS[771]
         }
         return hash;
     }
 
-    fn hash_en_passant(pos: &Position) -> u64 {
-        if pos.state.pawn_en_passant_srcs(pos) != EMPTY_BB {
-            return HASH_KEYS[772 + pos.data.en_passant_target_sq.to_index() % 8]
+    fn hash_en_passant(data: &Data) -> u64 {
+        let pawns = if data.white_to_move {
+            (data.en_passant_target_sq.sout_west() | data.en_passant_target_sq.sout_east()) & data.w_pieces.pawn
+        } else {
+            (data.en_passant_target_sq.nort_west() | data.en_passant_target_sq.nort_east()) & data.b_pieces.pawn
+        };
+        if pawns != EMPTY_BB {
+            return HASH_KEYS[772 + data.en_passant_target_sq.to_index() % 8]
         }
         return 0
     }
 
-    fn hash_turn(pos: &Position,) -> u64 {
-        if pos.data.white_to_move {
+    fn hash_turn(data: &Data,) -> u64 {
+        if data.white_to_move {
             return HASH_KEYS[780]
         }
         return 0
@@ -70,16 +75,16 @@ impl ZobristKey {
     /// Common hash update function
     pub fn update_key(
         &mut self, moved_piece: usize, src: BB, target: BB,
-        pos: &Position, new_pos: &Position
+        data: &Data, old_data: &Data
     ) {
         // Turn has passed so we must xor turn
         self.0 ^= HASH_KEYS[780];
         // Update at both source and target squares for the piece
-        self.update_moved_piece(moved_piece, src, target, pos.data.white_to_move);
+        self.update_moved_piece(moved_piece, src, target, data.white_to_move);
         // Update en passant hash
-        self.0 ^= ZobristKey::update_en_passant_target(pos, new_pos);
+        self.0 ^= ZobristKey::update_en_passant_target(data, old_data);
         // Update castle hashing
-        self.0 ^= ZobristKey::update_castling_rights(pos, new_pos);
+        self.0 ^= ZobristKey::update_castling_rights(data, old_data);
     }
 
     /// Update at both source and target squares for the piece
@@ -98,23 +103,23 @@ impl ZobristKey {
     }
 
     /// Generate the update hash for an en passant square update
-    fn update_en_passant_target(pos: &Position, new_pos: &Position) -> u64 {
-        ZobristKey::hash_en_passant(pos) ^ ZobristKey::hash_en_passant(new_pos)
+    fn update_en_passant_target(data: &Data, old_data: &Data) -> u64 {
+        ZobristKey::hash_en_passant(data) ^ ZobristKey::hash_en_passant(old_data)
     }
 
     /// Generate the update hash for an update to castling rights
-    fn update_castling_rights(pos: &Position, new_pos: &Position) -> u64 {
+    fn update_castling_rights(data: &Data, old_data: &Data) -> u64 {
         let mut update_hash = 0;
-        if pos.data.w_kingside_castle != new_pos.data.w_kingside_castle {
+        if data.w_kingside_castle != old_data.w_kingside_castle {
             update_hash ^= HASH_KEYS[768]
         }
-        if pos.data.w_queenside_castle != new_pos.data.w_queenside_castle {
+        if data.w_queenside_castle != old_data.w_queenside_castle {
             update_hash ^= HASH_KEYS[769]
         }
-        if pos.data.b_kingside_castle != new_pos.data.b_kingside_castle {
+        if data.b_kingside_castle != old_data.b_kingside_castle {
             update_hash ^= HASH_KEYS[770]
         }
-        if pos.data.b_queenside_castle != new_pos.data.b_queenside_castle {
+        if data.b_queenside_castle != old_data.b_queenside_castle {
             update_hash ^= HASH_KEYS[771]
         }
         update_hash
@@ -344,8 +349,8 @@ mod test {
     #[test_case("rnbqkbnr/p1pppppp/8/8/PpP4P/8/1P1PPPP1/RNBQKBNR b KQkq c3 0 3", 0x3c8123ea7b067637; "8")]
     #[test_case("rnbqkbnr/p1pppppp/8/8/P6P/R1p5/1P1PPPP1/1NBQKBNR b Kkq - 0 4", 0x5c3f9b829b279560; "9")]
     fn test_zobrist_polyglot_hash(fen: &str, expected_hash: u64) {
-        let pos = Position::new_from_fen(fen.to_string());
-        let hash = ZobristKey::new(&pos);
+        let data = Data::from_fen(fen.to_string());
+        let hash = ZobristKey::init_key(&data);
         assert_eq!(hash.0, expected_hash);
     }
 }

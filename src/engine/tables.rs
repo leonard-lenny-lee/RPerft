@@ -1,4 +1,75 @@
+/// Contains the tables generated at compile time for fast lookups at runtime
+
 use super::*;
+
+const KNIGHT_ATTACK_TABLE: [BB; 64] = generate_knight_attack_maps();
+const KING_ATTACK_TABLE: [BB; 64] = generate_king_attack_maps();
+const RANK_TABLE: [BB; 64] = generate_rank_masks();
+const FILE_TABLE: [BB; 64] = generate_file_masks();
+const DIAG_TABLE: [BB; 64] = generate_diagonal_masks();
+const ADIAG_TABLE: [BB; 64] = generate_antidiagonal_masks();
+
+const fn generate_knight_attack_maps() -> [BB; 64] {
+    let mut maps: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        maps[i] = BB(1 << i).knight_attack_squares();
+        i += 1;
+    }
+    return maps;   
+}
+
+const fn generate_king_attack_maps() -> [BB; 64] {
+    let mut maps: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        maps[i] = BB(1 << i).king_attack_squares();
+        i += 1;
+    }
+    return maps;
+}
+
+const fn generate_rank_masks() -> [BB; 64] {
+    let mut masks: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        masks[i] = RANK_MASKS[i / 8];
+        i += 1;
+    }
+    return masks;
+}
+
+const fn generate_file_masks() -> [BB; 64] {
+    let mut masks: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        masks[i] = FILE_MASKS[i % 8];
+        i += 1;
+    }
+    return masks;
+}
+
+const fn generate_diagonal_masks() -> [BB; 64] {
+    let mut masks: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        let origin = BB(1 << i);
+        masks[i] = BB(origin.no_ea_fill().0 | origin.so_we_fill().0);
+        i += 1;
+    }
+    return masks;
+}
+
+const fn generate_antidiagonal_masks() -> [BB; 64] {
+    let mut masks: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        let origin = BB(1 << i);
+        masks[i] = BB(origin.no_we_fill().0 | origin.so_ea_fill().0);
+        i += 1
+    }
+    return masks;
+}
 
 const BISHOP_SHIFTS: [u64; 64] = [
     58, 59, 59, 59, 59, 59, 59, 58,
@@ -170,15 +241,15 @@ const ROOK_61: [BB; 4096] = init_rook_db(61);
 const ROOK_62: [BB; 4096] = init_rook_db(62);
 const ROOK_63: [BB; 4096] = init_rook_db(63);
 
-const ROOK_MAGIC_DB: [&[BB; 4096]; 64] = [
-    &ROOK_00, &ROOK_01, &ROOK_02, &ROOK_03, &ROOK_04, &ROOK_05, &ROOK_06, &ROOK_07,
-    &ROOK_08, &ROOK_09, &ROOK_10, &ROOK_11, &ROOK_12, &ROOK_13, &ROOK_14, &ROOK_15,
-    &ROOK_16, &ROOK_17, &ROOK_18, &ROOK_19, &ROOK_20, &ROOK_21, &ROOK_22, &ROOK_23,
-    &ROOK_24, &ROOK_25, &ROOK_26, &ROOK_27, &ROOK_28, &ROOK_29, &ROOK_30, &ROOK_31,
-    &ROOK_32, &ROOK_33, &ROOK_34, &ROOK_35, &ROOK_36, &ROOK_37, &ROOK_38, &ROOK_39,
-    &ROOK_40, &ROOK_41, &ROOK_42, &ROOK_43, &ROOK_44, &ROOK_45, &ROOK_46, &ROOK_47,
-    &ROOK_48, &ROOK_49, &ROOK_50, &ROOK_51, &ROOK_52, &ROOK_53, &ROOK_54, &ROOK_55,
-    &ROOK_56, &ROOK_57, &ROOK_58, &ROOK_59, &ROOK_60, &ROOK_61, &ROOK_62, &ROOK_63,
+const ROOK_MAGIC_DB: [[BB; 4096]; 64] = [
+    ROOK_00, ROOK_01, ROOK_02, ROOK_03, ROOK_04, ROOK_05, ROOK_06, ROOK_07,
+    ROOK_08, ROOK_09, ROOK_10, ROOK_11, ROOK_12, ROOK_13, ROOK_14, ROOK_15,
+    ROOK_16, ROOK_17, ROOK_18, ROOK_19, ROOK_20, ROOK_21, ROOK_22, ROOK_23,
+    ROOK_24, ROOK_25, ROOK_26, ROOK_27, ROOK_28, ROOK_29, ROOK_30, ROOK_31,
+    ROOK_32, ROOK_33, ROOK_34, ROOK_35, ROOK_36, ROOK_37, ROOK_38, ROOK_39,
+    ROOK_40, ROOK_41, ROOK_42, ROOK_43, ROOK_44, ROOK_45, ROOK_46, ROOK_47,
+    ROOK_48, ROOK_49, ROOK_50, ROOK_51, ROOK_52, ROOK_53, ROOK_54, ROOK_55,
+    ROOK_56, ROOK_57, ROOK_58, ROOK_59, ROOK_60, ROOK_61, ROOK_62, ROOK_63,
 ];
 
 const fn init_bishop_magic_db() -> [[BB; 512]; 64] {
@@ -242,6 +313,67 @@ const fn init_rook_db(square: usize) -> [BB; 4096] {
 
 impl BB {
 
+    #[inline(always)]
+    /// Return the attack squares of a single knight by lookup
+    pub fn lookup_knight_attacks(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        KNIGHT_ATTACK_TABLE[self.to_index()]
+    }
+
+    #[inline(always)]
+    /// Return the attack squares of a king by lookup
+    pub fn lookup_king_attacks(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        KING_ATTACK_TABLE[self.to_index()]
+    }
+
+    #[inline(always)]
+    /// Return the diagonal mask
+    pub fn lookup_diagonal_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        DIAG_TABLE[self.to_index()]
+    }
+
+    #[inline(always)]
+    /// Return the anti-diagonal mask
+    pub fn lookup_anti_diagonal_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        ADIAG_TABLE[self.to_index()]
+    }
+
+    #[inline(always)]
+    /// Return the file mask
+    pub fn lookup_file_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        FILE_TABLE[self.to_index()]
+    }
+
+    #[inline(always)]
+    /// Return the rank mask
+    pub fn lookup_rank_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        RANK_TABLE[self.to_index()]
+    }
+
+    /// Use the o-2s trick to find valid squares for sliding pieces, taking
+    /// into account the occupancy of the current board
+    pub fn hyp_quint(&self, occ: BB, axis: Axis) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        let mask = match axis {
+            Axis::File => FILE_TABLE[self.ils1b()],
+            Axis::Rank => RANK_TABLE[self.ils1b()],
+            Axis::Diagonal => DIAG_TABLE[self.ils1b()],
+            Axis::AntiDiagonal => ADIAG_TABLE[self.ils1b()]
+        };
+        let mut forward = occ & mask;
+        let mut reverse = forward.reverse_bits();
+        forward -= *self * 2;
+        reverse -= self.reverse_bits() * 2;
+        forward ^= reverse.reverse_bits();
+        forward &= mask;
+        forward
+    }
+
     /// Find the rook attack squares by looking up the magic tables
     pub fn lookup_rook_attacks(&self, occ: BB) -> BB {
         let sq = self.ils1b();
@@ -265,10 +397,10 @@ impl BB {
     const fn const_hyp_quint(&self, occ: u64, axis: Axis) -> u64 {
         let idx = self.0.trailing_zeros() as usize;
         let mask = match axis {
-            Axis::File => MAPS.file_masks[idx],
-            Axis::Rank => MAPS.rank_masks[idx],
-            Axis::Diagonal => MAPS.diag_masks[idx],
-            Axis::AntiDiagonal => MAPS.adiag_masks[idx]
+            Axis::File => FILE_TABLE[idx],
+            Axis::Rank => RANK_TABLE[idx],
+            Axis::Diagonal => DIAG_TABLE[idx],
+            Axis::AntiDiagonal => ADIAG_TABLE[idx]
         };
         let mut forward = occ & mask.0;
         let mut reverse = forward.reverse_bits();
@@ -294,6 +426,7 @@ mod tests {
     use super::*;
     use test_case::test_case;
 
+    /// Test that magic factor hashing is free from collisions.
     #[test_case(BISHOP_MAGICS, BISHOP_MASKS, BISHOP_SHIFTS; "bishop")]
     #[test_case(ROOK_MAGICS, ROOK_MASKS, ROOK_SHIFTS; "rook")]
     fn test_magics(magics: [u64; 64], masks: [u64; 64], shifts: [u64; 64]) {
@@ -327,5 +460,4 @@ mod tests {
             assert!(!failure)
         }
     }
-
 }
