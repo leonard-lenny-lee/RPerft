@@ -126,57 +126,5 @@ impl Position {
     pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
         matches!(self.their_piece_at(n), 2 | 4 | 5) 
     }
-
-    /// Convert to string representation for printing to the standard output
-    pub fn to_string(&self) -> String {
-        let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
-        let w_array = self.data.w_pieces.as_array();
-        let b_array = self.data.b_pieces.as_array();
-        for i in 1..7 {
-            let mut char;
-            match i {
-                1 => char = 'p',
-                2 => char = 'r',
-                3 => char = 'n',
-                4 => char = 'b',
-                5 => char = 'q',
-                6 => char = 'k',
-                _ => char = ' ',
-            };
-            for bit in b_array[i].forward_scan() {
-                let index = bit.to_index();
-                let x = index / 8;
-                let y = index % 8;
-                array[x][y] = char;
-            }
-            char.make_ascii_uppercase();
-            for bit in w_array[i].forward_scan() {
-                let index = bit.to_index();
-                let x = index / 8;
-                let y = index % 8;
-                array[x][y] = char;
-            }
-        };
-        let mut out = String::new();
-        out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
-        for i in 0..8 {
-            let i2 = 7 - i;
-            let row = array[i2];
-            if i != 0 {
-                let rank = &(8 - i).to_string()[..];
-                out.push_str("|\n   --- --- --- --- --- --- --- --- \n");
-                out.push_str(rank);
-                out.push(' ');
-            }
-            for c in row {
-                out.push_str("| ");
-                out.push(c);
-                out.push(' ')
-            }
-        }
-        out.push_str(
-            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h "
-        );
-        return out
-    }
+    
 }

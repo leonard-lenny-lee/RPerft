@@ -72,12 +72,17 @@ pub mod perft {
 
     pub fn perft(pos: &Position, depth: i8, global: &Global) -> i64 {
         assert!(depth >= 1);
-        if global.hashing_enabled {
+        let start = std::time::Instant::now();
+        let nodes = if global.hashing_enabled {
             let mut table = PerftTable::new(global.table_size);
             perft_inner_with_table(pos, depth, &mut table)
         } else {
             perft_inner(pos, depth)
-        }
+        };
+        let duration = start.elapsed().as_secs_f64();
+        let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
+        println!("\n{} nodes found in {:.2} seconds ({:.1}M/s)\n", nodes, duration, nodes_per_second);
+        return nodes
     }
 
     fn perft_inner(pos: &Position, depth: i8) -> i64 {
@@ -116,6 +121,7 @@ pub mod perft {
     /// search. Useful for perft debugging purposes
     pub fn perft_divided(root_node: &Position, depth: i8, global: &Global) -> i64 {
         assert!(depth >= 1);
+        let start = std::time::Instant::now();
         let mut nodes = 0;
         let move_list = root_node.find_moves();
         let mut table = PerftTable::new(global.table_size);
@@ -147,7 +153,10 @@ pub mod perft {
             println!("{}{}{}: {}", src, target, promotion_piece, branch_nodes);
             nodes += branch_nodes;
         }
-        println!("\nnodes: {}", nodes);
+        // Report perft results
+        let duration = start.elapsed().as_secs_f64();
+        let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
+        println!("\n\n{} nodes found in {:.2} seconds ({:.1}M/s)", nodes, duration, nodes_per_second);
         return nodes
     }
 

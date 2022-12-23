@@ -21,15 +21,15 @@ impl Data {
     // Methods required to parse a FEN string into a Data struct
     
     pub fn from_fen(fen: String) -> Data {
-        let split_fen: Vec<&str> = fen.trim().split(" ").collect();
-        assert!(split_fen.len() == 6);
+        let tokens: Vec<&str> = fen.trim().split(" ").collect();
+        assert!(tokens.len() == 6);
         let mut pos = Data::new();
-        pos.init_bitboards(split_fen[0]);
-        pos.init_white_to_move(split_fen[1]);
-        pos.init_castling_rights(split_fen[2]);
-        pos.init_en_passant(split_fen[3]);
-        pos.init_halfmove_clock(split_fen[4]);
-        pos.init_fullmove_clock(split_fen[5]);
+        pos.init_bitboards(tokens[0]);
+        pos.init_white_to_move(tokens[1]);
+        pos.init_castling_rights(tokens[2]);
+        pos.init_en_passant(tokens[3]);
+        pos.init_halfmove_clock(tokens[4]);
+        pos.init_fullmove_clock(tokens[5]);
         pos
     }
     
@@ -200,6 +200,129 @@ impl Data {
         self.w_pieces.n_pawns() + self.b_pieces.n_pawns()
     }
 
+    fn to_array(&self, pretty: bool) -> [[char; 8]; 8] {
+        let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
+        let w_array = self.w_pieces.as_array();
+        let b_array = self.b_pieces.as_array();
+        let (w_char_set, b_char_set) = if pretty {
+            ([' ', '\u{2659}', '\u{2656}', '\u{2658}', '\u{2657}', '\u{2655}', '\u{2654}'],
+             [' ', '\u{265f}', '\u{265c}', '\u{265e}', '\u{265d}', '\u{265b}', '\u{265a}'])
+        } else {
+            ([' ', 'P', 'R', 'N', 'B', 'Q', 'K'], [' ', 'p', 'r', 'n', 'b', 'q', 'k'])
+        };
+        for i in 1..7 {
+
+            for bit in b_array[i].forward_scan() {
+                let index = bit.to_index();
+                let x = index / 8;
+                let y = index % 8;
+                array[x][y] = b_char_set[i];
+            }
+
+            for bit in w_array[i].forward_scan() {
+                let index = bit.to_index();
+                let x = index / 8;
+                let y = index % 8;
+                array[x][y] = w_char_set[i];
+            }
+        };
+        array
+    }
+
+    pub fn fen(&self) -> String {
+
+        let array = self.to_array(false);
+        let mut out = String::new();
+        for i in 0..8 {
+            let i2 = 7 - i;
+            let row = array[i2];
+            let mut n_empty = 0;
+            for c in row {
+                if c != ' ' {
+                    if n_empty > 0 {
+                        out.push_str(&n_empty.to_string()[..]);
+                        n_empty = 0
+                    }
+                    out.push(c);
+                } else {
+                    n_empty += 1;
+                }
+            }
+            if n_empty > 0 {
+                out.push_str(&n_empty.to_string()[..])
+            }
+            out.push('/')
+        }
+    
+        if self.white_to_move {
+            out.push_str(" w ")
+        } else {
+            out.push_str(" b ")
+        }
+        
+        if self.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+            out.push('K')
+        }
+        if self.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+            out.push('Q')
+        }
+        if self.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+            out.push('k')
+        }
+        if self.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+            out.push('q')
+        }
+
+        if self.en_passant_target_sq != EMPTY_BB {
+            out.push(' ');
+            out.push_str(&self.en_passant_target_sq.to_algebraic()[..]);
+        } else {
+            out.push_str(" -")
+        }
+        out.push(' ');
+        out.push_str(&self.halfmove_clock.to_string()[..]);
+        out.push(' ');
+        out.push_str(&self.fullmove_clock.to_string()[..]);
+        out
+    }
+
+    /// Convert to string representation of the board for printing to the
+    /// standard output
+    pub fn board(&self) -> String {
+
+        let array = self.to_array(true);
+        let mut out = String::new();
+        out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
+        for i in 0..8 {
+            let i2 = 7 - i;
+            let row = array[i2];
+            if i != 0 {
+                let rank = &(8 - i).to_string()[..];
+                out.push_str("|\n   --- --- --- --- --- --- --- --- \n");
+                out.push_str(rank);
+                out.push(' ');
+            }
+            for c in row {
+                out.push_str("| ");
+                out.push(c);
+                out.push(' ')
+            }
+        }
+        out.push_str(
+            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h \n"
+        );
+        return out
+    }
+
+    /// Convert the board into a string for display
+    pub fn to_string(&self) -> String {
+        let mut out = self.board();
+        out.push_str("\nFEN: ");
+        out.push_str(&self.fen()[..]);
+        out.push_str("\n\n");
+        out
+    }
+
 }
 
 #[cfg(test)]
@@ -272,7 +395,7 @@ mod tests {
         )
     }
 
-    #[test_case("-", EMPTY_BB; "empty")]
+    #[test_case("-", EMPTY_BB; "n_empty")]
     #[test_case("e6", BB::from_index(44); "e6")]
     fn test_init_en_passant(test: &str, expected: BB) {
         let mut data = Data::new();
@@ -292,6 +415,13 @@ mod tests {
         let mut data = Data::new();
         data.init_fullmove_clock("0");
         assert_eq!(data.fullmove_clock, 0)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_fen_parse() {
+        let data = Data::from_fen(DEFAULT_FEN.to_string());
+        print!("{}", data.to_string())
     }
 
 }
