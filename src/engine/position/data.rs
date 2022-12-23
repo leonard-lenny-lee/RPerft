@@ -10,10 +10,7 @@ pub struct Data {
     pub occ: BB,
     pub free: BB,
     pub white_to_move: bool,
-    pub w_kingside_castle: bool,
-    pub b_kingside_castle: bool,
-    pub w_queenside_castle: bool,
-    pub b_queenside_castle: bool,
+    pub castling_rights: BB,
     pub en_passant_target_sq: BB,
     pub halfmove_clock: i8,
     pub fullmove_clock: i8,
@@ -43,10 +40,7 @@ impl Data {
             occ: EMPTY_BB,
             free: EMPTY_BB,
             white_to_move: true,
-            w_kingside_castle: false,
-            b_kingside_castle: false,
-            w_queenside_castle: false,
-            b_queenside_castle: false,
+            castling_rights: EMPTY_BB,
             en_passant_target_sq: EMPTY_BB,
             halfmove_clock: 0,
             fullmove_clock: 0
@@ -111,10 +105,18 @@ impl Data {
 
     /// Set the castling rights of a position
     fn init_castling_rights(&mut self, code: &str) {
-        self.w_kingside_castle = code.contains("K");
-        self.b_kingside_castle = code.contains("k");
-        self.w_queenside_castle = code.contains("Q");
-        self.b_queenside_castle = code.contains("q");
+        if code.contains("K") {
+            self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ
+        }
+        if code.contains("k") {
+            self.castling_rights |= B_KINGSIDE_ROOK_STARTING_SQ
+        }
+        if code.contains("Q") {
+            self.castling_rights |= W_QUEENSIDE_ROOK_STARTING_SQ
+        }
+        if code.contains("q") {
+            self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ
+        }
     }
 
     /// Calculate the en passant target square bitmask
@@ -264,11 +266,9 @@ mod tests {
         let mut data = Data::new();
         data.init_castling_rights("KkQq");
         assert_eq!(
-            data.w_kingside_castle 
-            && data.b_kingside_castle
-            && data.w_queenside_castle
-            && data.b_queenside_castle,
-            true
+            W_KINGSIDE_ROOK_STARTING_SQ | B_KINGSIDE_ROOK_STARTING_SQ |
+            W_QUEENSIDE_ROOK_STARTING_SQ | B_QUEENSIDE_ROOK_STARTING_SQ,
+            data.castling_rights
         )
     }
 

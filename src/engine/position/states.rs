@@ -25,6 +25,10 @@ impl Position {
     pub fn promotion_rank(&self) -> BB {
         self.state.promotion_rank()
     }
+    /// Return our backrank
+    pub fn our_backrank(&self) -> BB {
+        self.state.our_backrank()
+    }
     /// Return the en passant capture rank mask
     pub fn ep_capture_rank(&self) -> BB {
         self.state.ep_capture_rank()
@@ -120,14 +124,6 @@ impl Position {
     pub fn our_queenside_castle(&self) -> bool {
         self.state.our_queenside_castle(&self.data)
     }
-    /// Return their king side castling rights
-    pub fn their_kingside_castle(&self) -> bool {
-        self.state.their_ksc(&self.data)
-    }
-    /// Return their queenside castling rights
-    pub fn their_queenside_castle(&self) -> bool {
-        self.state.their_qsc(&self.data)
-    }
     /// Return all the squares attacked by their pawns
     pub fn unsafe_squares_pawn(&self) -> BB {
         self.state.unsafe_squares_pawn(&self.data)
@@ -136,22 +132,6 @@ impl Position {
     pub fn their_checking_pawns(&self) -> BB {
         self.state.pawn_checking_squares(&self.data) 
         & self.their_pieces().pawn
-    }
-    /// Set our kingside castle permission
-    pub fn set_our_ksc(&mut self, value: bool) {
-        self.state.set_our_ksc(&mut self.data, value)
-    }
-    /// Set our queenside castle permission
-    pub fn set_our_qsc(&mut self, value: bool) {
-        self.state.set_our_qsc(&mut self.data, value)
-    }
-    /// Set their kingside castle permission
-    pub fn set_their_ksc(&mut self, value: bool) {
-        self.state.set_their_ksc(&mut self.data, value)
-    }
-    /// Set their queenside castle permission
-    pub fn set_their_qsc(&mut self, value: bool) {
-        self.state.set_their_qsc(&mut self.data, value)
     }
     /// Return our piece set as a mutable reference
     pub fn mut_our_pieces(&mut self) -> &mut PieceSet {
@@ -173,6 +153,8 @@ pub(crate) trait State {
     fn promotion_rank(&self) -> BB;
     /// Pawns on this rank can capture en passant
     fn ep_capture_rank(&self) -> BB;
+    /// Our back rank
+    fn our_backrank(&self) -> BB;
     /// Our pieceset
     fn our_pieces<'a>(&'a self, data: &'a Data) -> &PieceSet;
     /// Their pieceset
@@ -217,10 +199,6 @@ pub(crate) trait State {
     fn our_kingside_castle(&self, data: &Data) -> bool;
     /// Our queenside castle right
     fn our_queenside_castle(&self, data: &Data) -> bool;
-    /// Their kingside castle right
-    fn their_ksc(&self, data: &Data) -> bool;
-    /// Their queenside castle right
-    fn their_qsc(&self, data: &Data) -> bool;
     /// Squares rendered unsafe by their pawn attacks
     fn unsafe_squares_pawn(&self, data: &Data) -> BB;
     /// Squares which if occupied by a pawn, is putting us in check
@@ -234,13 +212,6 @@ pub(crate) trait State {
     /// Square their queenside rook starts on
     fn their_qs_rook_starting_sq(&self) -> BB;
     /// Set our kingside castle right
-    fn set_our_ksc(&self, data: &mut Data, value: bool);
-    /// Set our queenside castle right
-    fn set_our_qsc(&self, data: &mut Data, value: bool);
-    /// Set their kingside castle right
-    fn set_their_ksc(&self, data: &mut Data, value: bool);
-    /// Set their queenside castle right
-    fn set_their_qsc(&self, data: &mut Data, value: bool);
     /// Return a mutable reference to our pieceset
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet;
     /// Return a mutable reference to their pieceset
@@ -275,19 +246,15 @@ impl State for White {
     }
 
     fn our_kingside_castle(&self, data: &Data) -> bool {
-        data.w_kingside_castle
+        (data.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ).is_any()
     }
 
     fn our_queenside_castle(&self, data: &Data) -> bool {
-        data.w_queenside_castle
+        (data.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ).is_any()
     }
 
-    fn their_ksc(&self, data: &Data) -> bool {
-        data.b_kingside_castle
-    }
-
-    fn their_qsc(&self, data: &Data) -> bool {
-        data.b_queenside_castle
+    fn our_backrank(&self) -> BB {
+        RANK_1
     }
 
     fn kingside_castle_mask(&self) -> BB {
@@ -392,22 +359,6 @@ impl State for White {
         king.nort_east() | king.nort_west()
     }
 
-    fn set_our_ksc(&self, data: &mut Data, value: bool) {
-        data.w_kingside_castle = value
-    }
-
-    fn set_our_qsc(&self, data: &mut Data, value: bool) {
-        data.w_queenside_castle = value
-    }
-
-    fn set_their_ksc(&self, data: &mut Data, value: bool) {
-        data.b_kingside_castle = value
-    }
-
-    fn set_their_qsc(&self, data: &mut Data, value: bool) {
-        data.b_queenside_castle = value
-    }
-
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
         &mut data.w_pieces
     }
@@ -436,6 +387,10 @@ impl State for Black {
         RANK_4
     }
 
+    fn our_backrank(&self) -> BB {
+        RANK_8
+    }
+
     fn our_pieces<'a>(&'a self, data: &'a Data) -> &PieceSet {
         &data.b_pieces
     }
@@ -445,19 +400,11 @@ impl State for Black {
     }
 
     fn our_kingside_castle(&self, data: &Data) -> bool {
-        data.b_kingside_castle
+        (data.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ).is_any()
     }
 
     fn our_queenside_castle(&self, data: &Data) -> bool {
-        data.b_queenside_castle
-    }
-
-    fn their_ksc(&self, data: &Data) -> bool {
-        data.w_kingside_castle
-    }
-
-    fn their_qsc(&self, data: &Data) -> bool {
-        data.b_queenside_castle
+        (data.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ).is_any()
     }
 
     fn kingside_castle_mask(&self) -> BB {
@@ -560,22 +507,6 @@ impl State for Black {
     fn pawn_checking_squares(&self, data: &Data) -> BB {
         let king = data.b_pieces.king;
         king.sout_east() | king.sout_west()
-    }
-
-    fn set_our_ksc(&self, data: &mut Data, value: bool) {
-        data.b_kingside_castle = value;
-    }
-
-    fn set_our_qsc(&self, data: &mut Data, value: bool) {
-        data.b_queenside_castle = value
-    }
-
-    fn set_their_ksc(&self, data: &mut Data, value: bool) {
-        data.w_kingside_castle = value
-    }
-
-    fn set_their_qsc(&self, data: &mut Data, value: bool) {
-        data.w_queenside_castle = value
     }
 
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {

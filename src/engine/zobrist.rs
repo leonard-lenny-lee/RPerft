@@ -38,16 +38,16 @@ impl ZobristKey {
 
     fn hash_castling(data: &Data) -> u64 {
         let mut hash = 0;
-        if data.w_kingside_castle {
+        if (data.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ).is_any() {
             hash ^= HASH_KEYS[768]
         }
-        if data.w_queenside_castle {
+        if (data.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ).is_any() {
             hash ^= HASH_KEYS[769]
         }
-        if data.b_kingside_castle {
+        if (data.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ).is_any() {
             hash ^= HASH_KEYS[770]
         }
-        if data.b_queenside_castle {
+        if (data.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ).is_any() {
             hash ^= HASH_KEYS[771]
         }
         return hash;
@@ -110,17 +110,15 @@ impl ZobristKey {
     /// Generate the update hash for an update to castling rights
     fn update_castling_rights(data: &Data, old_data: &Data) -> u64 {
         let mut update_hash = 0;
-        if data.w_kingside_castle != old_data.w_kingside_castle {
-            update_hash ^= HASH_KEYS[768]
-        }
-        if data.w_queenside_castle != old_data.w_queenside_castle {
-            update_hash ^= HASH_KEYS[769]
-        }
-        if data.b_kingside_castle != old_data.b_kingside_castle {
-            update_hash ^= HASH_KEYS[770]
-        }
-        if data.b_queenside_castle != old_data.b_queenside_castle {
-            update_hash ^= HASH_KEYS[771]
+        let mut castling_right_diff = data.castling_rights ^ old_data.castling_rights;
+        while castling_right_diff.is_any() {
+            match castling_right_diff.pop_ils1b() {
+                7 => update_hash |= HASH_KEYS[768], // White kingside
+                0 => update_hash |= HASH_KEYS[769], // White queenside
+                63 => update_hash |= HASH_KEYS[770], // Black kingside
+                56 => update_hash |= HASH_KEYS[771], // Black queenside
+                _ => panic!("Unrecognised bit in castling rights")
+            }
         }
         update_hash
     }

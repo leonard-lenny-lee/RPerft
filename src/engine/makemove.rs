@@ -73,14 +73,7 @@ fn execute_capture_operations(pos: &mut Position, target: BB) {
     their_pieces.any ^= target;
     // If their rook has been captured, check if it's a rook from on their
     // starting square. If so, unset their corresponding castling right
-    if captured_piece == Piece::Rook.value() {
-        if target == pos.their_ks_rook_starting_sq() {
-            pos.set_their_ksc(false)
-        }
-        if target == pos.their_qs_rook_starting_sq() {
-            pos.set_their_qsc(false)
-        }
-    }
+    pos.data.castling_rights &= !target;
     // Update Zobrist hash with the capture
     pos.key.update_square(
         captured_piece, target, !pos.data.white_to_move
@@ -91,19 +84,11 @@ fn set_castling_rights(pos: &mut Position, src: BB, moved_piece: usize) {
     // If our king has moved, either normally or through castling, immediately
     // remove all further rights to castle
     if moved_piece == Piece::King.value() {
-        pos.set_our_ksc(false);
-        pos.set_our_qsc(false);
+        pos.data.castling_rights &= !pos.our_backrank()
     }
     // If our rook has moved from its starting square, remove rights to castle
     // that side
-    if moved_piece == Piece::Rook.value() {
-        if src == pos.our_ks_rook_starting_sq() {
-            pos.set_our_ksc(false)
-        }
-        if src == pos.our_qs_rook_starting_sq() {
-            pos.set_our_qsc(false)
-        }
-    }
+    pos.data.castling_rights &= !src
 }
 
 fn set_halfmove_clock(pos: &mut Position, mv: &Move, moved_piece: usize) {
