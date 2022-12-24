@@ -86,6 +86,10 @@ impl MoveList {
         self.move_list.push(Move::new_bishop_promo_capture(target, src))
     }
 
+    pub fn pop(&mut self) -> Option<Move> {
+        self.move_list.pop()
+    }
+
 }
 
 impl std::ops::Index<usize> for MoveList {

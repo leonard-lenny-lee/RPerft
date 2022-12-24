@@ -80,3 +80,20 @@ impl PieceSet {
     }
 
 }
+
+impl std::ops::Index<usize> for PieceSet {
+    type Output = BB;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.any,
+            1 => &self.pawn,
+            2 => &self.rook,
+            3 => &self.knight,
+            4 => &self.bishop,
+            5 => &self.queen,
+            6 => &self.king,
+            _ => panic!("Index {} out of bounds", index)
+        }
+    }
+}

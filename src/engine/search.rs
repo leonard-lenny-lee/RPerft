@@ -120,10 +120,10 @@ pub mod perft {
     /// search. Useful for perft debugging purposes
     pub fn perft_divided(pos: &Position, depth: i8, global: &Global) -> i64 {
         assert!(depth >= 1);
+        let mut table = PerftTable::new(global.table_size);
         let start = std::time::Instant::now();
         let mut nodes = 0;
         let move_list = pos.find_moves();
-        let mut table = PerftTable::new(global.table_size);
         for mv in move_list.iter() {
             let new_pos = pos.make_move(mv);
             let branch_nodes;
@@ -166,7 +166,7 @@ pub mod perft {
                 let pos = Position::from_fen($positions[i].to_string()).unwrap();
                 let (nodes, duration, nodes_per_second) = perft(&pos, $depths[i], &$global);
                 println!(
-                    "Test #{}: {} nodes in {:.2} seconds ({:.2} M/s)",
+                    "Test #{}: {:>12} nodes in {:.2} seconds ({:.2} M/s)",
                     i + 1, nodes, duration, nodes_per_second 
                 )
             }
@@ -181,7 +181,7 @@ pub mod perft {
 
         assert_eq!(positions.len(), depths.len());
         let n_tests = positions.len();
-
+        println!("Running Perft Suite...");
         global.hashing_enabled = false;
         run_suite!(n_tests, positions, depths, global);
         global.hashing_enabled = true;

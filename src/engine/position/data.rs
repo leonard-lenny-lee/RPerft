@@ -280,7 +280,9 @@ impl Data {
             if n_empty > 0 {
                 out.push_str(&n_empty.to_string()[..])
             }
-            out.push('/')
+            if i != 7 {
+                out.push('/')
+            }
         }
     
         if self.white_to_move {
@@ -288,19 +290,24 @@ impl Data {
         } else {
             out.push_str(" b ")
         }
-        
+
+        let mut castling_token = String::new();
         if self.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
-            out.push('K')
+            castling_token.push('K')
         }
         if self.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
-            out.push('Q')
+            castling_token.push('Q')
         }
         if self.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
-            out.push('k')
+            castling_token.push('k')
         }
         if self.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
-            out.push('q')
+            castling_token.push('q')
         }
+        if castling_token.len() == 0 {
+            castling_token.push('-')
+        }
+        out.push_str(castling_token.as_str());
 
         if self.en_passant_target_sq != EMPTY_BB {
             out.push(' ');
@@ -447,9 +454,15 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_fen_parse() {
-        let data = Data::from_fen(DEFAULT_FEN.to_string()).unwrap();
+        let data = Data::from_fen(POSITION_3.to_string()).unwrap();
+        assert_eq!(data.fen(), POSITION_3)
+    }
+
+    #[test]
+    #[ignore]
+    fn test_to_string() {
+        let data = Data::from_fen(POSITION_3.to_string()).unwrap();
         print!("{}", data.to_string())
     }
 

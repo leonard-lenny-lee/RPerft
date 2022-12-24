@@ -75,16 +75,16 @@ impl ZobristKey {
     /// Common hash update function
     pub fn update_key(
         &mut self, moved_piece: usize, src: BB, target: BB,
-        data: &Data, old_data: &Data
+        new_data: &Data, old_data: &Data
     ) {
         // Turn has passed so we must xor turn
         self.0 ^= HASH_KEYS[780];
         // Update at both source and target squares for the piece
-        self.update_moved_piece(moved_piece, src, target, data.white_to_move);
+        self.update_moved_piece(moved_piece, src, target, old_data.white_to_move);
         // Update en passant hash
-        self.0 ^= ZobristKey::update_en_passant_target(data, old_data);
+        self.0 ^= ZobristKey::update_en_passant_target(new_data, old_data);
         // Update castle hashing
-        self.0 ^= ZobristKey::update_castling_rights(data, old_data);
+        self.0 ^= ZobristKey::update_castling_rights(new_data, old_data);
     }
 
     /// Update at both source and target squares for the piece
@@ -103,14 +103,14 @@ impl ZobristKey {
     }
 
     /// Generate the update hash for an en passant square update
-    fn update_en_passant_target(data: &Data, old_data: &Data) -> u64 {
-        ZobristKey::hash_en_passant(data) ^ ZobristKey::hash_en_passant(old_data)
+    fn update_en_passant_target(new_data: &Data, old_data: &Data) -> u64 {
+        ZobristKey::hash_en_passant(new_data) ^ ZobristKey::hash_en_passant(old_data)
     }
 
     /// Generate the update hash for an update to castling rights
-    fn update_castling_rights(data: &Data, old_data: &Data) -> u64 {
+    fn update_castling_rights(new_data: &Data, old_data: &Data) -> u64 {
         let mut update_hash = 0;
-        let mut castling_right_diff = data.castling_rights ^ old_data.castling_rights;
+        let mut castling_right_diff = new_data.castling_rights ^ old_data.castling_rights;
         while castling_right_diff.is_any() {
             match castling_right_diff.pop_ils1b() {
                 7 => update_hash ^= HASH_KEYS[768], // White kingside
