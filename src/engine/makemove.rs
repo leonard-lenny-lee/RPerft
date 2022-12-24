@@ -42,8 +42,8 @@ impl Position {
             new_pos.execute_double_push_operations(target)
         }
         // Change the turn and state
-        new_pos.change_state();
         new_pos.key.update_key(moved_piece, src, target, &self.data, &new_pos.data);
+        new_pos.change_state();
         return new_pos
     }
 

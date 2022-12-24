@@ -405,7 +405,7 @@ mod tests {
     fn test_sgl_push_pawn_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_single_pushes( &mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -420,7 +420,7 @@ mod tests {
     fn test_dbl_push_pawn_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_double_pushes(&mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -434,7 +434,7 @@ mod tests {
     fn test_push_lcap_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_left_captures(&mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -449,7 +449,7 @@ mod tests {
     fn test_push_rcap_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_right_captures(&mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -463,7 +463,7 @@ mod tests {
     fn test_knight_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_knight_moves(&mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -477,7 +477,7 @@ mod tests {
     fn test_king_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_king_moves(&mut move_list, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -492,7 +492,7 @@ mod tests {
     fn test_bishop_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_bishop_moves(&mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -506,7 +506,7 @@ mod tests {
     fn test_rook_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_rook_moves(&mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -521,7 +521,7 @@ mod tests {
     fn test_queen_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_queen_moves( &mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -535,7 +535,7 @@ mod tests {
     fn test_en_passant_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_en_passant_moves( &mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -549,7 +549,7 @@ mod tests {
     fn test_castling_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_castling_moves(&mut move_list, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -565,7 +565,7 @@ mod tests {
     fn test_move_gen(
         fen: &str, expected_nodes: i32, expected_captures: i32,
     ) {
-        let pos = Position::from_fen(fen.to_string());
+        let pos = Position::from_fen(fen.to_string()).unwrap();
         let move_list = pos.find_moves();
         let mut n_captures = 0;
         for mv in move_list.iter() {

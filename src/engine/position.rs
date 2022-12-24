@@ -22,11 +22,12 @@ pub struct Position {
 
 impl Position {
 
-    pub fn from_fen(fen: String) -> Self {
-        let mut pos = Position::new(&Data::from_fen(fen));
+    pub fn from_fen(fen: String) -> Result<Self, String> {
+        let data = Data::from_fen(fen)?;
+        let mut pos = Position::new(&data);
         pos.init_state();
         pos.init_key();
-        pos
+        Ok(pos)
     }
 
     fn new(data: &Data) -> Self {

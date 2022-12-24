@@ -1,6 +1,6 @@
 // Default configuration
 
-const HASHING_ENABLED: bool = false;
+const HASHING_ENABLED: bool = true;
 const TABLE_SIZE: usize = 17_000_000;
 
 pub struct Global {

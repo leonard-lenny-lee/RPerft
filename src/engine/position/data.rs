@@ -20,17 +20,17 @@ impl Data {
 
     // Methods required to parse a FEN string into a Data struct
     
-    pub fn from_fen(fen: String) -> Data {
+    pub fn from_fen(fen: String) -> Result<Data, String> {
         let tokens: Vec<&str> = fen.trim().split(" ").collect();
         assert!(tokens.len() == 6);
         let mut pos = Data::new();
-        pos.init_bitboards(tokens[0]);
-        pos.init_white_to_move(tokens[1]);
-        pos.init_castling_rights(tokens[2]);
-        pos.init_en_passant(tokens[3]);
-        pos.init_halfmove_clock(tokens[4]);
-        pos.init_fullmove_clock(tokens[5]);
-        pos
+        pos.init_bitboards(tokens[0])?;
+        pos.init_white_to_move(tokens[1])?;
+        pos.init_castling_rights(tokens[2])?;
+        pos.init_en_passant(tokens[3])?;
+        pos.init_halfmove_clock(tokens[4])?;
+        pos.init_fullmove_clock(tokens[5])?;
+        Ok(pos)
     }
     
     pub fn new() -> Data {
@@ -50,104 +50,133 @@ impl Data {
     /// Initialise a set of bitboards for white and black pieces from the 
     /// portion of the FEN string representing the board. Also sets the master
     /// occupied and free bitboards 
-    fn init_bitboards(&mut self, board: &str) {
+    fn init_bitboards(&mut self, board: &str) -> Result<(), String> {
+        let mut error_msg = Vec::new();
         let mut w_pieces: PieceSet = PieceSet::new();
         let mut b_pieces: PieceSet = PieceSet::new();
         // Split the FEN string at "/"
         let mut split_board: Vec<&str> = board.split("/").collect();
-        assert!(split_board.len() == 8);
+        let n_ranks = split_board.len();
+        if n_ranks != 8 {
+            let msg = format!("invalid # of ranks: ({})", n_ranks);
+            error_msg.push(msg)
+        };
         // Reverse vector so that 0 index is now at square A1
         split_board.reverse();
         let rev_board = &split_board.join("")[..];
         let mut i = 0;
-        for mut char in rev_board.chars() {
+        let mut invalid_chars = String::new();
+        for mut c in rev_board.chars() {
             let mask = BB::from_index(i as usize);
-            if char.is_alphabetic() {
+            if c.is_alphabetic() {
                 // If the character is alphabetic, then it represents a piece;
                 // populate the relevant bitboard
                 let pieceinit_to_modify;
-                if char.is_uppercase() {
+                if c.is_uppercase() {
                     pieceinit_to_modify = &mut w_pieces;
                 } else {
                     pieceinit_to_modify = &mut b_pieces;
-                    char.make_ascii_uppercase();
+                    c.make_ascii_uppercase();
                 }
                 pieceinit_to_modify.any |= mask;
-                match char {
+                match c {
                     'P' => pieceinit_to_modify.pawn |= mask,
                     'R' => pieceinit_to_modify.rook |= mask,
                     'N' => pieceinit_to_modify.knight |= mask,
                     'B' => pieceinit_to_modify.bishop |= mask,
                     'Q' => pieceinit_to_modify.queen |= mask,
                     'K' => pieceinit_to_modify.king |= mask,
-                    _ => panic!("Invalid character {} in FEN", char)
+                    _ => invalid_chars.push(c)
                 }
                 i += 1;
             } else {
-                assert!(char.is_numeric());
-                // Character represents empty squares so skip over the matching
-                // number of index positions.
-                i += char.to_digit(10).unwrap();
+                if c.is_numeric() {
+                    // Character represents empty squares so skip over the
+                    // matching number of index positions.
+                    let n_empty = c.to_digit(10).unwrap();
+                    if n_empty <= 8 && n_empty > 0 {
+                        i += n_empty;
+                        continue;
+                    }
+                    invalid_chars.push(c)
+                }
+                invalid_chars.push(c)
             }
         }
-        assert!(i == 64);
+        if invalid_chars.len() > 0 {
+            error_msg.push(format!("invalid chars ({})", invalid_chars))
+        }
+        if i != 64 {
+            error_msg.push(format!("invalid # of squares {}", i))
+        };
+        if error_msg.len() >= 1 {
+            let msg = error_msg.join(", ");
+            let err = format!("Error parsing board token {}: {}", board, msg);
+            return Err(err)
+        }
         self.w_pieces = w_pieces;
         self.b_pieces = b_pieces;
         self.occ = w_pieces.any | b_pieces.any;
         self.free = !self.occ;
+        Ok(())
     }
 
     /// Set white to move field
-    fn init_white_to_move(&mut self, code: &str) {
-        assert!(code == "w" || code == "b");
-        self.white_to_move = code == "w";
+    fn init_white_to_move(&mut self, code: &str) -> Result<(), String> {
+        if code == "w" || code == "b" {
+            self.white_to_move = code == "w";
+            Ok(())
+        } else {
+            Err(format!("Invalid turn specifier token {}", code))
+        }
     }
 
     /// Set the castling rights of a position
-    fn init_castling_rights(&mut self, code: &str) {
-        if code.contains("K") {
-            self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ
+    fn init_castling_rights(&mut self, code: &str) -> Result<(), String> {
+        for c in code.chars() {
+            match c {
+                'K' => self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ,
+                'k' => self.castling_rights |= B_KINGSIDE_ROOK_STARTING_SQ,
+                'Q' => self.castling_rights |= W_QUEENSIDE_ROOK_STARTING_SQ,
+                'q'=> self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ,
+                '-' => (),
+                _ => return Err(format!("Invalid castling token {}", code))
+            }
         }
-        if code.contains("k") {
-            self.castling_rights |= B_KINGSIDE_ROOK_STARTING_SQ
-        }
-        if code.contains("Q") {
-            self.castling_rights |= W_QUEENSIDE_ROOK_STARTING_SQ
-        }
-        if code.contains("q") {
-            self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ
-        }
+        return Ok(());
     }
 
     /// Calculate the en passant target square bitmask
-    fn init_en_passant(&mut self, epts: &str) {
+    fn init_en_passant(&mut self, epts: &str) -> Result<(), String> {
         let target_sq;
         if epts == "-" {
             target_sq = EMPTY_BB;
         } else {
-            target_sq = BB::from_algebraic(epts);
+            match BB::from_algebraic(epts) {
+                Ok(r) =>  target_sq = r,
+                Err(_) => return Err(
+                    format!("Invalid en passant token ({})", epts)
+                )
+            }
         }
         self.en_passant_target_sq = target_sq;
+        return Ok(())
     }
 
     /// Set the halfmove clock
-    fn init_halfmove_clock(&mut self, clock: &str) {
-        let halfmove_clock: i8;
+    fn init_halfmove_clock(&mut self, clock: &str) -> Result<(), String> {
         match clock.parse() {
-            Ok(c) => halfmove_clock = c,
-            Err(_e) => panic!("Invalid halfmove clock")
+            Ok(c) => {self.halfmove_clock = c; Ok(())}
+            Err(_) => Err(format!("Invalid halfmove clock token ({})", clock))
         }
-        self.halfmove_clock = halfmove_clock;
     }
 
     /// Set the fullmove clock
-    fn init_fullmove_clock(&mut self, clock: &str) {
-        let fullmove_clock: i8;
+    fn init_fullmove_clock(&mut self, clock: &str) -> Result<(), String> {
         match clock.parse() {
-            Ok(c) => fullmove_clock = c,
-            Err(_e) => panic!("Invalid fullmove clock")
+            Ok(c) => {self.fullmove_clock = c; Ok(())}
+            Err(_) => Err(format!("Invalid fullmove clock token ({})", clock))
         }
-        self.fullmove_clock = fullmove_clock;
     }
 
     /// The difference between the number of queens on the board
@@ -332,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_from_fen_init() {
-        Data::from_fen(DEFAULT_FEN.to_string());
+        Data::from_fen(DEFAULT_FEN.to_string()).unwrap();
     }
 
     #[test]
@@ -344,7 +373,7 @@ mod tests {
     fn test_init_bitboards() {
         let fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";
         let mut data = Data::new();
-        data.init_bitboards(fen);
+        data.init_bitboards(fen).unwrap();
         // White pieces
         assert_eq!(data.w_pieces.any, RANK_1 | RANK_2, "w.any");
         assert_eq!(data.w_pieces.pawn, RANK_2, "w.pawn");
@@ -373,7 +402,7 @@ mod tests {
     #[test_case("b", false; "black")]
     fn test_init_white_to_move (test_case: &str, expected: bool) {
         let mut data = Data::new();
-        data.init_white_to_move(test_case);
+        data.init_white_to_move(test_case).unwrap();
         assert_eq!(data.white_to_move, expected)
     }
 
@@ -381,13 +410,13 @@ mod tests {
     #[should_panic]
     fn test_invalid_white_to_move() {
         let mut data = Data::new();
-        data.init_white_to_move("X")
+        data.init_white_to_move("X").unwrap()
     }
 
     #[test]
     fn test_init_castling_rights() {
         let mut data = Data::new();
-        data.init_castling_rights("KkQq");
+        data.init_castling_rights("KkQq").unwrap();
         assert_eq!(
             W_KINGSIDE_ROOK_STARTING_SQ | B_KINGSIDE_ROOK_STARTING_SQ |
             W_QUEENSIDE_ROOK_STARTING_SQ | B_QUEENSIDE_ROOK_STARTING_SQ,
@@ -399,28 +428,28 @@ mod tests {
     #[test_case("e6", BB::from_index(44); "e6")]
     fn test_init_en_passant(test: &str, expected: BB) {
         let mut data = Data::new();
-        data.init_en_passant(test);
+        data.init_en_passant(test).unwrap();
         assert_eq!(data.en_passant_target_sq, expected)
     }
 
     #[test]
     fn test_init_halfmove_clock() {
         let mut data = Data::new();
-        data.init_halfmove_clock("6");
+        data.init_halfmove_clock("6").unwrap();
         assert_eq!(data.halfmove_clock, 6)
     }
 
     #[test]
     fn test_init_fullmove_clock() {
         let mut data = Data::new();
-        data.init_fullmove_clock("0");
+        data.init_fullmove_clock("0").unwrap();
         assert_eq!(data.fullmove_clock, 0)
     }
 
     #[test]
     #[ignore]
     fn test_fen_parse() {
-        let data = Data::from_fen(DEFAULT_FEN.to_string());
+        let data = Data::from_fen(DEFAULT_FEN.to_string()).unwrap();
         print!("{}", data.to_string())
     }
 

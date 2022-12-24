@@ -559,16 +559,21 @@ impl BB {
     }
 
     /// Convert from algebraic notation e.g. a5 to a one bit bitboard
-    pub fn from_algebraic(algebraic: &str) -> BB {
-        assert!(algebraic.len() == 2);
+    pub fn from_algebraic(algebraic: &str) -> Result<BB, ()> {
         let chars: Vec<char> = algebraic.chars().collect();
-        assert!(chars[0].is_alphabetic());
-        assert!(chars[1].is_numeric());
-        let file = chars[0] as u8 - ASCIIBases::LowerA as u8;
+        if chars.len() != 2 {
+            return Err(())
+        }
+        if !chars[0].is_alphabetic() || !chars[1].is_numeric() {
+            return Err(())
+        }
+        let file = chars[0].to_ascii_lowercase() as u8 - ASCIIBases::LowerA as u8;
         let rank = chars[1] as u8 - ASCIIBases::Zero as u8;
-        assert!(file <= 8);
-        assert!(file <= 8);
-        BB(1 << (file + (rank - 1) * 8))
+        if rank <= 8 && rank <= 8 {
+            Ok(BB(1 << (file + (rank - 1) * 8)))
+        } else {
+            Err(())
+        }
     }
 
     /// Convert a one bit bitboard into algebraic notation

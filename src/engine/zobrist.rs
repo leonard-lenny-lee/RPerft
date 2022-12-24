@@ -113,10 +113,10 @@ impl ZobristKey {
         let mut castling_right_diff = data.castling_rights ^ old_data.castling_rights;
         while castling_right_diff.is_any() {
             match castling_right_diff.pop_ils1b() {
-                7 => update_hash |= HASH_KEYS[768], // White kingside
-                0 => update_hash |= HASH_KEYS[769], // White queenside
-                63 => update_hash |= HASH_KEYS[770], // Black kingside
-                56 => update_hash |= HASH_KEYS[771], // Black queenside
+                7 => update_hash ^= HASH_KEYS[768], // White kingside
+                0 => update_hash ^= HASH_KEYS[769], // White queenside
+                63 => update_hash ^= HASH_KEYS[770], // Black kingside
+                56 => update_hash ^= HASH_KEYS[771], // Black queenside
                 _ => panic!("Unrecognised bit in castling rights")
             }
         }
@@ -347,8 +347,10 @@ mod test {
     #[test_case("rnbqkbnr/p1pppppp/8/8/PpP4P/8/1P1PPPP1/RNBQKBNR b KQkq c3 0 3", 0x3c8123ea7b067637; "8")]
     #[test_case("rnbqkbnr/p1pppppp/8/8/P6P/R1p5/1P1PPPP1/1NBQKBNR b Kkq - 0 4", 0x5c3f9b829b279560; "9")]
     fn test_zobrist_polyglot_hash(fen: &str, expected_hash: u64) {
-        let data = Data::from_fen(fen.to_string());
+        let data = Data::from_fen(fen.to_string()).unwrap();
         let hash = ZobristKey::init_key(&data);
         assert_eq!(hash.0, expected_hash);
     }
+
+    // TODO: Write tests for the Zobrist hashing updates. Are they still correct?
 }

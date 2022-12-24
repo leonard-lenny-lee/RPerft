@@ -72,9 +72,9 @@ pub mod perft {
 
     pub fn perft(pos: &Position, depth: i8, global: &Global) -> (i64, f64, f64) {
         assert!(depth >= 1);
+        let mut table = PerftTable::new(global.table_size);
         let start = std::time::Instant::now();
         let nodes = if global.hashing_enabled {
-            let mut table = PerftTable::new(global.table_size);
             perft_inner_with_table(pos, depth, &mut table)
         } else {
             perft_inner(pos, depth)
@@ -163,7 +163,7 @@ pub mod perft {
         ($n_tests: ident, $positions: ident, $depths: ident, $global: ident) => {
             $global.report_config();
             for i in 0..$n_tests {
-                let pos = Position::from_fen($positions[i].to_string());
+                let pos = Position::from_fen($positions[i].to_string()).unwrap();
                 let (nodes, duration, nodes_per_second) = perft(&pos, $depths[i], &$global);
                 println!(
                     "Test #{}: {} nodes in {:.2} seconds ({:.2} M/s)",

@@ -4,7 +4,7 @@ use position::Position;
 use common::*;
 
 fn setup() -> Position {
-    Position::from_fen(POSITION_2.to_string())
+    Position::from_fen(POSITION_2.to_string()).unwrap()
 }
 
 pub fn find_moves_benchmark(c: &mut Criterion) {
