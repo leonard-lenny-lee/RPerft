@@ -1,4 +1,4 @@
-use chess_engine::engine::*;
+use chess_engine::*;
 
 
 fn main() {

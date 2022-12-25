@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use chess_engine::engine::*;
+use chess_engine::*;
 use position::Position;
 use common::*;
 

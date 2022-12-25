@@ -1,4 +1,4 @@
-use chess_engine::engine::{*, movelist::MoveList};
+use chess_engine::{*, movelist::MoveList};
 use test_case::test_case;
 use common::*;
 use position::Position;

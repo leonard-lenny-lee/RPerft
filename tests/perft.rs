@@ -1,6 +1,6 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking 
 
-use chess_engine::engine::*;
+use chess_engine::*;
 use global::Global;
 use common::*;
 use search::perft::*;

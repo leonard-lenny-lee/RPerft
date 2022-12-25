@@ -7,8 +7,6 @@ mod states;
 mod analysis;
 mod data;
 mod pieceset;
-mod movegen;
-mod evaluate;
 
 pub use zobrist::ZobristKey;
 pub use data::Data;
