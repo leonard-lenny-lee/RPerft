@@ -258,6 +258,14 @@ impl Move {
         && self.word_two & SPECIAL_X == SPECIAL_2
     }
 
+    pub fn flag_one(&self) -> u8 {
+        self.word_one & SPECIAL_X
+    }
+
+    pub fn flag_two(&self) -> u8 {
+        self.word_two & SPECIAL_X
+    }
+
     pub fn promotion_piece(&self) -> usize {
         match self.word_two & SPECIAL_X {
             0 => Piece::Knight.value(),

@@ -21,9 +21,17 @@ impl Position {
     pub fn their_pieces(&self) -> &PieceSet {
         self.state.their_pieces(&self.data)
     }
-    /// Return the promotion rank mask
-    pub fn promotion_rank(&self) -> BB {
-        self.state.promotion_rank()
+    /// Return the rank which pawn promotion occurs
+    pub fn target_promotion_rank(&self) -> BB {
+        self.state.target_promotion_rank()
+    }
+    /// Return the rank which pawns promoting originate from
+    pub fn src_promotion_rank(&self) -> BB {
+        self.state.src_promotion_rank()
+    }
+    /// Return the rank which pawns start on
+    pub fn pawn_start_rank(&self) -> BB {
+        self.state.pawn_start_rank()
     }
     /// Return our backrank
     pub fn our_backrank(&self) -> BB {
@@ -61,6 +69,17 @@ impl Position {
     pub fn pawn_right_capture(&self, src: BB) -> BB {
         self.state.pawn_right_capture(src)
     }
+    /// Return the pin mask for pawn left captures
+    pub fn pawn_left_capture_pin_mask(&self, king: BB) -> BB {
+        self.state.pawn_left_capture_pin_mask(king)
+    }
+    /// Return the pin mask for pawn right captures
+    pub fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
+        self.state.pawn_right_capture_pin_mask(king)
+    }
+    pub fn pawn_captures(&self, src: BB) -> BB {
+        self.state.pawn_captures(src)
+    }
     /// Return the single push target squares of our pawns
     pub fn pawn_sgl_push_targets(&self) -> BB {
         self.state.pawn_sgl_push_targets(&self.data)
@@ -68,6 +87,10 @@ impl Position {
     /// Return the double push target squares of our pawns
     pub fn pawn_dbl_push_targets(&self) -> BB {
         self.state.pawn_dbl_push_targets(&self.data)
+    }
+    /// Return the target rank of double pawn pushes
+    pub fn pawn_dbl_push_target_rank(&self) -> BB {
+        self.state.pawn_dbl_push_target_rank()
     }
     /// Return the left capture target squares of our pawns
     pub fn pawn_lcap_targets(&self) -> BB {
@@ -149,8 +172,12 @@ pub(crate) trait State {
     fn current_state(&self) -> Box<dyn State>;
     /// Other state pointer
     fn change_state(&self) -> Box<dyn State>;
-    /// Pawns starting on this rank promote
-    fn promotion_rank(&self) -> BB;
+    /// Pawns reaching this rank can promote
+    fn target_promotion_rank(&self) -> BB;
+    /// Pawns starting from this rank can promote
+    fn src_promotion_rank(&self) -> BB;
+    /// Rank pawns start on
+    fn pawn_start_rank(&self) -> BB;
     /// Pawns on this rank can capture en passant
     fn ep_capture_rank(&self) -> BB;
     /// Our back rank
@@ -165,10 +192,18 @@ pub(crate) trait State {
     fn pawn_sgl_push(&self, src: BB) -> BB;
     /// Double push towards the opponent end
     fn pawn_dbl_push(&self, src: BB) -> BB;
+    /// Target rank of double pawn pushes
+    fn pawn_dbl_push_target_rank(&self) -> BB;
     /// Left capture towards the opponent end
     fn pawn_left_capture(&self, src: BB) -> BB;
     /// Right capture towards the opponent end
     fn pawn_right_capture(&self, src: BB) -> BB;
+    /// Pawn captures towards the opponent end
+    fn pawn_captures(&self, src: BB) -> BB;
+    /// Return left capture pin mask
+    fn pawn_left_capture_pin_mask(&self, king: BB) -> BB;
+    /// Return right capture pin mask
+    fn pawn_right_capture_pin_mask(&self, king: BB) -> BB;
     /// Find our pawns' push target squares
     fn pawn_sgl_push_targets(&self, data: &Data) -> BB;
     /// Find our pawns' double push target squares
@@ -229,8 +264,16 @@ impl State for White {
         Box::new(Black)
     }
 
-    fn promotion_rank(&self) -> BB { 
-        RANK_7 
+    fn target_promotion_rank(&self) -> BB { 
+        RANK_8
+    }
+
+    fn src_promotion_rank(&self) -> BB {
+        RANK_7
+    }
+
+    fn pawn_start_rank(&self) -> BB {
+        RANK_2
     }
 
     fn ep_capture_rank(&self) -> BB {
@@ -298,12 +341,28 @@ impl State for White {
         src.north_two()
     }
 
+    fn pawn_dbl_push_target_rank(&self) -> BB {
+        RANK_4
+    }
+
     fn pawn_left_capture(&self, src: BB) -> BB {
         src.nort_west()
     }
 
     fn pawn_right_capture(&self, src: BB) -> BB {
         src.nort_east()
+    }
+
+    fn pawn_left_capture_pin_mask(&self, king: BB) -> BB {
+        king.lookup_anti_diagonal_mask()
+    }
+
+    fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
+        king.lookup_diagonal_mask()
+    }
+
+    fn pawn_captures(&self, src: BB) -> BB {
+        src.lookup_wpawn_capture_mask()
     }
 
     fn pawn_sgl_push_targets(&self, data: &Data) -> BB {
@@ -379,8 +438,16 @@ impl State for Black {
         Box::new(White)
     }
 
-    fn promotion_rank(&self) -> BB {
+    fn target_promotion_rank(&self) -> BB {
+        RANK_1
+    }
+
+    fn src_promotion_rank(&self) -> BB {
         RANK_2
+    }
+
+    fn pawn_start_rank(&self) -> BB {
+        RANK_7
     }
 
     fn ep_capture_rank(&self) -> BB {
@@ -448,12 +515,28 @@ impl State for Black {
         src.south_two()
     }
 
+    fn pawn_dbl_push_target_rank(&self) -> BB {
+        RANK_5
+    }
+
     fn pawn_left_capture(&self, src: BB) -> BB {
         src.sout_west()
     }
 
     fn pawn_right_capture(&self, src: BB) -> BB {
         src.sout_east()
+    }
+
+    fn pawn_left_capture_pin_mask(&self, king: BB) -> BB {
+        king.lookup_diagonal_mask()
+    }
+
+    fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
+        king.lookup_anti_diagonal_mask()
+    }
+
+    fn pawn_captures(&self, src: BB) -> BB {
+        src.lookup_bpawn_capture_mask()
     }
 
     fn pawn_sgl_push_targets(&self, data: &Data) -> BB {

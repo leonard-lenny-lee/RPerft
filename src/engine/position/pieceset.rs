@@ -25,21 +25,16 @@ impl PieceSet {
         }
     }
 
-    pub fn as_array(&self) -> [BB; 7] {
-        [self.any, self.pawn, self.rook, self.knight, self.bishop, 
-         self.queen, self.king]
-    }
-
-    // Order the bitboards in an array so the index positions are convenient
-    // for piece square table evaluation
-    pub fn as_pst_array(&self) -> [BB; 6] {
-        [self.pawn, self.rook, self.knight, self.bishop, self.queen, self.king]
+    pub fn as_array(&self) -> [&BB; 7] {
+        [&self.any, &self.pawn, &self.rook, &self.knight,
+         &self.bishop, &self.queen, &self.king]
     }
 
     // Order the bitboards so the index positions are convenient for Zobrist
     // hashing
-    pub fn as_hash_array(&self) -> [BB; 6] {
-        [self.pawn, self.knight, self.bishop, self.rook, self.queen, self.king]
+    pub fn as_hash_array(&self) -> [&BB; 6] {
+        [&self.pawn, &self.knight, &self.bishop,
+         &self.rook, &self.queen, &self.king]
     }
 
     fn as_mut_array(&mut self) -> [&mut BB; 7] {
@@ -93,6 +88,22 @@ impl std::ops::Index<usize> for PieceSet {
             4 => &self.bishop,
             5 => &self.queen,
             6 => &self.king,
+            _ => panic!("Index {} out of bounds", index)
+        }
+    }
+}
+
+impl std::ops::IndexMut<usize> for PieceSet {
+
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.any,
+            1 => &mut self.pawn,
+            2 => &mut self.rook,
+            3 => &mut self.knight,
+            4 => &mut self.bishop,
+            5 => &mut self.queen,
+            6 => &mut self.king,
             _ => panic!("Index {} out of bounds", index)
         }
     }

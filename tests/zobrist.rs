@@ -5,7 +5,7 @@ use position::Position;
 use bitboard::BB;
 
 #[test_case(
-    POSITION_2, 21, 31,
+    POSITION_2, 21, 30,
     "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P1Q1/2N4p/PPPBBPPP/R3K2R b KQkq - 1 1";
     "base case")]
 #[test_case(

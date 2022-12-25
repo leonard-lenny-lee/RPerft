@@ -70,7 +70,9 @@ pub mod perft {
     use transposition::PerftTable;
     use global::Global;
 
-    pub fn perft(pos: &Position, depth: i8, global: &Global) -> (i64, f64, f64) {
+    pub fn perft(
+        pos: &Position, depth: i8, global: &Global
+    ) -> (i64, f64, f64) {
         assert!(depth >= 1);
         let mut table = PerftTable::new(global.table_size);
         let start = std::time::Instant::now();
@@ -116,7 +118,7 @@ pub mod perft {
         return nodes
     }
 
-    /// Provides the number of nodes for down each branch of the first depth layer
+    /// Provides the number of nodes for down each branch of the first depth
     /// search. Useful for perft debugging purposes
     pub fn perft_divided(pos: &Position, depth: i8, global: &Global) -> i64 {
         assert!(depth >= 1);
@@ -155,7 +157,10 @@ pub mod perft {
         // Report perft results
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
-        println!("{} nodes found in {:.2} seconds ({:.1}M/s)", nodes, duration, nodes_per_second);
+        println!(
+            "{} nodes found in {:.2} seconds ({:.1}M/s)",
+            nodes, duration, nodes_per_second
+        );
         return nodes
     }
 
@@ -176,17 +181,19 @@ pub mod perft {
     pub fn run_perft_bench() {
         let mut global = Global::init();
 
-        let positions = [DEFAULT_FEN, POSITION_2, POSITION_3, POSITION_4, POSITION_5, POSITION_6];
+        let positions = [
+            DEFAULT_FEN, POSITION_2, POSITION_3,
+            POSITION_4, POSITION_5, POSITION_6
+        ];
         let depths = [6, 5, 7, 5, 5, 5];
 
         assert_eq!(positions.len(), depths.len());
         let n_tests = positions.len();
         println!("Running Perft Suite...");
-        global.hashing_enabled = false;
-        run_suite!(n_tests, positions, depths, global);
         global.hashing_enabled = true;
         run_suite!(n_tests, positions, depths, global);
-
+        global.hashing_enabled = false;
+        run_suite!(n_tests, positions, depths, global);
     }
 
 }

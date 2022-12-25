@@ -94,9 +94,9 @@ impl Position {
     /// of the array representation of the pieceset
     pub fn their_piece_at(&self, bb: BB) -> usize {
         debug_assert!(bb.pop_count() == 1);
-        let their_piece_array = self.their_pieces().as_array();
+        let their_pieces = self.their_pieces();
         for piece in 1..7 {
-            if (their_piece_array[piece] & bb).is_any() {
+            if (their_pieces[piece] & bb).is_any() {
                 return piece
             }
         }
@@ -110,9 +110,9 @@ impl Position {
     /// of the array representation of the pieceset
     pub fn our_piece_at(&self, bb: BB) -> usize {
         debug_assert!(bb.pop_count() == 1);
-        let our_piece_array = self.our_pieces().as_array();
+        let our_pieces= self.our_pieces();
         for piece in 1..7 {
-            if (our_piece_array[piece] & bb).is_any() {
+            if (our_pieces[piece] & bb).is_any() {
                 return piece
             }
         }

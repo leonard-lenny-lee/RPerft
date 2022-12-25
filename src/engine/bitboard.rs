@@ -714,6 +714,19 @@ impl std::ops::SubAssign for BB {
     }
 }
 
+impl std::iter::Iterator for BB {
+    type Item = Self;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 == EMPTY_BB.0 {
+            return None
+        }
+        let lsb = 1 << self.0.trailing_zeros();
+        self.0 ^= lsb;
+        return Some(BB(lsb))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

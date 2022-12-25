@@ -1,56 +1,67 @@
 use super::*;
 use movelist::MoveList;
 use position::Position;
+use std::iter::zip;
 
 impl Position {
 
     /// Generate a MoveList of all legal moves
     pub fn find_moves(&self) -> MoveList {
+
         // Initialise variables
         let mut move_list: MoveList = MoveList::new();
         let unsafe_squares = self.unsafe_squares();
         let checkers = self.find_checkers();
         let pinned_pieces = self.pinned_pieces();
+
         // Number of pieces placing the king in check
         let n_checkers = checkers.pop_count();
         let mut capture_mask = FILLED_BB;
         let mut push_mask = FILLED_BB;
-        // If the king is in double check, only king moves are valid
-        if n_checkers > 1 {
-            self.find_king_moves(&mut move_list, unsafe_squares);
-            return move_list;
-        }
-        if n_checkers == 1 {
-            // In single check, the attacking piece can also be captured so set
-            // the location of the checker as the capture mask
-            capture_mask = checkers;
-            if self.their_piece_at_is_slider(checkers) {
+
+        match n_checkers.cmp(&1) {
+            std::cmp::Ordering::Less => (),
+            std::cmp::Ordering::Equal => {
+                // In single check, the attacking piece can also be captured
+                // so set the location of the checker as the capture mask
+                capture_mask = checkers;
+                if self.their_piece_at_is_slider(checkers) {
+                    // If the attacker is a sliding piece, then check can be 
                 // If the attacker is a sliding piece, then check can be 
-                // blocked by another piece moving to the intervening squares
-                push_mask = self.our_pieces().king.connect_squares(checkers)
-            } else {
-                // It can only be captured so give no options to block
-                push_mask = EMPTY_BB
+                    // If the attacker is a sliding piece, then check can be 
+                    // blocked by another piece moving into the 
+                    push_mask = self.our_pieces().king
+                        .connect_squares(checkers)
+                } else {
+                    // It can only be captured so give no options to block
+                    push_mask = EMPTY_BB
+                }
+            },
+            std::cmp::Ordering::Greater => {
+                // If the king is in double check, only king moves are valid
+                self.find_king_moves(&mut move_list, unsafe_squares);
+                return move_list;
             }
         }
 
         // Add all moves to the move list
+
         self.find_single_pushes(&mut move_list, push_mask, pinned_pieces);
+        
         self.find_double_pushes(&mut move_list, push_mask, pinned_pieces);
-        self.find_right_captures(&mut move_list, capture_mask, pinned_pieces);
-        self.find_left_captures(&mut move_list, capture_mask, pinned_pieces);
+        
+        self.find_pawn_captures(&mut move_list, capture_mask, pinned_pieces);
+
         self.find_knight_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
+
         self.find_king_moves(&mut move_list, unsafe_squares);
-        self.find_bishop_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
-        self.find_rook_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
-        self.find_queen_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
-        // Castling is only allowed if not in check
+
+        self.find_sliding_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
+
         if n_checkers == 0 {
             self.find_castling_moves(&mut move_list, unsafe_squares);
         }
-        self.find_en_passant_moves(
-            &mut move_list, capture_mask, push_mask, pinned_pieces
-        );
+        self.find_en_passant_moves(&mut move_list, capture_mask, push_mask, pinned_pieces);
         return move_list;
     }
 
@@ -60,46 +71,25 @@ impl Position {
     fn find_single_pushes(
         &self, move_list: &mut MoveList, push_mask: BB, pinned_pieces: BB
     ) {
-        let targets = self.pawn_sgl_push_targets() & push_mask;
-        let srcs = self.pawn_sgl_push_srcs(targets);
-        // Separate promoting pawns from non-promoting pawns
-        let mut promotion_pawns = srcs & self.promotion_rank();
-        let mut normal_pawns = srcs ^ promotion_pawns;
-        // Separate pinned pawns
-        let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
-        promotion_pawns ^= pinned_promotion_pawns;
-        let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
-        normal_pawns ^= pinned_normal_pawns;
+        let our_pieces = self.our_pieces();
+        let free_pawns = our_pieces.pawn & !pinned_pieces;
+        let pinned_pawns = our_pieces.pawn & pinned_pieces;
+        let target_filter = self.data.free & push_mask;
+
+        let targets = (self.pawn_sgl_push(free_pawns) & target_filter) 
+            | (self.pawn_sgl_push(pinned_pawns) & target_filter & our_pieces.king.lookup_file_mask());
         
+        let promotion_rank = self.target_promotion_rank();
+        let promo_targets = targets & promotion_rank;
+        let promo_srcs = self.pawn_sgl_push_srcs(promo_targets);
         // Normal pawns
-        while normal_pawns.is_any() {
-            let src = normal_pawns.pop_ls1b();
-            let target = self.pawn_sgl_push(src);
-            move_list.add_quiet_move(target, src);
+        for (target, src) in std::iter::zip(promo_targets, promo_srcs) {
+            move_list.add_promotions(target, src)
         }
-        // Promotion pawns
-        while promotion_pawns.is_any() {
-            let src = promotion_pawns.pop_ls1b();
-            let target = self.pawn_sgl_push(src);
-            move_list.add_promotions(target, src);
-        }
-        // For pinned pieces, only allow moves towards / away from the king
-        while pinned_normal_pawns.is_any() {
-            let src = pinned_normal_pawns.pop_ls1b();
-            let mut target = self.pawn_sgl_push(src);
-            // Only allow targets that are on the king-piece axis
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_quiet_move(target, src);
-            }
-        }
-        while pinned_promotion_pawns.is_any() {
-            let src = pinned_promotion_pawns.pop_ls1b();
-            let mut target = self.pawn_sgl_push(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_promotions(target, src);
-            }
+        let quiet_targets = targets & !promotion_rank;
+        let quiet_srcs = self.pawn_sgl_push_srcs(quiet_targets);
+        for (target, src) in std::iter::zip(quiet_targets, quiet_srcs) {
+            move_list.add_quiet_move(target, src)
         }
 
     }
@@ -108,116 +98,61 @@ impl Position {
     fn find_double_pushes(
         &self, move_list: &mut MoveList, push_mask: BB, pinned_pieces: BB
     ) {
-        let targets = self.pawn_dbl_push_targets() & push_mask;
-        let mut srcs = self.pawn_dbl_push_srcs(targets);
-        let mut pinned_srcs = srcs & pinned_pieces;
-        srcs ^= pinned_srcs;
-        while srcs.is_any() {
-            let src = srcs.pop_ls1b();
-            let target = self.pawn_dbl_push(src);    
-            move_list.add_double_pawn_push(target, src);
-        }
-        // For pinned pieces, only allow moves towards / away from the king
-        while pinned_srcs.is_any() {
-            let src = pinned_srcs.pop_ls1b();
-            let mut target = self.pawn_dbl_push(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_double_pawn_push(target, src);
-            }
+        let our_pieces = self.our_pieces();
+
+        let sgl_push = self.pawn_sgl_push(
+            our_pieces.pawn & self.pawn_start_rank()) & self.data.free;
+        let dbl_push = self.pawn_sgl_push(sgl_push) & self.data.free & push_mask;
+        let pinned_targets = self.pawn_dbl_push(pinned_pieces);
+
+        let targets = (dbl_push & !pinned_targets) 
+            | (dbl_push & pinned_targets & our_pieces.king.lookup_file_mask()); 
+        let srcs = self.pawn_dbl_push_srcs(targets);
+        for (target, src) in zip(targets, srcs) {
+            move_list.add_double_pawn_push(target, src)
         }
     }
 
-    /// Move generation function to find all pawn left captures in a position
-    fn find_left_captures(
+    fn find_pawn_captures(
         &self, move_list: &mut MoveList, capture_mask: BB, pinned_pieces: BB
     ) {
-        let targets = self.pawn_lcap_targets() & capture_mask;
-        let srcs = self.pawn_lcap_srcs(targets);
-        // Separate promotion pawns from non-promoting pawns
-        let mut promotion_pawns = srcs & self.promotion_rank();
-        let mut normal_pawns = srcs ^ promotion_pawns;
-        // Separate pinned pawns
-        let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
-        promotion_pawns ^= pinned_promotion_pawns;
-        let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
-        normal_pawns ^= pinned_normal_pawns;
+        let our_pieces = self.our_pieces();
+        let target_filter = self.their_pieces().any & capture_mask;
 
-        // Normal pawns
-        while normal_pawns.is_any() {
-            let src = normal_pawns.pop_ls1b();
-            let target = self.pawn_left_capture(src);
+        let free_pawns = our_pieces.pawn & !pinned_pieces;
+        let pinned_pawns = our_pieces.pawn & pinned_pieces;
+        let promotion_rank = self.target_promotion_rank();
+
+        // Left captures
+        let left_targets = (self.pawn_left_capture(free_pawns) & target_filter) 
+        | (self.pawn_left_capture(pinned_pawns) & target_filter & self.pawn_left_capture_pin_mask(our_pieces.king));
+
+        let left_normal_targets = left_targets & !promotion_rank;
+        let left_normal_srcs = self.pawn_lcap_srcs(left_normal_targets);
+        for (target, src) in zip(left_normal_targets, left_normal_srcs) {
             move_list.add_capture(target, src);
         }
-        // Promotion pawns
-        while promotion_pawns.is_any() {
-            let src = promotion_pawns.pop_ls1b();
-            let target = self.pawn_left_capture(src);
-            move_list.add_promotion_captures(target, src);
+        let left_promo_targets = left_targets & promotion_rank;
+        let left_promo_srcs = self.pawn_lcap_srcs(left_promo_targets);
+        for (target, src) in zip(left_promo_targets, left_promo_srcs) {
+            move_list.add_promotion_captures(target, src)
         }
-        // For pinned pieces, only allow moves towards / away from the king
-        while pinned_normal_pawns.is_any() {
-            let src = pinned_normal_pawns.pop_ls1b();
-            let mut target = self.pawn_left_capture(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_capture(target, src);
-            }
-        }
-        while pinned_promotion_pawns.is_any() {
-            let src = pinned_promotion_pawns.pop_ls1b();
-            let mut target = self.pawn_left_capture(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_promotion_captures(target, src);
-            }
-        }
-    }
 
-    /// Move generation function to find all pawn right captures in a position
-    fn find_right_captures(
-        &self, move_list: &mut MoveList, capture_mask: BB, pinned_pieces: BB
-    ) {
-        let targets = self.pawn_rcap_targets() & capture_mask;
-        let srcs = self.pawn_rcap_srcs(targets);
-        // Separate promotion pawns from non-promoting pawns
-        let mut promotion_pawns = srcs & self.promotion_rank();
-        let mut normal_pawns = srcs ^ promotion_pawns;
-        // Separate pinned pawns
-        let mut pinned_promotion_pawns = promotion_pawns & pinned_pieces;
-        promotion_pawns ^= pinned_promotion_pawns;
-        let mut pinned_normal_pawns = normal_pawns & pinned_pieces;
-        normal_pawns ^= pinned_normal_pawns;
+        // Right captures
+        let right_targets = (self.pawn_right_capture(free_pawns) & target_filter) 
+        | (self.pawn_right_capture(pinned_pawns) & target_filter & self.pawn_right_capture_pin_mask(our_pieces.king));
 
-        // Normal pawns
-        while normal_pawns.is_any() {
-            let src = normal_pawns.pop_ls1b();
-            let target = self.pawn_right_capture(src);
+        let right_normal_targets = right_targets & !promotion_rank;
+        let right_normal_srcs = self.pawn_rcap_srcs(right_normal_targets);
+        for (target, src) in zip(right_normal_targets, right_normal_srcs) {
             move_list.add_capture(target, src);
         }
-        // Promotion pawns
-        while promotion_pawns.is_any() {
-            let src = promotion_pawns.pop_ls1b();
-            let target = self.pawn_right_capture(src);
-            move_list.add_promotion_captures(target, src);
+        let right_promo_targets = right_targets & promotion_rank;
+        let right_promo_srcs = self.pawn_rcap_srcs(right_promo_targets);
+        for (target, src) in zip(right_promo_targets, right_promo_srcs) {
+            move_list.add_promotion_captures(target, src)
         }
-        // For pinned pieces, only allow moves towards / away from the king
-        while pinned_normal_pawns.is_any() {
-            let src = pinned_normal_pawns.pop_ls1b();
-            let mut target = self.pawn_right_capture(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_capture(target, src);
-            }
-        }
-        while pinned_promotion_pawns.is_any() {
-            let src = pinned_promotion_pawns.pop_ls1b();
-            let mut target = self.pawn_right_capture(src);
-            target &= self.our_pieces().king.common_axis(src);
-            if target.is_any() {
-                move_list.add_promotion_captures(target, src);
-            }
-        }
+
     }
 
     /// Move generation function for knights
@@ -226,15 +161,14 @@ impl Position {
         push_mask: BB, pinned_pieces: BB,
     ) {
         let our_pieces = self.our_pieces();
-        let mut srcs = our_pieces.knight;
-        // Filter out knights which are pinned - pinned knights have no legal moves
-        srcs &= !pinned_pieces;
-        while srcs.is_any() {
-            let src = srcs.pop_ls1b();
-            let mut targets = src.lookup_knight_attacks() & !our_pieces.any;
-            // Only allow moves which either capture a checking piece or blocks
-            // the check. These masks should be a FILLED_BB when no check.
-            targets &= capture_mask | push_mask;
+        // Only allow moves which either capture a checking piece or blocks
+        // the check. These masks should be a FILLED_BB when no check.
+        let target_filter = !our_pieces.any & (capture_mask | push_mask);
+        // Filter out knights which are pinned - pinned knights have 
+        // no legal moves
+        let srcs = our_pieces.knight & !pinned_pieces;
+        for src in srcs {
+            let targets = src.lookup_knight_attacks() & target_filter;
             self.find_quiet_moves_and_captures(move_list, targets, src)
         }
     }
@@ -243,65 +177,40 @@ impl Position {
     fn find_king_moves(&self, move_list: &mut MoveList, unsafe_squares: BB) {
         let our_pieces = self.our_pieces();
         let src = our_pieces.king;
-        let mut targets = src.lookup_king_attacks() & !our_pieces.any;
         // Remove unsafe squares i.e. squares attacked by opponent pieces
         // from the available target sqaures for the king
-        targets &= !unsafe_squares;
+        let targets = src.lookup_king_attacks() & !our_pieces.any & !unsafe_squares;
         self.find_quiet_moves_and_captures(move_list, targets, src)
     }
 
-    fn find_bishop_moves(
+    fn find_sliding_moves(
         &self, move_list: &mut MoveList, capture_mask: BB,
-        push_mask: BB, pinned_pieces: BB,
+        push_mask: BB, pinned_pieces: BB
     ) {
         let our_pieces = self.our_pieces();
-        let mut srcs = our_pieces.bishop;
-        while srcs.is_any() {
-            let src = srcs.pop_ls1b();
-            let mut targets: BB = src.lookup_bishop_attacks(self.data.occ);
-            targets &= !our_pieces.any;
-            targets &= capture_mask | push_mask;
-            if (src & pinned_pieces).is_any() {
-                targets &= our_pieces.king.common_axis(src);
-            }
+        let rook_movers = our_pieces.rook | our_pieces.queen;
+        let bishop_movers = our_pieces.bishop | our_pieces.queen;
+        let filter = !our_pieces.any & (capture_mask | push_mask);
+        
+        for src in rook_movers & !pinned_pieces {
+            let targets = src.lookup_rook_attacks(self.data.occ) & filter;
+            self.find_quiet_moves_and_captures(move_list, targets, src);
+        }
+        for src in rook_movers & pinned_pieces {
+            let targets = src.lookup_rook_attacks(self.data.occ)
+                & filter & our_pieces.king.common_axis(src);
             self.find_quiet_moves_and_captures(move_list, targets, src)
         }
-    }
-
-    fn find_rook_moves(
-        &self, move_list: &mut MoveList, capture_mask: BB,
-        push_mask: BB, pinned_pieces: BB,
-    ) {
-        let our_pieces = self.our_pieces();
-        let mut srcs = our_pieces.rook;
-        while srcs.is_any() {
-            let src = srcs.pop_ls1b();
-            let mut targets: BB = src.lookup_rook_attacks(self.data.occ);
-            targets &= !our_pieces.any;
-            targets &= capture_mask | push_mask;
-            if (src & pinned_pieces).is_any() {
-                targets &= our_pieces.king.common_axis(src);
-            }
+        for src in bishop_movers & !pinned_pieces {
+            let targets = src.lookup_bishop_attacks(self.data.occ) & filter;
+            self.find_quiet_moves_and_captures(move_list, targets, src);
+        }
+        for src in bishop_movers & pinned_pieces {
+            let targets = src.lookup_bishop_attacks(self.data.occ) 
+                & filter & our_pieces.king.common_axis(src);
             self.find_quiet_moves_and_captures(move_list, targets, src)
         }
-    }
-
-    fn find_queen_moves(
-        &self, move_list: &mut MoveList, capture_mask: BB,
-        push_mask: BB, pinned_pieces: BB,
-    ) {
-        let our_pieces = self.our_pieces();
-        let mut srcs = our_pieces.queen;
-        while srcs.is_any() {
-            let src = srcs.pop_ls1b();
-            let mut targets: BB = src.lookup_queen_attacks(self.data.occ);
-            targets &= !our_pieces.any;
-            targets &= capture_mask | push_mask;
-            if (src & pinned_pieces).is_any() {
-                targets &= our_pieces.king.common_axis(src);
-            }
-            self.find_quiet_moves_and_captures(move_list, targets, src)
-        }
+        
     }
 
     // Special Moves
@@ -371,14 +280,12 @@ impl Position {
     fn find_quiet_moves_and_captures(
         &self, move_list: &mut MoveList, targets: BB, src: BB
     ) {
-        let mut capture_targets = targets & self.their_pieces().any;
-        let mut quiet_targets = targets & self.data.free;
-        while capture_targets.is_any() {
-            let target = capture_targets.pop_ls1b();
+        let capture_targets = targets & self.their_pieces().any;
+        let quiet_targets = targets & self.data.free;
+        for target in capture_targets {
             move_list.add_capture(target, src);
         }
-        while quiet_targets.is_any() {
-            let target = quiet_targets.pop_ls1b();
+        for target in quiet_targets {
             move_list.add_quiet_move(target, src);
         }
     }
@@ -428,30 +335,16 @@ mod tests {
         let expected_targets = BB::from_indices(expected_targets);
         assert_eq!(expected_targets, targets)
     }
-    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 0, vec![]; "position_two")]
-    #[test_case(POSITION_3, 0, vec![]; "position_three")]
-    fn test_push_lcap_move_gen(
-        fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
-    ) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
-        let mut move_list = MoveList::new();
-        pos.find_left_captures(&mut move_list, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_list.len() as i32);
-        let targets = generate_targets(move_list);
-        let expected_targets = BB::from_indices(expected_targets);
-        assert_eq!(expected_targets, targets)
-    }
 
     #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
     #[test_case(POSITION_2, 2, vec![44, 23]; "position_two")]
     #[test_case(POSITION_3, 0, vec![]; "position_three")]
-    fn test_push_rcap_move_gen(
+    fn test_pawn_cap_move_gen(
         fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
     ) {
         let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
-        pos.find_right_captures(&mut move_list, FILLED_BB, EMPTY_BB);
+        pos.find_pawn_captures(&mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
         let targets = generate_targets(move_list);
         let expected_targets = BB::from_indices(expected_targets);
@@ -480,50 +373,6 @@ mod tests {
         let pos = Position::from_fen(fen.to_string()).unwrap();
         let mut move_list = MoveList::new();
         pos.find_king_moves(&mut move_list, EMPTY_BB);
-        assert_eq!(expected_nodes, move_list.len() as i32);
-        let targets = generate_targets(move_list);
-        let expected_targets = BB::from_indices(expected_targets);
-        assert_eq!(expected_targets, targets)
-    }
-
-    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 11, vec![2, 20, 29, 38, 47, 3, 5, 19, 26, 33, 40];
-        "position_two")]
-    fn test_bishop_move_gen(
-        fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
-    ) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
-        let mut move_list = MoveList::new();
-        pos.find_bishop_moves(&mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_list.len() as i32);
-        let targets = generate_targets(move_list);
-        let expected_targets = BB::from_indices(expected_targets);
-        assert_eq!(expected_targets, targets)
-    }
-
-    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 5, vec![1, 2, 3, 5, 6]; "position_two")]
-    fn test_rook_move_gen(
-        fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
-    ) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
-        let mut move_list = MoveList::new();
-        pos.find_rook_moves(&mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
-        assert_eq!(expected_nodes, move_list.len() as i32);
-        let targets = generate_targets(move_list);
-        let expected_targets = BB::from_indices(expected_targets);
-        assert_eq!(expected_targets, targets)
-    }
-
-    #[test_case(DEFAULT_FEN, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 9, vec![19, 20, 22, 23, 29, 37, 45, 30, 39];
-        "position_two")]
-    fn test_queen_move_gen(
-        fen: &str, expected_nodes: i32, expected_targets: Vec<usize>
-    ) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
-        let mut move_list = MoveList::new();
-        pos.find_queen_moves( &mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
         let targets = generate_targets(move_list);
         let expected_targets = BB::from_indices(expected_targets);

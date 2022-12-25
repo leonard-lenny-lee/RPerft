@@ -2,54 +2,47 @@
 
 use super::*;
 
-const KNIGHT_ATTACK_TABLE: [BB; 64] = generate_knight_attack_maps();
-const KING_ATTACK_TABLE: [BB; 64] = generate_king_attack_maps();
-const RANK_TABLE: [BB; 64] = generate_rank_masks();
-const FILE_TABLE: [BB; 64] = generate_file_masks();
-const DIAG_TABLE: [BB; 64] = generate_diagonal_masks();
-const ADIAG_TABLE: [BB; 64] = generate_antidiagonal_masks();
-
-const fn generate_knight_attack_maps() -> [BB; 64] {
+const KNIGHT_ATTACK_TABLE: [BB; 64] = {
     let mut maps: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
         maps[i] = BB(1 << i).knight_attack_squares();
         i += 1;
     }
-    return maps;   
-}
+    maps
+};
 
-const fn generate_king_attack_maps() -> [BB; 64] {
+const KING_ATTACK_TABLE: [BB; 64] = {
     let mut maps: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
         maps[i] = BB(1 << i).king_attack_squares();
         i += 1;
     }
-    return maps;
-}
+    maps
+};
 
-const fn generate_rank_masks() -> [BB; 64] {
+const RANK_TABLE: [BB; 64] = {
     let mut masks: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
         masks[i] = RANK_MASKS[i / 8];
         i += 1;
     }
-    return masks;
-}
+    masks
+};
 
-const fn generate_file_masks() -> [BB; 64] {
+const FILE_TABLE: [BB; 64] = {
     let mut masks: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
         masks[i] = FILE_MASKS[i % 8];
         i += 1;
     }
-    return masks;
-}
+    masks
+};
 
-const fn generate_diagonal_masks() -> [BB; 64] {
+const DIAG_TABLE: [BB; 64] = {
     let mut masks: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
@@ -57,10 +50,10 @@ const fn generate_diagonal_masks() -> [BB; 64] {
         masks[i] = BB(origin.no_ea_fill().0 | origin.so_we_fill().0);
         i += 1;
     }
-    return masks;
-}
+    masks
+};
 
-const fn generate_antidiagonal_masks() -> [BB; 64] {
+const ADIAG_TABLE: [BB; 64] = {
     let mut masks: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
@@ -68,8 +61,34 @@ const fn generate_antidiagonal_masks() -> [BB; 64] {
         masks[i] = BB(origin.no_we_fill().0 | origin.so_ea_fill().0);
         i += 1
     }
-    return masks;
-}
+    masks
+};
+
+const WPAWN_CAPTURE_TABLE: [BB; 64] = {
+    let mut table: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        let origin = BB(1 << i);
+        table[i] = BB(
+            ((origin.0 & !FILE_H.0) << 9) | ((origin.0 & !FILE_A.0) << 7)
+        );
+        i += 1;
+    }
+    table
+};
+
+const BPAWN_CAPTURE_TABLE: [BB; 64] = {
+    let mut masks: [BB; 64] = [BB(0); 64];
+    let mut i = 0;
+    while i < 64 {
+        let origin = BB(1 << i);
+        masks[i] = BB(
+            ((origin.0 & !FILE_H.0) >> 7) | ((origin.0 & !FILE_A.0) >> 9)
+        );
+        i += 1;
+    }
+    masks
+};
 
 const BISHOP_SHIFTS: [u64; 64] = [
     58, 59, 59, 59, 59, 59, 59, 58,
@@ -353,6 +372,18 @@ impl BB {
     pub fn lookup_rank_mask(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
         RANK_TABLE[self.to_index()]
+    }
+
+    /// Return the white pawn capture mask
+    pub fn lookup_wpawn_capture_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        WPAWN_CAPTURE_TABLE[self.to_index()]
+    }
+
+    /// Return the black pawn capture mask
+    pub fn lookup_bpawn_capture_mask(&self) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        BPAWN_CAPTURE_TABLE[self.to_index()]
     }
 
     /// Use the o-2s trick to find valid squares for sliding pieces, taking
