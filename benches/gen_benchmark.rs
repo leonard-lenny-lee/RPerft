@@ -1,6 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use chess_engine::*;
 use position::Position;
+use movegen::find_moves;
 use common::*;
 
 fn setup() -> Position {
@@ -14,7 +15,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
     c.bench_function(
         "find_moves",
         |b| b.iter(
-            || black_box(pos.find_moves())
+            || black_box(find_moves(&pos))
         )
     );
 
@@ -44,7 +45,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
 pub fn apply_move_benchmark(c: &mut Criterion) {
 
     let pos = setup();
-    let move_vec = pos.find_moves();
+    let move_vec = find_moves(&pos);
 
     c.bench_function(
         "apply_move",

@@ -1,6 +1,7 @@
 use super::*;
 use position::Position;
-
+use movegen::find_moves;
+use evaluate::evaluate;
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
@@ -11,9 +12,9 @@ const NEGATIVE_INFINITY: i32 = -1000000;
 /// 
 pub fn nega_max(pos: &Position, depth: i8) -> i32 {
     if depth == 0 {
-        return pos.data.evaluate()
+        return evaluate(pos)
     }
-    let move_list = pos.find_moves();
+    let move_list = find_moves(pos);
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
@@ -38,9 +39,9 @@ pub fn alpha_beta(
     pos: &Position, depth: i8, mut alpha: i32, beta: i32
 ) -> i32 {
     if depth == 0 {
-        return pos.data.evaluate()
+        return evaluate(pos)
     }
-    let move_list = pos.find_moves();
+    let move_list = find_moves(pos);
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
@@ -89,9 +90,9 @@ pub mod perft {
     fn perft_inner(pos: &Position, depth: i8) -> i64 {
         let mut nodes = 0;
         if depth == 1 {
-            return pos.find_moves().len() as i64;
+            return find_moves(pos).len() as i64;
         }
-        let move_list = pos.find_moves();
+        let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = pos.make_move(mv);
             nodes += perft_inner(&new_pos, depth-1);
@@ -107,9 +108,9 @@ pub mod perft {
             return entry.count
         };
         if depth == 1 {
-            return pos.find_moves().len() as i64;
+            return find_moves(pos).len() as i64;
         }
-        let move_list = pos.find_moves();
+        let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = pos.make_move(mv);
             nodes += perft_inner_with_table(&new_pos, depth-1, table);
@@ -125,7 +126,7 @@ pub mod perft {
         let mut table = PerftTable::new(global.table_size);
         let start = std::time::Instant::now();
         let mut nodes = 0;
-        let move_list = pos.find_moves();
+        let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = pos.make_move(mv);
             let branch_nodes;
