@@ -1,8 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use chess_engine::*;
+use common::*;
 use position::Position;
 use movegen::find_moves;
-use common::*;
+use makemove::make_move;
 
 fn setup() -> Position {
     Position::from_fen(POSITION_2.to_string()).unwrap()
@@ -50,7 +51,8 @@ pub fn apply_move_benchmark(c: &mut Criterion) {
     c.bench_function(
         "apply_move",
         |b| b.iter(
-            || pos.make_move(
+            || make_move(
+                black_box(&pos),
                 black_box(&move_vec[0])
             )
         )

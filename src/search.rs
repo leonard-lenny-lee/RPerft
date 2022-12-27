@@ -1,6 +1,7 @@
 use super::*;
 use position::Position;
 use movegen::find_moves;
+use makemove::make_move;
 use evaluate::evaluate;
 
 const NEGATIVE_INFINITY: i32 = -1000000;
@@ -25,7 +26,7 @@ pub fn nega_max(pos: &Position, depth: i8) -> i32 {
     }
     let mut max_evaluation = NEGATIVE_INFINITY;
     for mv in move_list.iter() {
-        let new_pos = pos.make_move(mv);
+        let new_pos = make_move(pos, mv);
         let evaluation = -nega_max(&new_pos, depth - 1);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
@@ -51,7 +52,7 @@ pub fn alpha_beta(
         }
     }
     for mv in move_list.iter() {
-        let new_pos = pos.make_move(mv);
+        let new_pos = make_move(pos, mv);
         let evaluation = -alpha_beta(
             &new_pos, depth - 1, -alpha, -beta
         );
@@ -94,7 +95,7 @@ pub mod perft {
         }
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
-            let new_pos = pos.make_move(mv);
+            let new_pos = make_move(pos, mv);
             nodes += perft_inner(&new_pos, depth-1);
         }
         return nodes
@@ -112,7 +113,7 @@ pub mod perft {
         }
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
-            let new_pos = pos.make_move(mv);
+            let new_pos = make_move(pos, mv);
             nodes += perft_inner_with_table(&new_pos, depth-1, table);
         }
         table.set(pos.key.0, nodes, depth);
@@ -128,7 +129,7 @@ pub mod perft {
         let mut nodes = 0;
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
-            let new_pos = pos.make_move(mv);
+            let new_pos = make_move(pos, mv);
             let branch_nodes;
             if depth == 1 {
                 branch_nodes = 1

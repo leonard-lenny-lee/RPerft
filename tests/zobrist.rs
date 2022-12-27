@@ -1,8 +1,10 @@
-use chess_engine::{*, movelist::MoveList};
 use test_case::test_case;
+use chess_engine::*;
 use common::*;
-use position::Position;
 use bitboard::BB;
+use position::Position;
+use movelist::MoveList;
+use makemove::make_move;
 
 #[test_case(
     POSITION_2, 21, 30,
@@ -25,7 +27,7 @@ fn test_hash_update_quiet(
     move_list.add_quiet_move(BB::from_index(target_sq), BB::from_index(src_sq));
     let mv = move_list.pop().unwrap();
     // Apply move
-    let new_pos = pos.make_move(&mv);
+    let new_pos = make_move(&pos, &mv);
     let expected_pos = Position::from_fen(expected_position.to_string()).unwrap();
     assert_eq!(new_pos.key.0, expected_pos.key.0)
 }
@@ -53,7 +55,7 @@ fn test_hash_update_double_pawn_push(
     move_list.add_double_pawn_push(BB::from_index(target_sq), BB::from_index(src_sq));
     let mv = move_list.pop().unwrap();
     // Apply move
-    let new_pos = pos.make_move(&mv);
+    let new_pos = make_move(&pos, &mv);
     let expected_pos = Position::from_fen(expected_position.to_string()).unwrap();
     assert_eq!(new_pos.key.0, expected_pos.key.0)
 }
@@ -75,7 +77,7 @@ fn test_hash_update_castling(
     move_list.add_short_castle(BB::from_index(target_sq), BB::from_index(src_sq));
     let mv = move_list.pop().unwrap();
     // Apply move
-    let new_pos = pos.make_move(&mv);
+    let new_pos = make_move(&pos, &mv);
     let expected_pos = Position::from_fen(expected_position.to_string()).unwrap();
     assert_eq!(new_pos.key.0, expected_pos.key.0)
 }
@@ -93,7 +95,7 @@ fn test_hash_update_en_passant(
     move_list.add_en_passant_capture(BB::from_index(target_sq), BB::from_index(src_sq));
     let mv = move_list.pop().unwrap();
     // Apply move
-    let new_pos = pos.make_move(&mv);
+    let new_pos = make_move(&pos, &mv);
     let expected_pos = Position::from_fen(expected_position.to_string()).unwrap();
     assert_eq!(new_pos.key.0, expected_pos.key.0)
 }

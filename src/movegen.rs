@@ -65,6 +65,7 @@ pub fn find_moves(pos: &Position) -> MoveList {
 
 // Move generation methods to push valid moves onto the move list
 
+#[inline]
 /// Move generation function to find all pawn single pushes in a position.
 fn find_single_pushes(
     pos: &Position, move_list: &mut MoveList, push_mask: BB, pinned_pieces: BB
@@ -92,6 +93,7 @@ fn find_single_pushes(
 
 }
 
+#[inline]
 /// Move generation function to find all pawn double pushes in a position
 fn find_double_pushes(
     pos: &Position, move_list: &mut MoveList, push_mask: BB, pinned_pieces: BB
@@ -111,6 +113,7 @@ fn find_double_pushes(
     }
 }
 
+#[inline]
 fn find_pawn_captures(
     pos: &Position, move_list: &mut MoveList, capture_mask: BB, pinned_pieces: BB
 ) {
@@ -153,6 +156,7 @@ fn find_pawn_captures(
 
 }
 
+#[inline]
 /// Move generation function for knights
 fn find_knight_moves(
     pos: &Position, move_list: &mut MoveList, capture_mask: BB,
@@ -171,6 +175,7 @@ fn find_knight_moves(
     }
 }
 
+#[inline]
 /// Append onto a move list the king moves
 fn find_king_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares: BB) {
     let our_pieces = pos.our_pieces();
@@ -181,6 +186,7 @@ fn find_king_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares: BB)
     find_quiet_moves_and_captures(pos, move_list, targets, src)
 }
 
+#[inline]
 fn find_sliding_moves(
     pos: &Position, move_list: &mut MoveList, capture_mask: BB,
     push_mask: BB, pinned_pieces: BB
@@ -213,6 +219,7 @@ fn find_sliding_moves(
 
 // Special Moves
 
+#[inline]
 /// Move generation function for en passant captures
 fn find_en_passant_moves(
     pos: &Position, move_list: &mut MoveList, capture_mask: BB,
@@ -252,6 +259,7 @@ fn find_en_passant_moves(
     
 }
 
+#[inline]
 fn find_castling_moves(
     pos: &Position, move_list: &mut MoveList, unsafe_squares: BB
 ) {
@@ -272,6 +280,7 @@ fn find_castling_moves(
     }
 }
 
+#[inline]
 /// Helper function for non-pawn moves, where the capture status is
 /// indeterminate. Seperates out the capture moves from the quiet moves and
 /// adds them to the move vector
