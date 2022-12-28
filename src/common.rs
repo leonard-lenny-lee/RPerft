@@ -54,6 +54,7 @@ pub enum ASCIIBases {
     Zero = 48,
 }
 
+#[derive(Clone, Copy)]
 pub enum Piece {
     Any,
     Pawn,

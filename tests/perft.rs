@@ -1,13 +1,13 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking 
 
 use chess_engine::*;
-use global::Global;
+use config::Config;
 use common::*;
 use search::perft::*;
 use position::Position;
 use test_case::test_case;
 
-const GLOBAL: Global = Global::init();
+const GLOBAL: Config = Config::init();
 
 /// Light perft test suite. Compares the number of nodes generated in these 
 /// standard perft positions against the consensus. 

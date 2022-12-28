@@ -3,7 +3,7 @@ extern crate lazy_static;
 
 pub mod bitboard;
 pub mod common;
-pub mod global;
+pub mod config;
 pub mod makemove;
 pub mod movelist;
 pub mod position;
