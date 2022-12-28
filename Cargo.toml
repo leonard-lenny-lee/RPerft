@@ -19,3 +19,7 @@ harness = false
 
 [profile.test]
 opt-level = 3
+
+[profile.release]
+lto = true
+codegen-units = 1
