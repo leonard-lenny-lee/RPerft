@@ -5,7 +5,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub const fn init() -> Config {
+    pub const fn initialize() -> Config {
         Config {
             /// Default perft configuration
             hashing: true,

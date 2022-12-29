@@ -196,7 +196,7 @@ pub mod perft {
     }
 
     pub fn run_perft_bench() {
-        let mut config = Config::init();
+        let mut config = Config::initialize();
 
         let positions = [
             DEFAULT_FEN, POSITION_2, POSITION_3,
