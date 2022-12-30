@@ -1,4 +1,5 @@
 use chess_engine::*;
+use interface::*;
 
 fn main() {
     let mut state = state::State::initalize();
@@ -8,7 +9,11 @@ fn main() {
             .read_line(&mut input)
             .expect("Failed to read line");
         match interface::Command::parse(input) {
-            Ok(c) => {c.execute(&mut state);},
+            Ok(c) => {
+                if let Err(e) = c.execute(&mut state) {
+                    e.warn()
+                };
+            },
             Err(e) => e.warn(),
         };
     }
