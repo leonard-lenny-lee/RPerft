@@ -26,7 +26,8 @@ pub enum CommandToken {
     // Level 1 Commands
     Fen,
     StartPos,
-    Perft
+    Perft,
+    Show,
 }
 
 impl CommandToken {
@@ -45,17 +46,46 @@ impl CommandToken {
                 "fen" => Ok(Self::Fen),
                 "startpos" => Ok(Self::StartPos),
                 "perft" => Ok(Self::Perft),
+                "show" => Ok(Self::Show),
                 _ => Err(ParseErr::InvalidCommand(token.to_string()))
             },
             _ => Err(ParseErr::UnrecognisedTokens(token.to_string()))
         }  
     }
+
+    /// Mappings to get the extra token requirements for the command
+    fn get_token_requirements(&self) -> Requires {
+        match self {
+            Self::Position => Requires::SubCmd,
+            Self::Quit => Requires::None,
+            Self::Go => Requires::SubCmd,
+            Self::SetOption => Requires::Args(4, 255),
+            Self::Fen => Requires::Args(1, 255),
+            Self::StartPos => Requires::Args(0, 255),
+            Self::Perft => Requires::Args(1, 1),
+            Self::Show => Requires::None,
+        }
+    }
+
+    fn as_str(&self) -> &str {
+        match self {
+            Self::Position => "position",
+            Self::Quit => "quit",
+            Self::Go => "go",
+            Self::SetOption => "setoption",
+            Self::Fen => "fen",
+            Self::StartPos => "startpos",
+            Self::Perft => "perft",
+            Self::Show => "show"
+        }
+    }
+
 }
 
 enum Requires {
     SubCmd,
-    Args,
-    None
+    Args(u8, u8), // Min, max # of arguments required
+    None,
 }
 
 #[derive(Debug)]
@@ -66,20 +96,39 @@ pub enum ParseErr {
     MissingTokens(CommandToken),
     UnrecognisedTokens(String),
     InvalidFen(String),
-    ExcessArguments(String),
+    MissingArguments(CommandToken, u8, u8),
+    ExcessArguments(CommandToken, u8, u8),
 }
 
 impl ParseErr {
+
     pub fn warn(&self) {
         // TODO Write warning messages
-        // match self {
-        //     Self::NullInput => (),
-        //     Self::InvalidCommand(msg) => (),
-        //     Self::MissingTokens(token) => (),
-        //     Self::UnrecognisedTokens(str) => (),
-        //     Self::InvalidFen(_) => ()
-        // };
+        let msg = match self {
+            Self::NullInput => "No input detected".to_string(),
+            Self::InvalidCommand(msg) => format!("Invalid command \"{msg}\""),
+            Self::InvalidSubCommand(cmd, subcmd) => {
+                let (cmd, subcmd) = (cmd.as_str(), subcmd.as_str());
+                format!("\"{subcmd}\" is an invalid subcommand for \"{cmd}\"")
+            }
+            Self::MissingTokens(token) => {
+                let token = token.as_str();
+                format!("Additional tokens required for \"{token}\"")
+            },
+            Self::UnrecognisedTokens(tokens) => format!("Unrecognised token(s): {tokens}"),
+            Self::InvalidFen(msg) => format!("Invalid FEN string: {msg}"),
+            Self::MissingArguments(token, min, n_tokens) => {
+                let token = token.as_str();
+                format!("Missing argument(s) for \"{token}\": {min} required, {n_tokens} provided")
+            },
+            Self::ExcessArguments(token, max, n_tokens) => {
+                let token = token.as_str();
+                format!("Too many arguments for \"{token}\": {max} allowed, {n_tokens} provided")
+            }
+        };
+        println!("WARNING! Error parsing command: {msg}");
     }
+
 }
 
 #[derive(Debug)]
@@ -94,7 +143,7 @@ impl ExecutionErr {
 }
 
 pub struct Command {
-    cmd: CommandToken,
+    pub cmd: CommandToken,
     subcmd: Option<Box<Command>>,
     args: Option<Vec<String>>,
 }
@@ -115,14 +164,24 @@ impl Command {
     fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseErr> {
         let cmd = CommandToken::parse(tokens[0], level)?;
         let args = tokens[1..].to_vec();
-        // Check extra token requirements
-        match Self::check_extra_token_requirements(&cmd, &args)? {
+        let n_tokens = args.len() as u8;
+        // Check extra token requirements and build command struct accordingly
+        match cmd.get_token_requirements() {
             Requires::SubCmd => {
-                let subcmd = Self::parse_tokens(tokens, level+1)?;
+                if n_tokens == 0 {
+                    return Err(ParseErr::MissingTokens(cmd))
+                }
+                let subcmd = Self::parse_tokens(&args, level+1)?;
                 Self::check_subcommand(&cmd, &subcmd.cmd)?;
                 Ok(Self {cmd, subcmd: Some(Box::new(subcmd)), args: None})
             },
-            Requires::Args => {
+            Requires::Args(min, max) => {
+                if n_tokens < min {
+                    return Err(ParseErr::MissingArguments(cmd, min, n_tokens));
+                }
+                if n_tokens > max {
+                    return Err(ParseErr::ExcessArguments(cmd, max, n_tokens));
+                }
                 Self::check_arguments(&cmd, &args)?;
                 let args = args
                     .iter()
@@ -131,33 +190,12 @@ impl Command {
                 Ok(Self {cmd, subcmd: None, args: Some(args)})
             },
             Requires::None => {
+                if n_tokens > 0 {
+                    return Err(ParseErr::ExcessArguments(cmd, 0, n_tokens))
+                }
                 Ok(Self {cmd, subcmd: None, args: None})
             }
         }
-    }
-
-    // Checks that for a specified command whether extra tokens are required,
-    // allowed and the type of token required
-    fn check_extra_token_requirements(
-        cmd: &CommandToken, tokens: &Vec<&str>
-    ) -> Result<Requires, ParseErr> {
-        use CommandToken::*;
-        let (mandatory, allowed, requires) = match cmd {
-            Position => (true, true, Requires::SubCmd),
-            Quit => (false, false, Requires::None),
-            Go => (true, true, Requires::SubCmd),
-            SetOption => (true, true, Requires::Args),
-            Fen => (true, true, Requires::Args),
-            StartPos => (false, true, Requires::Args),
-            Perft => (true, true, Requires::Args)
-        };
-        if mandatory && tokens.len() == 0 {
-            return Err(ParseErr::MissingTokens(*cmd))
-        }
-        if !allowed && tokens.len() >= 1 {
-            return Err(ParseErr::UnrecognisedTokens(tokens.join(" ")))
-        }
-        return Ok(requires)
     }
 
     /// Check that the subcommand provided is a valid option for the command
@@ -167,7 +205,7 @@ impl Command {
     ) -> Result<(), ParseErr> {
         use CommandToken::*;
         let valid = match cmd {
-            Position => matches!(subcmd, Fen | StartPos),
+            Position => matches!(subcmd, Fen | StartPos | Show),
             Go => matches!(subcmd, Perft),
             _ => panic!("INVALID SUBCOMMAND CHECK LOGIC") // For debugging
         };
@@ -186,7 +224,7 @@ impl Command {
         match cmd {
             Fen => Command::check_fen_tokens(args),
             StartPos => Command::check_move_tokens(args),
-            Perft => Command::check_perft_tokens(args),
+            Perft => Command::check_perft_token(args),
             _ => panic!("INVALID ARGUMENT CHECK LOGIC") // For debugging
         }
     }
@@ -278,13 +316,15 @@ impl Command {
         }
     }
 
-    fn check_perft_tokens(args: &Vec<&str>) -> Result<(), ParseErr> {
-        
+    fn check_perft_token(token: &Vec<&str>) -> Result<(), ParseErr> {
+        if !token[0].chars().all(|c| c.is_numeric()) && token[0] != "bench"{
+            return Err(ParseErr::UnrecognisedTokens(token[0].to_string()))
+        }
         Ok(())
     }
 
     pub fn execute(&self, state: &mut State) -> Result<(), ExecutionErr> {
-        // Execute command if there is no subcommand; otherwise subcommand
+        // Only execute command if it's a leaf command i.e. no sub-command
         match &self.subcmd {
             Some(subcmd) => subcmd.execute(state),
             None => self.execute_cmd(state)
@@ -293,6 +333,25 @@ impl Command {
 
     fn execute_cmd(&self, state: &mut State) -> Result<(), ExecutionErr> {
         // TODO Finish
+        match self.cmd {
+            CommandToken::Perft => {
+                if let Some(token) = &self.args {
+                    let depth = token[0].parse::<i8>().unwrap();
+                    search::perft::perft_divided(&state.position, depth, &state.config);
+                }
+            },
+            CommandToken::Show => {
+                println!("{}", state.position.data.board());
+            },
+            CommandToken::Fen => {
+                if let Some(args) = &self.args {
+                    let fen = args[0..6].join(" ");
+                    state.position_history.push(state.position.clone());
+                    state.position = position::Position::from_fen(fen)?
+                }
+            }
+            _ => ()
+        }
         Ok(())
     }
 

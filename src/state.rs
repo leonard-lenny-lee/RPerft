@@ -3,9 +3,9 @@ use position::Position;
 use config::Config;
 
 pub struct State {
-    position: Position,
-    position_history: Vec<Position>,
-    config: Config
+    pub position: Position,
+    pub position_history: Vec<Position>,
+    pub config: Config
 }
 
 impl State {

@@ -8,8 +8,11 @@ fn main() {
         std::io::stdin()
             .read_line(&mut input)
             .expect("Failed to read line");
-        match interface::Command::parse(input) {
+        match Command::parse(input) {
             Ok(c) => {
+                if matches!(c.cmd, CommandToken::Quit) {
+                    return
+                }
                 if let Err(e) = c.execute(&mut state) {
                     e.warn()
                 };
