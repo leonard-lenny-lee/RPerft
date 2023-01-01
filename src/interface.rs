@@ -74,7 +74,17 @@ lazy_static! {
                 token: "undo",
                 tokens_required: Requires::Args(0, 1),
                 parent_command: Some(CommandType::Root(Root::Position))
-            })
+            }),
+            (CommandType::Leaf(Leaf::Uci), CommandConfig {
+                token: "uci",
+                tokens_required: Requires::None,
+                parent_command: None
+            }),
+            (CommandType::Leaf(Leaf::UciNewGame), CommandConfig {
+                token: "ucinewgame",
+                tokens_required: Requires::None,
+                parent_command: None
+            }),
         ])
     };
 }
@@ -107,6 +117,8 @@ pub enum Leaf {
     Display,
     Move,
     Undo,
+    Uci,
+    UciNewGame,
 }
 
 impl CommandType {
@@ -175,7 +187,7 @@ impl ParseError {
                 format!("Too many arguments for \"{token}\": {max} allowed, {n_tokens} provided")
             }
         };
-        println!("[ERROR] - Could not parse command: {msg}");
+        eprint!("[ERROR] - Could not parse command: {msg}\n");
     }
 
 }
@@ -200,7 +212,7 @@ impl ExecutionError {
             Self::NullPromotionError(mv, fen) =>
                 format!("Missing promotion specifier for \"{mv}\" in the position {fen}")
         };
-        println!("[ERROR] - {msg}")
+        eprint!("[ERROR] - {msg\n}")
     }
 }
 
@@ -284,14 +296,15 @@ impl Command {
     fn check_arguments(
         cmd: &CommandType, args: &Vec<&str>
     ) -> Result<(), ParseError> {
-        use Leaf::*;
         if let CommandType::Leaf(cmd) = cmd {
             match cmd {
-                Fen => args_check::fen_tokens(args)?,
-                StartPos | Move => args_check::move_tokens(args)?,
-                Undo => args_check::undo_token(args)?,
-                Perft => args_check::perft_token(args)?,
-                Display => (),
+                Leaf::Fen => args_check::fen_tokens(args)?,
+                Leaf::StartPos | Leaf::Move => args_check::move_tokens(args)?,
+                Leaf::Undo => args_check::undo_token(args)?,
+                Leaf::Perft => args_check::perft_token(args)?,
+                Leaf::Display => (),
+                Leaf::Uci => (),
+                Leaf::UciNewGame => (),
             }
         } else {
             println!("WARNING! Attempted argument parsing of non-leaf command")
@@ -338,6 +351,8 @@ impl Command {
                         execute::undo(state, args)?
                     }
                 },
+                Leaf::Uci => execute::uci(state)?,
+                Leaf::UciNewGame => execute::uci_new_game(state)?
             }
         } else {
             println!("WARNING! Attempted execution of non-leaf command")
@@ -474,12 +489,16 @@ mod execute {
     pub fn fen(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
         let fen = args[0..6].join(" ");
         let moves = args[6..].to_vec();
+        if fen != state.position.data.fen() {
+            state.position_history = Vec::new();
+        }
         state.position_history.push(state.position.clone());
         state.position = position::Position::from_fen(fen)?;
         self::moves(state, &moves)
     }
 
     pub fn startpos(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
+        state.position_history = Vec::new();
         state.position_history.push(state.position.clone());
         state.position = position::Position::from_fen(common::DEFAULT_FEN.to_string())?;
         self::moves(state, args)
@@ -543,6 +562,18 @@ mod execute {
                 state.position = pos;
             }
         };
+        Ok(())
+    }
+
+    pub fn uci(state: &mut State) -> Result<(), ExecutionError> {
+        state.config.uci_mode = true;
+        println!("id name LThink");
+        println!("id author Leonard Lee");
+        Ok(())
+    }
+
+    pub fn uci_new_game(state: &mut State) -> Result<(), ExecutionError> {
+        state.position_history = Vec::new();
         Ok(())
     }
 
