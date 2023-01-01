@@ -15,7 +15,7 @@ macro_rules! to_lower {
 struct CommandConfig {
     token: &'static str,
     tokens_required: Requires,
-    parent_command: Option<CommandToken>
+    parent_command: Option<CommandType>
 }
 
 lazy_static! {
@@ -23,68 +23,84 @@ lazy_static! {
     static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
     static ref ALGB_TOKEN: Regex = Regex::new("[a-h][1-8]").unwrap();
 
-    static ref COMMAND_CONFIGS: HashMap<CommandToken, CommandConfig> = {
+    static ref COMMAND_CONFIGS: HashMap<CommandType, CommandConfig> = {
         HashMap::from([
-            (CommandToken::Position, CommandConfig {
+            (CommandType::Root(Root::Position), CommandConfig {
                 token: "position",
                 tokens_required: Requires::SubCmd,
                 parent_command: None
             }),
-            (CommandToken::Quit, CommandConfig {
+            (CommandType::Root(Root::Quit), CommandConfig {
                 token: "quit",
                 tokens_required: Requires::None,
                 parent_command: None
             }),
-            (CommandToken::Go, CommandConfig {
+            (CommandType::Root(Root::Go), CommandConfig {
                 token: "go",
                 tokens_required: Requires::SubCmd,
                 parent_command: None
             }),
-            (CommandToken::SetOption, CommandConfig {
+            (CommandType::Root(Root::SetOption), CommandConfig {
                 token: "setoption",
                 tokens_required: Requires::Args(4, 255),
                 parent_command: None
             }),
-            (CommandToken::Fen, CommandConfig {
+            (CommandType::Leaf(Leaf::Fen), CommandConfig {
                 token: "fen",
                 tokens_required: Requires::Args(1, 255),
-                parent_command: Some(CommandToken::Position)
+                parent_command: Some(CommandType::Root(Root::Position))
             }),
-            (CommandToken::StartPos, CommandConfig {
+            (CommandType::Leaf(Leaf::StartPos), CommandConfig {
                 token: "startpos",
                 tokens_required: Requires::Args(0, 255),
-                parent_command: Some(CommandToken::Position)
+                parent_command: Some(CommandType::Root(Root::Position))
             }),
-            (CommandToken::Perft, CommandConfig {
+            (CommandType::Leaf(Leaf::Perft), CommandConfig {
                 token: "perft",
                 tokens_required: Requires::Args(1, 1),
-                parent_command: Some(CommandToken::Go)
+                parent_command: Some(CommandType::Root(Root::Go))
             }),
-            (CommandToken::Display, CommandConfig {
+            (CommandType::Leaf(Leaf::Display), CommandConfig {
                 token: "display",
                 tokens_required: Requires::None,
-                parent_command: Some(CommandToken::Position)
+                parent_command: Some(CommandType::Root(Root::Position))
             }),
-            (CommandToken::Move, CommandConfig {
+            (CommandType::Leaf(Leaf::Move), CommandConfig {
                 token: "move",
                 tokens_required: Requires::Args(1, 255),
-                parent_command: Some(CommandToken::Position)
+                parent_command: Some(CommandType::Root(Root::Position))
             }),
-            (CommandToken::Undo, CommandConfig {
+            (CommandType::Leaf(Leaf::Undo), CommandConfig {
                 token: "undo",
                 tokens_required: Requires::Args(0, 1),
-                parent_command: Some(CommandToken::Position)
+                parent_command: Some(CommandType::Root(Root::Position))
             })
         ])
     };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CommandToken {
+pub enum CommandType {
+    Root(Root),
+    Branch(Branch),
+    Leaf(Leaf)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Root {
     Position,
     Quit,
     Go,
     SetOption,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Branch {
+
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Leaf {
     Fen,
     StartPos,
     Perft,
@@ -93,7 +109,7 @@ pub enum CommandToken {
     Undo,
 }
 
-impl CommandToken {
+impl CommandType {
 
     fn parse(token: &str, level: u8) -> Result<Self, ParseError> {
         to_lower!(token);
@@ -126,12 +142,12 @@ enum Requires {
 pub enum ParseError {
     NullInput,
     InvalidCommand(String),
-    InvalidSubCommand(CommandToken, CommandToken),
-    MissingTokens(CommandToken),
+    InvalidSubCommand(CommandType, CommandType),
+    MissingTokens(CommandType),
     UnrecognisedTokens(String),
     InvalidFen(String),
-    MissingArguments(CommandToken, u8, u8),
-    ExcessArguments(CommandToken, u8, u8),
+    MissingArguments(CommandType, u8, u8),
+    ExcessArguments(CommandType, u8, u8),
 }
 
 impl ParseError {
@@ -189,7 +205,7 @@ impl ExecutionError {
 }
 
 pub struct Command {
-    pub cmd: CommandToken,
+    pub cmd: CommandType,
     subcmd: Option<Box<Command>>,
     args: Option<Vec<String>>,
 }
@@ -208,7 +224,7 @@ impl Command {
     }
 
     fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseError> {
-        let cmd = CommandToken::parse(tokens[0], level)?;
+        let cmd = CommandType::parse(tokens[0], level)?;
         let args = tokens[1..].to_vec();
         let n_tokens = args.len() as u8;
         // Check extra token requirements and build command struct accordingly
@@ -247,7 +263,7 @@ impl Command {
     /// Check that the subcommand provided is a valid option for the command
     /// * only should be invoked for commands requiring subcommands
     fn check_subcommand(
-        cmd: &CommandToken, subcmd: &CommandToken
+        cmd: &CommandType, subcmd: &CommandType
     ) -> Result<(), ParseError> {
         if let Some(config) = COMMAND_CONFIGS.get(subcmd) {
             let valid = match config.parent_command {
@@ -266,16 +282,21 @@ impl Command {
     /// Check that the arguments provided conform to the format expected
     /// * only should be invoked for commands requiring arguments
     fn check_arguments(
-        cmd: &CommandToken, args: &Vec<&str>
+        cmd: &CommandType, args: &Vec<&str>
     ) -> Result<(), ParseError> {
-        use CommandToken::*;
-        match cmd {
-            Fen => args_check::fen_tokens(args),
-            StartPos | Move => args_check::move_tokens(args),
-            Undo => args_check::undo_token(args),
-            Perft => args_check::perft_token(args),
-            _ => panic!("INVALID ARGUMENT CHECK LOGIC") // For debugging
+        use Leaf::*;
+        if let CommandType::Leaf(cmd) = cmd {
+            match cmd {
+                Fen => args_check::fen_tokens(args)?,
+                StartPos | Move => args_check::move_tokens(args)?,
+                Undo => args_check::undo_token(args)?,
+                Perft => args_check::perft_token(args)?,
+                Display => (),
+            }
+        } else {
+            println!("WARNING! Attempted argument parsing of non-leaf command")
         }
+        Ok(())
     }
 
     pub fn execute(&self, state: &mut State) -> Result<(), ExecutionError> {
@@ -287,37 +308,39 @@ impl Command {
     }
 
     fn execute_cmd(&self, state: &mut State) -> Result<(), ExecutionError> {
-        // TODO Finish
-        match self.cmd {
-            CommandToken::Perft => {
-                if let Some(token) = &self.args {
-                    execute::perft(state, token[0].to_string())?
-                }
-            },
-            CommandToken::Display => {
-                println!("{}", state.position.data.to_string());
-            },
-            CommandToken::Fen => {
-                if let Some(args) = &self.args {
-                    execute::fen(state, args)?
-                }
-            },
-            CommandToken::StartPos => {
-                if let Some(args) = &self.args {
-                    execute::startpos(state, args)?
-                }
-            },
-            CommandToken::Move => {
-                if let Some(args) = &self.args {
-                    execute::moves(state, args)?
-                }
-            },
-            CommandToken::Undo => {
-                if let Some(args) = &self.args {
-                    execute::undo(state, args)?
-                }
-            },
-            _ => ()
+        if let CommandType::Leaf(cmd) = self.cmd {
+            match cmd {
+                Leaf::Perft => {
+                    if let Some(token) = &self.args {
+                        execute::perft(state, token[0].to_string())?
+                    }
+                },
+                Leaf::Display => {
+                    println!("{}", state.position.data.to_string());
+                },
+                Leaf::Fen => {
+                    if let Some(args) = &self.args {
+                        execute::fen(state, args)?
+                    }
+                },
+                Leaf::StartPos => {
+                    if let Some(args) = &self.args {
+                        execute::startpos(state, args)?
+                    }
+                },
+                Leaf::Move => {
+                    if let Some(args) = &self.args {
+                        execute::moves(state, args)?
+                    }
+                },
+                Leaf::Undo => {
+                    if let Some(args) = &self.args {
+                        execute::undo(state, args)?
+                    }
+                },
+            }
+        } else {
+            println!("WARNING! Attempted execution of non-leaf command")
         }
         Ok(())
     }
