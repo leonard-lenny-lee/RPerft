@@ -2,15 +2,17 @@ pub struct Config {
     pub hashing: bool,
     pub table_size: usize,
     pub bulk_counting: bool,
+    pub uci_mode: bool,
 }
 
 impl Config {
-    pub const fn init() -> Config {
+    pub const fn initialize() -> Config {
         Config {
             /// Default perft configuration
             hashing: true,
             table_size: 17_000_000, // 1 million Perft entries
             bulk_counting: true,
+            uci_mode: false,
         }
     }
 

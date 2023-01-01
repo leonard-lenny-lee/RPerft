@@ -7,7 +7,7 @@ use search::perft::*;
 use position::Position;
 use test_case::test_case;
 
-const GLOBAL: Config = Config::init();
+const GLOBAL: Config = Config::initialize();
 
 /// Light perft test suite. Compares the number of nodes generated in these 
 /// standard perft positions against the consensus. 

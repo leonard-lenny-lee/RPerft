@@ -13,6 +13,8 @@ pub mod transposition;
 pub mod zobrist;
 pub mod movegen;
 pub mod evaluate;
+pub mod state;
+pub mod interface;
 
 use bitboard::BB;
 use common::*;

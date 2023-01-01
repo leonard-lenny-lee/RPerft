@@ -71,6 +71,7 @@ dependencies = [
  "criterion",
  "lazy_static",
  "mockall",
+ "regex",
  "test-case",
 ]
 

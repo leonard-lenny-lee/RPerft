@@ -11,6 +11,7 @@ mod pieceset;
 pub use zobrist::ZobristKey;
 pub use data::Data;
 use pieceset::PieceSet;
+use interface::ExecutionError;
 
 pub struct Position {
     pub data: Data,
@@ -20,7 +21,7 @@ pub struct Position {
 
 impl Position {
 
-    pub fn from_fen(fen: String) -> Result<Self, String> {
+    pub fn from_fen(fen: String) -> Result<Self, ExecutionError> {
         let data = Data::from_fen(fen)?;
         let mut pos = Position::new(&data);
         pos.init_state();
