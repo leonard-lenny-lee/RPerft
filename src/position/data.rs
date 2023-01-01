@@ -20,7 +20,7 @@ impl Data {
 
     // Methods required to parse a FEN string into a Data struct
     
-    pub fn from_fen(fen: String) -> Result<Data, ExecutionErr> {
+    pub fn from_fen(fen: String) -> Result<Data, ExecutionError> {
         let tokens: Vec<&str> = fen.trim().split(" ").collect();
         assert!(tokens.len() == 6);
         let mut pos = Data::new();
@@ -50,7 +50,7 @@ impl Data {
     /// Initialise a set of bitboards for white and black pieces from the 
     /// portion of the FEN string representing the board. Also sets the master
     /// occupied and free bitboards 
-    fn init_bitboards(&mut self, board: &str) -> Result<(), ExecutionErr> {
+    fn init_bitboards(&mut self, board: &str) -> Result<(), ExecutionError> {
         let mut error_msg = Vec::new();
         let mut w_pieces: PieceSet = PieceSet::new();
         let mut b_pieces: PieceSet = PieceSet::new();
@@ -112,7 +112,7 @@ impl Data {
         if error_msg.len() >= 1 {
             let msg = error_msg.join(", ");
             let err = format!("Error parsing board token {}: {}", board, msg);
-            return Err(ExecutionErr::FenErr(err))
+            return Err(ExecutionError::ParseFenError(err))
         }
         self.w_pieces = w_pieces;
         self.b_pieces = b_pieces;
@@ -122,18 +122,18 @@ impl Data {
     }
 
     /// Set white to move field
-    fn init_white_to_move(&mut self, code: &str) -> Result<(), ExecutionErr> {
+    fn init_white_to_move(&mut self, code: &str) -> Result<(), ExecutionError> {
         if code == "w" || code == "b" {
             self.white_to_move = code == "w";
             Ok(())
         } else {
             let msg = format!("Invalid turn specifier token {}", code);
-            Err(ExecutionErr::FenErr(msg))
+            Err(ExecutionError::ParseFenError(msg))
         }
     }
 
     /// Set the castling rights of a position
-    fn init_castling_rights(&mut self, code: &str) -> Result<(), ExecutionErr> {
+    fn init_castling_rights(&mut self, code: &str) -> Result<(), ExecutionError> {
         for c in code.chars() {
             match c {
                 'K' => self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ,
@@ -143,7 +143,7 @@ impl Data {
                 '-' => (),
                 _ => {
                     let msg = format!("Invalid castling token {}", code);
-                    return Err(ExecutionErr::FenErr(msg))
+                    return Err(ExecutionError::ParseFenError(msg))
                 }
             }
         }
@@ -151,7 +151,7 @@ impl Data {
     }
 
     /// Calculate the en passant target square bitmask
-    fn init_en_passant(&mut self, epts: &str) -> Result<(), ExecutionErr> {
+    fn init_en_passant(&mut self, epts: &str) -> Result<(), ExecutionError> {
         let target_sq;
         if epts == "-" {
             target_sq = EMPTY_BB;
@@ -160,7 +160,7 @@ impl Data {
                 Ok(r) =>  target_sq = r,
                 Err(_) => {
                     let msg = format!("Invalid en passant token ({})", epts);
-                    return Err(ExecutionErr::FenErr(msg))
+                    return Err(ExecutionError::ParseFenError(msg))
                 }
             }
         }
@@ -169,23 +169,23 @@ impl Data {
     }
 
     /// Set the halfmove clock
-    fn init_halfmove_clock(&mut self, clock: &str) -> Result<(), ExecutionErr> {
+    fn init_halfmove_clock(&mut self, clock: &str) -> Result<(), ExecutionError> {
         match clock.parse() {
             Ok(c) => {self.halfmove_clock = c; Ok(())}
             Err(_) => {
                 let msg = format!("Invalid halfmove clock token ({})", clock);
-                Err(ExecutionErr::FenErr(msg))
+                Err(ExecutionError::ParseFenError(msg))
             }
         }
     }
 
     /// Set the fullmove clock
-    fn init_fullmove_clock(&mut self, clock: &str) -> Result<(), ExecutionErr> {
+    fn init_fullmove_clock(&mut self, clock: &str) -> Result<(), ExecutionError> {
         match clock.parse() {
             Ok(c) => {self.fullmove_clock = c; Ok(())}
             Err(_) => {
                 let msg = format!("Invalid fullmove clock token ({})", clock);
-                Err(ExecutionErr::FenErr(msg))
+                Err(ExecutionError::ParseFenError(msg))
             }
         }
     }

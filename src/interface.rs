@@ -3,6 +3,7 @@
 use super::*;
 use state::State;
 use regex::Regex;
+use std::collections::HashMap;
 
 macro_rules! to_lower {
     ($token: ident) => {
@@ -11,73 +12,106 @@ macro_rules! to_lower {
     };
 }
 
-lazy_static! {
-    static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
-    static ref ALGB_TOKEN: Regex = Regex::new("[a-h][1-8]").unwrap();
+struct CommandConfig {
+    token: &'static str,
+    tokens_required: Requires,
+    parent_command: Option<CommandToken>
 }
 
-#[derive(Debug, Clone, Copy)]
+lazy_static! {
+    // Regex patterns for token validations
+    static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
+    static ref ALGB_TOKEN: Regex = Regex::new("[a-h][1-8]").unwrap();
+
+    static ref COMMAND_CONFIGS: HashMap<CommandToken, CommandConfig> = {
+        HashMap::from([
+            (CommandToken::Position, CommandConfig {
+                token: "position",
+                tokens_required: Requires::SubCmd,
+                parent_command: None
+            }),
+            (CommandToken::Quit, CommandConfig {
+                token: "quit",
+                tokens_required: Requires::None,
+                parent_command: None
+            }),
+            (CommandToken::Go, CommandConfig {
+                token: "go",
+                tokens_required: Requires::SubCmd,
+                parent_command: None
+            }),
+            (CommandToken::SetOption, CommandConfig {
+                token: "setoption",
+                tokens_required: Requires::Args(4, 255),
+                parent_command: None
+            }),
+            (CommandToken::Fen, CommandConfig {
+                token: "fen",
+                tokens_required: Requires::Args(1, 255),
+                parent_command: Some(CommandToken::Position)
+            }),
+            (CommandToken::StartPos, CommandConfig {
+                token: "startpos",
+                tokens_required: Requires::Args(0, 255),
+                parent_command: Some(CommandToken::Position)
+            }),
+            (CommandToken::Perft, CommandConfig {
+                token: "perft",
+                tokens_required: Requires::Args(1, 1),
+                parent_command: Some(CommandToken::Go)
+            }),
+            (CommandToken::Display, CommandConfig {
+                token: "display",
+                tokens_required: Requires::None,
+                parent_command: Some(CommandToken::Position)
+            }),
+            (CommandToken::Move, CommandConfig {
+                token: "move",
+                tokens_required: Requires::Args(1, 255),
+                parent_command: Some(CommandToken::Position)
+            }),
+            (CommandToken::Undo, CommandConfig {
+                token: "undo",
+                tokens_required: Requires::Args(0, 1),
+                parent_command: Some(CommandToken::Position)
+            })
+        ])
+    };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CommandToken {
-    // Level 0 Commands
     Position,
     Quit,
     Go,
     SetOption,
-    // Level 1 Commands
     Fen,
     StartPos,
     Perft,
-    Show,
+    Display,
+    Move,
+    Undo,
 }
 
 impl CommandToken {
 
-    fn parse(token: &str, level: u8) -> Result<Self, ParseErr> {
+    fn parse(token: &str, level: u8) -> Result<Self, ParseError> {
         to_lower!(token);
-        match level {
-            0 => match token {
-                "position" => Ok(Self::Position),
-                "quit" => Ok(Self::Quit),
-                "go" => Ok(Self::Go),
-                "setoption" => Ok(Self::SetOption),
-                _ => Err(ParseErr::InvalidCommand(token.to_string()))
-            },
-            1 => match token {
-                "fen" => Ok(Self::Fen),
-                "startpos" => Ok(Self::StartPos),
-                "perft" => Ok(Self::Perft),
-                "show" => Ok(Self::Show),
-                _ => Err(ParseErr::InvalidCommand(token.to_string()))
-            },
-            _ => Err(ParseErr::UnrecognisedTokens(token.to_string()))
-        }  
-    }
-
-    /// Mappings to get the extra token requirements for the command
-    fn get_token_requirements(&self) -> Requires {
-        match self {
-            Self::Position => Requires::SubCmd,
-            Self::Quit => Requires::None,
-            Self::Go => Requires::SubCmd,
-            Self::SetOption => Requires::Args(4, 255),
-            Self::Fen => Requires::Args(1, 255),
-            Self::StartPos => Requires::Args(0, 255),
-            Self::Perft => Requires::Args(1, 1),
-            Self::Show => Requires::None,
+        for (key, config) in COMMAND_CONFIGS.iter() {
+            if token != config.token {
+                continue;
+            }
+            // Check that for base commands, there is no parent command
+            if level == 0 && !matches!(config.parent_command, None) {
+                return Err(ParseError::InvalidCommand(token.to_string()))
+            }
+            return Ok(*key)
         }
+        return Err(ParseError::UnrecognisedTokens(token.to_string()))
     }
 
     fn as_str(&self) -> &str {
-        match self {
-            Self::Position => "position",
-            Self::Quit => "quit",
-            Self::Go => "go",
-            Self::SetOption => "setoption",
-            Self::Fen => "fen",
-            Self::StartPos => "startpos",
-            Self::Perft => "perft",
-            Self::Show => "show"
-        }
+        COMMAND_CONFIGS.get(self).unwrap().token
     }
 
 }
@@ -89,7 +123,7 @@ enum Requires {
 }
 
 #[derive(Debug)]
-pub enum ParseErr {
+pub enum ParseError {
     NullInput,
     InvalidCommand(String),
     InvalidSubCommand(CommandToken, CommandToken),
@@ -100,10 +134,9 @@ pub enum ParseErr {
     ExcessArguments(CommandToken, u8, u8),
 }
 
-impl ParseErr {
+impl ParseError {
 
     pub fn warn(&self) {
-        // TODO Write warning messages
         let msg = match self {
             Self::NullInput => "No input detected".to_string(),
             Self::InvalidCommand(msg) => format!("Invalid command \"{msg}\""),
@@ -126,19 +159,32 @@ impl ParseErr {
                 format!("Too many arguments for \"{token}\": {max} allowed, {n_tokens} provided")
             }
         };
-        println!("WARNING! Error parsing command: {msg}");
+        println!("[ERROR] - Could not parse command: {msg}");
     }
 
 }
 
 #[derive(Debug)]
-pub enum ExecutionErr {
-    FenErr(String)
+pub enum ExecutionError {
+    ParseFenError(String),
+    ParseAlgebraicError(String),
+    InvalidMoveError(String, String),
+    NullPromotionError(String, String)
 }
 
-impl ExecutionErr {
+impl ExecutionError {
     pub fn warn(&self) {
-        // TODO Write warning messages
+        let msg = match self {
+            Self::ParseFenError(msg) => 
+                format!("Could not parse FEN: {msg}"),
+            Self::ParseAlgebraicError(msg) => 
+                format!("Could not parse move: {msg}"),
+            Self::InvalidMoveError(mv, fen) => 
+                format!("Invalid move \"{mv}\" in the position {fen}"),
+            Self::NullPromotionError(mv, fen) =>
+                format!("Missing promotion specifier for \"{mv}\" in the position {fen}")
+        };
+        println!("[ERROR] - {msg}")
     }
 }
 
@@ -151,25 +197,25 @@ pub struct Command {
 impl Command {
 
     /// Tokenize and parse the input string into a Command struct
-    pub fn parse(input: String) -> Result<Self, ParseErr> {
+    pub fn parse(input: String) -> Result<Self, ParseError> {
         // Tokenize
         let input = input.trim();
         if input.len() == 0 {
-            return Err(ParseErr::NullInput)
+            return Err(ParseError::NullInput)
         }
         let tokens: Vec<&str> = input.split_whitespace().collect();
         return Self::parse_tokens(&tokens, 0)
     }
 
-    fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseErr> {
+    fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseError> {
         let cmd = CommandToken::parse(tokens[0], level)?;
         let args = tokens[1..].to_vec();
         let n_tokens = args.len() as u8;
         // Check extra token requirements and build command struct accordingly
-        match cmd.get_token_requirements() {
+        match COMMAND_CONFIGS.get(&cmd).unwrap().tokens_required {
             Requires::SubCmd => {
                 if n_tokens == 0 {
-                    return Err(ParseErr::MissingTokens(cmd))
+                    return Err(ParseError::MissingTokens(cmd))
                 }
                 let subcmd = Self::parse_tokens(&args, level+1)?;
                 Self::check_subcommand(&cmd, &subcmd.cmd)?;
@@ -177,10 +223,10 @@ impl Command {
             },
             Requires::Args(min, max) => {
                 if n_tokens < min {
-                    return Err(ParseErr::MissingArguments(cmd, min, n_tokens));
+                    return Err(ParseError::MissingArguments(cmd, min, n_tokens));
                 }
                 if n_tokens > max {
-                    return Err(ParseErr::ExcessArguments(cmd, max, n_tokens));
+                    return Err(ParseError::ExcessArguments(cmd, max, n_tokens));
                 }
                 Self::check_arguments(&cmd, &args)?;
                 let args = args
@@ -191,7 +237,7 @@ impl Command {
             },
             Requires::None => {
                 if n_tokens > 0 {
-                    return Err(ParseErr::ExcessArguments(cmd, 0, n_tokens))
+                    return Err(ParseError::ExcessArguments(cmd, 0, n_tokens))
                 }
                 Ok(Self {cmd, subcmd: None, args: None})
             }
@@ -202,56 +248,109 @@ impl Command {
     /// * only should be invoked for commands requiring subcommands
     fn check_subcommand(
         cmd: &CommandToken, subcmd: &CommandToken
-    ) -> Result<(), ParseErr> {
-        use CommandToken::*;
-        let valid = match cmd {
-            Position => matches!(subcmd, Fen | StartPos | Show),
-            Go => matches!(subcmd, Perft),
-            _ => panic!("INVALID SUBCOMMAND CHECK LOGIC") // For debugging
-        };
-        if !valid {
-            return Err(ParseErr::InvalidSubCommand(*cmd, *subcmd))
+    ) -> Result<(), ParseError> {
+        if let Some(config) = COMMAND_CONFIGS.get(subcmd) {
+            let valid = match config.parent_command {
+                Some(parent_command) => *cmd == parent_command,
+                None => false
+            };
+            if !valid {
+                return Err(ParseError::InvalidSubCommand(*cmd, *subcmd));
+            }
+            return Ok(())
+        } else {
+            panic!() // DEBUGGING
         }
-        Ok(())
     }
 
     /// Check that the arguments provided conform to the format expected
     /// * only should be invoked for commands requiring arguments
     fn check_arguments(
         cmd: &CommandToken, args: &Vec<&str>
-    ) -> Result<(), ParseErr> {
+    ) -> Result<(), ParseError> {
         use CommandToken::*;
         match cmd {
-            Fen => Command::check_fen_tokens(args),
-            StartPos => Command::check_move_tokens(args),
-            Perft => Command::check_perft_token(args),
+            Fen => args_check::fen_tokens(args),
+            StartPos | Move => args_check::move_tokens(args),
+            Undo => args_check::undo_token(args),
+            Perft => args_check::perft_token(args),
             _ => panic!("INVALID ARGUMENT CHECK LOGIC") // For debugging
         }
     }
 
-    fn check_fen_tokens(args: &Vec<&str>) -> Result<(), ParseErr> {
-        if args.len() < 6 {
-            return Err(ParseErr::InvalidFen("Insufficient number of tokens".to_string()))
-        };
-        Command::check_fen_board_token(args[0])?;
-        Command::check_wtm_token(args[1])?;
-        Command::check_castle_token(args[2])?;
-        Command::check_ep_token(args[3])?;
-        Command::check_clock_token(args[4])?;
-        Command::check_clock_token(args[5])?;
-        // Any extra tokens are move specifier tokens
-        Command::check_move_tokens(&args[6..].to_vec())?;
+    pub fn execute(&self, state: &mut State) -> Result<(), ExecutionError> {
+        // Only execute command if it's a leaf command i.e. no sub-command
+        match &self.subcmd {
+            Some(subcmd) => subcmd.execute(state),
+            None => self.execute_cmd(state)
+        }
+    }
+
+    fn execute_cmd(&self, state: &mut State) -> Result<(), ExecutionError> {
+        // TODO Finish
+        match self.cmd {
+            CommandToken::Perft => {
+                if let Some(token) = &self.args {
+                    execute::perft(state, token[0].to_string())?
+                }
+            },
+            CommandToken::Display => {
+                println!("{}", state.position.data.to_string());
+            },
+            CommandToken::Fen => {
+                if let Some(args) = &self.args {
+                    execute::fen(state, args)?
+                }
+            },
+            CommandToken::StartPos => {
+                if let Some(args) = &self.args {
+                    execute::startpos(state, args)?
+                }
+            },
+            CommandToken::Move => {
+                if let Some(args) = &self.args {
+                    execute::moves(state, args)?
+                }
+            },
+            CommandToken::Undo => {
+                if let Some(args) = &self.args {
+                    execute::undo(state, args)?
+                }
+            },
+            _ => ()
+        }
         Ok(())
     }
 
-    fn check_fen_board_token(token: &str) -> Result<(), ParseErr> {
+}
+
+mod args_check {
+
+    use super::*;
+
+    pub fn fen_tokens(args: &Vec<&str>) -> Result<(), ParseError> {
+        if args.len() < 6 {
+            return Err(ParseError::InvalidFen("Insufficient number of tokens".to_string()))
+        };
+        self::fen_board_token(args[0])?;
+        self::wtm_token(args[1])?;
+        self::castle_token(args[2])?;
+        self::ep_token(args[3])?;
+        self::clock_token(args[4])?;
+        self::clock_token(args[5])?;
+        // Any extra tokens are move specifier tokens
+        self::move_tokens(&args[6..].to_vec())?;
+        Ok(())
+    }
+
+    fn fen_board_token(token: &str) -> Result<(), ParseError> {
         // Check that only valid characters are in the token
         const VALID_CHARS: [char; 21] = [
             'P', 'R', 'N', 'B', 'Q', 'K', 'p', 'r', 'n', 'b', 'q', 'k',
             '/', '1', '2', '3', '4', '5', '6', '7', '8'
         ];
         if !token.chars().all(|c| VALID_CHARS.contains(&c)) {
-            return Err(ParseErr::InvalidFen(format!("Invalid board token \"{token}\"")))
+            return Err(ParseError::InvalidFen(format!("Invalid board token \"{token}\"")))
         }
         let (mut n_delimiters, mut n_squares) = (0, 0);
         for c in token.chars() {
@@ -265,37 +364,45 @@ impl Command {
             }
         }
         if n_delimiters != 7 || n_squares != 64 {
-            return Err(ParseErr::InvalidFen(format!("Invalid board token \"{token}\"")))
+            return Err(ParseError::InvalidFen(format!("Invalid board token \"{token}\"")))
         }
         Ok(())
     }
 
-    fn check_wtm_token(token: &str) -> Result<(), ParseErr> {
+    fn wtm_token(token: &str) -> Result<(), ParseError> {
         if token == "w" || token == "b" {
             Ok(())
         } else {
-            Err(ParseErr::InvalidFen(format!("Invalid w.t.m. token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!("Invalid w.t.m. token \"{token}\"")))
         }
     }
 
-    fn check_castle_token(token: &str) -> Result<(), ParseErr> {
+    fn castle_token(token: &str) -> Result<(), ParseError> {
         const VALID_CHARS: [char; 4] = ['K', 'k', 'Q', 'q'];
         if (token.chars().all(|c| VALID_CHARS.contains(&c) && token.len() <= 4)) || token == "-" {
             Ok(())
         } else {
-            Err(ParseErr::InvalidFen(format!("Invalid castle token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!("Invalid castle token \"{token}\"")))
         }
     }
 
-    fn check_ep_token(token: &str) -> Result<(), ParseErr> {
+    fn ep_token(token: &str) -> Result<(), ParseError> {
         if ALGB_TOKEN.is_match(token) || token == "-" {
             Ok(())
         } else {
-            Err(ParseErr::InvalidFen(format!("Invalid e.p. token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!("Invalid e.p. token \"{token}\"")))
         }
     }
 
-    fn check_move_tokens(args: &Vec<&str>) -> Result<(), ParseErr> {
+    fn clock_token(token: &str) -> Result<(), ParseError> {
+        if let Err(_) = token.parse::<u32>() {
+            Err(ParseError::InvalidFen(format!("Invalid clock token \"{token}\"")))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn move_tokens(args: &Vec<&str>) -> Result<(), ParseError> {
         let mut invalid_tokens = Vec::new();
         for token in args {
             if !MOVE_TOKEN.is_match(token) {
@@ -303,55 +410,116 @@ impl Command {
             }
         }
         if invalid_tokens.len() >= 1 {
-            return Err(ParseErr::UnrecognisedTokens(invalid_tokens.join(" ")))
+            return Err(ParseError::UnrecognisedTokens(invalid_tokens.join(" ")))
         }
         return Ok(())
     }
 
-    fn check_clock_token(token: &str) -> Result<(), ParseErr> {
-        if let Err(_) = token.parse::<u32>() {
-            Err(ParseErr::InvalidFen(format!("Invalid clock token \"{token}\"")))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn check_perft_token(token: &Vec<&str>) -> Result<(), ParseErr> {
+    pub fn perft_token(token: &Vec<&str>) -> Result<(), ParseError> {
         if !token[0].chars().all(|c| c.is_numeric()) && token[0] != "bench"{
-            return Err(ParseErr::UnrecognisedTokens(token[0].to_string()))
+            return Err(ParseError::UnrecognisedTokens(token[0].to_string()))
         }
         Ok(())
     }
 
-    pub fn execute(&self, state: &mut State) -> Result<(), ExecutionErr> {
-        // Only execute command if it's a leaf command i.e. no sub-command
-        match &self.subcmd {
-            Some(subcmd) => subcmd.execute(state),
-            None => self.execute_cmd(state)
+    pub fn undo_token(token: &Vec<&str>) -> Result<(), ParseError> {
+        if token.len() == 1 {
+            if let Err(_) = token[0].parse::<u32>() {
+                return Err(ParseError::UnrecognisedTokens(token[0].to_string()))
+            }
         }
+        Ok(())
     }
 
-    fn execute_cmd(&self, state: &mut State) -> Result<(), ExecutionErr> {
-        // TODO Finish
-        match self.cmd {
-            CommandToken::Perft => {
-                if let Some(token) = &self.args {
-                    let depth = token[0].parse::<i8>().unwrap();
-                    search::perft::perft_divided(&state.position, depth, &state.config);
-                }
+}
+
+mod execute {
+
+    use super::*;
+
+    pub fn perft(state: &mut State, arg: String) -> Result<(), ExecutionError> {
+        let token = arg.parse::<i8>();
+        match token {
+            Ok(depth) => {
+                search::perft::perft_divided(&state.position, depth, &state.config);
             },
-            CommandToken::Show => {
-                println!("{}", state.position.data.board());
-            },
-            CommandToken::Fen => {
-                if let Some(args) = &self.args {
-                    let fen = args[0..6].join(" ");
-                    state.position_history.push(state.position.clone());
-                    state.position = position::Position::from_fen(fen)?
+            Err(_) => search::perft::run_perft_bench(),
+        };
+        Ok(())
+    }
+
+    pub fn fen(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
+        let fen = args[0..6].join(" ");
+        let moves = args[6..].to_vec();
+        state.position_history.push(state.position.clone());
+        state.position = position::Position::from_fen(fen)?;
+        self::moves(state, &moves)
+    }
+
+    pub fn startpos(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
+        state.position_history.push(state.position.clone());
+        state.position = position::Position::from_fen(common::DEFAULT_FEN.to_string())?;
+        self::moves(state, args)
+    }
+
+    pub fn moves(state: &mut State, moves: &Vec<String>) -> Result<(), ExecutionError> {
+        for move_token in moves {
+            let move_list = movegen::find_moves(&state.position);
+            let src = BB::from_algebraic(&move_token[0..2])?;
+            let target = BB::from_algebraic(&move_token[2..4])?;
+            let mut matches = Vec::new();
+            for mv in move_list.iter() {
+                if mv.src() == src && mv.target() == target {
+                    if move_token.len() == 4 {
+                        matches.push(mv);
+                        continue;
+                    }
+                    let promotion_piece = match &move_token[4..=4] {
+                        "r" => Piece::Rook.value(),
+                        "n" => Piece::Knight.value(),
+                        "b" => Piece::Bishop.value(),
+                        "q" => Piece::Queen.value(),
+                        _ => return Err(ExecutionError::InvalidMoveError(
+                            move_token.to_string(), state.position.data.fen()
+                        ))
+                    };
+                    if mv.is_promotion() && promotion_piece == mv.promotion_piece() {
+                        matches.push(mv)
+                    }
                 }
             }
-            _ => ()
+            match matches.len().cmp(&1) {
+                std::cmp::Ordering::Less => {
+                    // Cannot find the specified move in the position
+                    return Err(ExecutionError::InvalidMoveError(
+                        move_token.to_string(), state.position.data.fen()
+                    ))
+                },
+                std::cmp::Ordering::Equal => {
+                    // Execute the move
+                    state.position_history.push(state.position.clone());
+                    state.position = makemove::make_move(&state.position, &matches[0])
+                },
+                std::cmp::Ordering::Greater => {
+                    // If there is more than 1 move, a promotion specifier was
+                    // misiing
+                    return Err(ExecutionError::NullPromotionError(
+                        move_token.to_string(), state.position.data.fen()
+                    ));
+                }
+            }
         }
+        Ok(())
+    }
+
+    pub fn undo(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
+        let n = if args.len() == 0 {1} else {args[0].parse::<u32>().unwrap()};
+        let n = std::cmp::max(n, state.position_history.len() as u32);
+        for _ in 0..n {
+            if let Some(pos) = state.position_history.pop() {
+                state.position = pos;
+            }
+        };
         Ok(())
     }
 
