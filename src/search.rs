@@ -166,7 +166,7 @@ pub mod perft {
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
         println!(
-            "{} nodes found in {:.2} seconds ({:.1}M/s)",
+            "Nodes searched: {}\nTime elapsed: {:.2} s ({:.1} M/s)",
             nodes, duration, nodes_per_second
         );
         return nodes

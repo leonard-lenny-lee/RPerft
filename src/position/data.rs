@@ -366,7 +366,7 @@ impl Data {
         let mut out = self.board();
         out.push_str("\nFEN: ");
         out.push_str(&self.fen()[..]);
-        out.push_str("\n\n");
+        out.push_str("\n");
         out
     }
 

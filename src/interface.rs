@@ -15,7 +15,8 @@ macro_rules! to_lower {
 struct CommandConfig {
     token: &'static str,
     tokens_required: Requires,
-    parent_command: Option<CommandType>
+    parent_command: Command,
+    level: u8,
 }
 
 lazy_static! {
@@ -23,94 +24,108 @@ lazy_static! {
     static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
     static ref ALGB_TOKEN: Regex = Regex::new("[a-h][1-8]").unwrap();
 
-    static ref COMMAND_CONFIGS: HashMap<CommandType, CommandConfig> = {
+    static ref COMMAND_CONFIGS: HashMap<Command, CommandConfig> = {
         HashMap::from([
-            (CommandType::Root(Root::Position), CommandConfig {
+            (Command::Root, CommandConfig {
+                token: "$ROOT",
+                tokens_required: Requires::SubCmd,
+                parent_command: Command::Root,
+                level: 0
+            }),
+            (Command::Branch(Branch::Position), CommandConfig {
                 token: "position",
                 tokens_required: Requires::SubCmd,
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
-            (CommandType::Root(Root::Quit), CommandConfig {
+            (Command::Leaf(Leaf::Quit), CommandConfig {
                 token: "quit",
                 tokens_required: Requires::None,
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
-            (CommandType::Root(Root::Go), CommandConfig {
+            (Command::Branch(Branch::Go), CommandConfig {
                 token: "go",
                 tokens_required: Requires::SubCmd,
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
-            (CommandType::Root(Root::SetOption), CommandConfig {
+            (Command::Leaf(Leaf::SetOption), CommandConfig {
                 token: "setoption",
                 tokens_required: Requires::Args(4, 255),
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
-            (CommandType::Leaf(Leaf::Fen), CommandConfig {
+            (Command::Leaf(Leaf::Fen), CommandConfig {
                 token: "fen",
                 tokens_required: Requires::Args(1, 255),
-                parent_command: Some(CommandType::Root(Root::Position))
+                parent_command: Command::Branch(Branch::Position),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::StartPos), CommandConfig {
+            (Command::Leaf(Leaf::StartPos), CommandConfig {
                 token: "startpos",
                 tokens_required: Requires::Args(0, 255),
-                parent_command: Some(CommandType::Root(Root::Position))
+                parent_command: Command::Branch(Branch::Position),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::Perft), CommandConfig {
+            (Command::Leaf(Leaf::Perft), CommandConfig {
                 token: "perft",
                 tokens_required: Requires::Args(1, 1),
-                parent_command: Some(CommandType::Root(Root::Go))
+                parent_command: Command::Branch(Branch::Go),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::Display), CommandConfig {
+            (Command::Leaf(Leaf::Display), CommandConfig {
                 token: "display",
                 tokens_required: Requires::None,
-                parent_command: Some(CommandType::Root(Root::Position))
+                parent_command: Command::Branch(Branch::Position),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::Move), CommandConfig {
+            (Command::Leaf(Leaf::Move), CommandConfig {
                 token: "move",
                 tokens_required: Requires::Args(1, 255),
-                parent_command: Some(CommandType::Root(Root::Position))
+                parent_command: Command::Branch(Branch::Position),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::Undo), CommandConfig {
+            (Command::Leaf(Leaf::Undo), CommandConfig {
                 token: "undo",
                 tokens_required: Requires::Args(0, 1),
-                parent_command: Some(CommandType::Root(Root::Position))
+                parent_command: Command::Branch(Branch::Position),
+                level: 2
             }),
-            (CommandType::Leaf(Leaf::Uci), CommandConfig {
+            (Command::Leaf(Leaf::Uci), CommandConfig {
                 token: "uci",
                 tokens_required: Requires::None,
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
-            (CommandType::Leaf(Leaf::UciNewGame), CommandConfig {
+            (Command::Leaf(Leaf::UciNewGame), CommandConfig {
                 token: "ucinewgame",
                 tokens_required: Requires::None,
-                parent_command: None
+                parent_command: Command::Root,
+                level: 1
             }),
         ])
     };
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CommandType {
-    Root(Root),
+pub enum Command {
+    Root,
     Branch(Branch),
     Leaf(Leaf)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Root {
-    Position,
-    Quit,
-    Go,
-    SetOption,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Branch {
-
+    Position,
+    Go
 }
 
+/// Leaf commands are those that should be executed
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Leaf {
+    Quit,
+    SetOption,
     Fen,
     StartPos,
     Perft,
@@ -121,19 +136,14 @@ pub enum Leaf {
     UciNewGame,
 }
 
-impl CommandType {
+impl Command {
 
     fn parse(token: &str, level: u8) -> Result<Self, ParseError> {
         to_lower!(token);
         for (key, config) in COMMAND_CONFIGS.iter() {
-            if token != config.token {
-                continue;
+            if token == config.token && level == config.level {
+                return Ok(*key);
             }
-            // Check that for base commands, there is no parent command
-            if level == 0 && !matches!(config.parent_command, None) {
-                return Err(ParseError::InvalidCommand(token.to_string()))
-            }
-            return Ok(*key)
         }
         return Err(ParseError::UnrecognisedTokens(token.to_string()))
     }
@@ -154,12 +164,12 @@ enum Requires {
 pub enum ParseError {
     NullInput,
     InvalidCommand(String),
-    InvalidSubCommand(CommandType, CommandType),
-    MissingTokens(CommandType),
+    InvalidSubCommand(Command, Command),
+    MissingTokens(Command),
     UnrecognisedTokens(String),
     InvalidFen(String),
-    MissingArguments(CommandType, u8, u8),
-    ExcessArguments(CommandType, u8, u8),
+    MissingArguments(Command, u8, u8),
+    ExcessArguments(Command, u8, u8),
 }
 
 impl ParseError {
@@ -216,13 +226,13 @@ impl ExecutionError {
     }
 }
 
-pub struct Command {
-    pub cmd: CommandType,
-    subcmd: Option<Box<Command>>,
+pub struct CommandNode {
+    pub cmd: Command,
+    subcmds: Option<Vec<CommandNode>>,
     args: Option<Vec<String>>,
 }
 
-impl Command {
+impl CommandNode {
 
     /// Tokenize and parse the input string into a Command struct
     pub fn parse(input: String) -> Result<Self, ParseError> {
@@ -232,11 +242,15 @@ impl Command {
             return Err(ParseError::NullInput)
         }
         let tokens: Vec<&str> = input.split_whitespace().collect();
-        return Self::parse_tokens(&tokens, 0)
+        return Ok(Self {
+            cmd: Command::Root,
+            subcmds: Some(Self::parse_subcommand_tokens(&Command::Root, &tokens, 1)?),
+            args: None
+        })
     }
 
     fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseError> {
-        let cmd = CommandType::parse(tokens[0], level)?;
+        let cmd = Command::parse(tokens[0], level)?;
         let args = tokens[1..].to_vec();
         let n_tokens = args.len() as u8;
         // Check extra token requirements and build command struct accordingly
@@ -245,9 +259,8 @@ impl Command {
                 if n_tokens == 0 {
                     return Err(ParseError::MissingTokens(cmd))
                 }
-                let subcmd = Self::parse_tokens(&args, level+1)?;
-                Self::check_subcommand(&cmd, &subcmd.cmd)?;
-                Ok(Self {cmd, subcmd: Some(Box::new(subcmd)), args: None})
+                let subcmd = Self::parse_subcommand_tokens(&cmd, &args, level+1)?;
+                Ok(Self {cmd, subcmds: Some(subcmd), args: None})
             },
             Requires::Args(min, max) => {
                 if n_tokens < min {
@@ -261,28 +274,60 @@ impl Command {
                     .iter()
                     .map(|s| s.to_string())
                     .collect();
-                Ok(Self {cmd, subcmd: None, args: Some(args)})
+                Ok(Self {cmd, subcmds: None, args: Some(args)})
             },
             Requires::None => {
                 if n_tokens > 0 {
                     return Err(ParseError::ExcessArguments(cmd, 0, n_tokens))
                 }
-                Ok(Self {cmd, subcmd: None, args: None})
+                Ok(Self {cmd, subcmds: None, args: None})
             }
         }
+    }
+
+    fn parse_subcommand_tokens(
+        cmd: &Command, tokens: &Vec<&str>, level: u8
+    ) -> Result<Vec<CommandNode>, ParseError> {
+        let mut subcmds = Vec::new();
+        let mut subcmd_stack = Vec::new();
+        let mut arg_stack = Vec::new();
+        for token in tokens.iter() {
+            match Command::parse(token, level) {
+                Ok(_) => {
+                    if !subcmd_stack.is_empty() {
+                        let mut subcmd_tokens = Vec::new();
+                        subcmd_tokens.append(&mut subcmd_stack);
+                        subcmd_tokens.append(&mut arg_stack);
+                        subcmds.push(Self::parse_tokens(&subcmd_tokens, level)?);
+                        Self::check_subcommand(&cmd, &subcmds.last().unwrap().cmd)?;
+                    }
+                    subcmd_stack.push(token);
+                }
+                Err(e) => {
+                    if subcmd_stack.is_empty() {
+                        // Return error if the first token is not a subcommand
+                        return Err(e)
+                    }
+                    arg_stack.push(token)
+                }
+            }
+        }
+        // Flush stacks of the latest parsed command
+        let mut subcmd_tokens = Vec::new();
+        subcmd_tokens.append(&mut subcmd_stack);
+        subcmd_tokens.append(&mut arg_stack);
+        subcmds.push(Self::parse_tokens(&subcmd_tokens, level)?);
+        Self::check_subcommand(&cmd, &subcmds.last().unwrap().cmd)?;
+        Ok(subcmds)
     }
 
     /// Check that the subcommand provided is a valid option for the command
     /// * only should be invoked for commands requiring subcommands
     fn check_subcommand(
-        cmd: &CommandType, subcmd: &CommandType
+        cmd: &Command, subcmd: &Command
     ) -> Result<(), ParseError> {
         if let Some(config) = COMMAND_CONFIGS.get(subcmd) {
-            let valid = match config.parent_command {
-                Some(parent_command) => *cmd == parent_command,
-                None => false
-            };
-            if !valid {
+            if *cmd != config.parent_command {
                 return Err(ParseError::InvalidSubCommand(*cmd, *subcmd));
             }
             return Ok(())
@@ -294,17 +339,16 @@ impl Command {
     /// Check that the arguments provided conform to the format expected
     /// * only should be invoked for commands requiring arguments
     fn check_arguments(
-        cmd: &CommandType, args: &Vec<&str>
+        cmd: &Command, args: &Vec<&str>
     ) -> Result<(), ParseError> {
-        if let CommandType::Leaf(cmd) = cmd {
+        if let Command::Leaf(cmd) = cmd {
             match cmd {
                 Leaf::Fen => args_check::fen_tokens(args)?,
                 Leaf::StartPos | Leaf::Move => args_check::move_tokens(args)?,
                 Leaf::Undo => args_check::undo_token(args)?,
                 Leaf::Perft => args_check::perft_token(args)?,
-                Leaf::Display => (),
-                Leaf::Uci => (),
-                Leaf::UciNewGame => (),
+                Leaf::Display | Leaf::Uci | Leaf::UciNewGame | Leaf::Quit => (),
+                Leaf::SetOption => (), // TODO Implement SetOption
             }
         } else {
             println!("WARNING! Attempted argument parsing of non-leaf command")
@@ -314,14 +358,19 @@ impl Command {
 
     pub fn execute(&self, state: &mut State) -> Result<(), ExecutionError> {
         // Only execute command if it's a leaf command i.e. no sub-command
-        match &self.subcmd {
-            Some(subcmd) => subcmd.execute(state),
-            None => self.execute_cmd(state)
+        match &self.subcmds {
+            Some(subcmds) => {
+                for cmd in subcmds.iter() {
+                    cmd.execute(state)?;
+                }
+            },
+            None => self.execute_cmd(state)?
         }
+        Ok(())
     }
 
     fn execute_cmd(&self, state: &mut State) -> Result<(), ExecutionError> {
-        if let CommandType::Leaf(cmd) = self.cmd {
+        if let Command::Leaf(cmd) = self.cmd {
             match cmd {
                 Leaf::Perft => {
                     if let Some(token) = &self.args {
@@ -352,12 +401,50 @@ impl Command {
                     }
                 },
                 Leaf::Uci => execute::uci(state)?,
-                Leaf::UciNewGame => execute::uci_new_game(state)?
+                Leaf::UciNewGame => execute::uci_new_game(state)?,
+                Leaf::Quit => (),
+                Leaf::SetOption => () // TODO Implement
             }
         } else {
             println!("WARNING! Attempted execution of non-leaf command")
         }
         Ok(())
+    }
+
+    /// Print the parse tree
+    /// * For debugging purposes
+    pub fn print_parse_tree(&self, depth: usize) {
+        println!("{}{}", " ".repeat((depth-1) * 4), self.cmd.as_str());
+        match &self.subcmds {
+            Some(subcmds) => {
+                for subcmd in subcmds.iter() {
+                    subcmd.print_parse_tree(depth + 1);
+                }
+            }
+            None => {
+                if let Some(args) = &self.args {
+                    println!("{}*args: {}", " ".repeat((depth) * 4), args.join(", "));
+                }
+            }
+        }
+    }
+
+    /// Traverse the parse tree and look for the presence of a "quit" token
+    pub fn quit(&self) -> bool {
+        if self.cmd == Command::Leaf(Leaf::Quit) {
+            return true
+        }
+        match &self.subcmds {
+            Some(subcmds) => {
+                for subcmd in subcmds.iter() {
+                    if subcmd.cmd == Command::Leaf(Leaf::Quit) {
+                        return true
+                    }
+                };
+                return false
+            },
+            None => return false
+        }
     }
 
 }

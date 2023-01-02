@@ -8,9 +8,9 @@ fn main() {
         std::io::stdin()
             .read_line(&mut input)
             .expect("Failed to read line");
-        match Command::parse(input) {
+        match CommandNode::parse(input) {
             Ok(c) => {
-                if matches!(c.cmd, CommandType::Root(Root::Quit)) {
+                if c.quit() {
                     return
                 }
                 if let Err(e) = c.execute(&mut state) {
