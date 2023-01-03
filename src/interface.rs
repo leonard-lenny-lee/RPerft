@@ -12,6 +12,7 @@ macro_rules! to_lower {
     };
 }
 
+// Configuration struct for the COMMAND_CONFIG hashmap
 struct CommandConfig {
     token: &'static str,
     tokens_required: Requires,
@@ -24,6 +25,8 @@ lazy_static! {
     static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
     static ref ALGB_TOKEN: Regex = Regex::new("[a-h][1-8]").unwrap();
 
+    // Command-specific requirements and configurations used for parsing and
+    // validation
     static ref COMMAND_CONFIGS: HashMap<Command, CommandConfig> = {
         HashMap::from([
             (Command::Root, CommandConfig {
@@ -197,7 +200,7 @@ impl ParseError {
                 format!("Too many arguments for \"{token}\": {max} allowed, {n_tokens} provided")
             }
         };
-        eprint!("[ERROR] - Could not parse command: {msg}\n");
+        log::error!("Could not parse command: {msg}\n");
     }
 
 }
@@ -222,7 +225,7 @@ impl ExecutionError {
             Self::NullPromotionError(mv, fen) =>
                 format!("Missing promotion specifier for \"{mv}\" in the position {fen}")
         };
-        eprint!("[ERROR] - {msg\n}")
+        log::error!("{msg}")
     }
 }
 
@@ -242,9 +245,11 @@ impl CommandNode {
             return Err(ParseError::NullInput)
         }
         let tokens: Vec<&str> = input.split_whitespace().collect();
+        let subcmds = Self::parse_subcommand_tokens(&Command::Root, &tokens, 1)?;
+        // All commands are parsed as branches from the root command
         return Ok(Self {
             cmd: Command::Root,
-            subcmds: Some(Self::parse_subcommand_tokens(&Command::Root, &tokens, 1)?),
+            subcmds: Some(subcmds),
             args: None
         })
     }
@@ -288,6 +293,7 @@ impl CommandNode {
     fn parse_subcommand_tokens(
         cmd: &Command, tokens: &Vec<&str>, level: u8
     ) -> Result<Vec<CommandNode>, ParseError> {
+        // Parse the tokens into blocks of subcommands and their associated arguments
         let mut subcmds = Vec::new();
         let mut subcmd_stack = Vec::new();
         let mut arg_stack = Vec::new();
@@ -332,7 +338,8 @@ impl CommandNode {
             }
             return Ok(())
         } else {
-            panic!() // DEBUGGING
+            log::error!("Command not in config dictionary");
+            Err(ParseError::UnrecognisedTokens(subcmd.as_str().to_string()))
         }
     }
 
@@ -348,10 +355,10 @@ impl CommandNode {
                 Leaf::Undo => args_check::undo_token(args)?,
                 Leaf::Perft => args_check::perft_token(args)?,
                 Leaf::Display | Leaf::Uci | Leaf::UciNewGame | Leaf::Quit => (),
-                Leaf::SetOption => (), // TODO Implement SetOption
+                Leaf::SetOption => log::warn!("setoption not implemented"), // TODO Implement SetOption
             }
         } else {
-            println!("WARNING! Attempted argument parsing of non-leaf command")
+            log::warn!("Attempted argument parsing of non-leaf command")
         }
         Ok(())
     }
@@ -405,8 +412,9 @@ impl CommandNode {
                 Leaf::Quit => (),
                 Leaf::SetOption => () // TODO Implement
             }
+            log::debug!("Command Executed {}", self.cmd.as_str())
         } else {
-            println!("WARNING! Attempted execution of non-leaf command")
+            log::warn!("Attempted execution of non-leaf command")
         }
         Ok(())
     }
@@ -414,7 +422,11 @@ impl CommandNode {
     /// Print the parse tree
     /// * For debugging purposes
     pub fn print_parse_tree(&self, depth: usize) {
-        println!("{}{}", " ".repeat((depth-1) * 4), self.cmd.as_str());
+        println!(
+            "{}Command=(\n{}{}",
+            " ".repeat((depth-1) * 4),
+            " ".repeat((depth) * 4),
+            self.cmd.as_str());
         match &self.subcmds {
             Some(subcmds) => {
                 for subcmd in subcmds.iter() {
@@ -423,10 +435,11 @@ impl CommandNode {
             }
             None => {
                 if let Some(args) = &self.args {
-                    println!("{}*args: {}", " ".repeat((depth) * 4), args.join(", "));
+                    println!("{}*args=({})", " ".repeat((depth) * 4), args.join(", "));
                 }
             }
         }
+        println!("{})", " ".repeat((depth-1) * 4))
     }
 
     /// Traverse the parse tree and look for the presence of a "quit" token
@@ -643,7 +656,7 @@ mod execute {
 
     pub fn undo(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
         let n = if args.len() == 0 {1} else {args[0].parse::<u32>().unwrap()};
-        let n = std::cmp::max(n, state.position_history.len() as u32);
+        let n = std::cmp::min(n, state.position_history.len() as u32);
         for _ in 0..n {
             if let Some(pos) = state.position_history.pop() {
                 state.position = pos;

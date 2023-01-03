@@ -3,6 +3,7 @@ pub struct Config {
     pub table_size: usize,
     pub bulk_counting: bool,
     pub uci_mode: bool,
+    pub uci_debug: bool
 }
 
 impl Config {
@@ -13,6 +14,7 @@ impl Config {
             table_size: 17_000_000, // 1 million Perft entries
             bulk_counting: true,
             uci_mode: false,
+            uci_debug: false
         }
     }
 

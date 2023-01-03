@@ -2,6 +2,7 @@ use chess_engine::*;
 use interface::*;
 
 fn main() {
+    env_logger::init();
     let mut state = state::State::initalize();
     loop {
         let mut input = String::new();
@@ -10,6 +11,10 @@ fn main() {
             .expect("Failed to read line");
         match CommandNode::parse(input) {
             Ok(c) => {
+                if log::log_enabled!(log::Level::Debug) {
+                    log::debug!("Commands parsed");
+                    c.print_parse_tree(1);
+                }
                 if c.quit() {
                     return
                 }
