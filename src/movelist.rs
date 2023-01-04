@@ -278,4 +278,23 @@ impl Move {
             _ => 0,
         }
     }
+
+    pub fn to_algebraic(&self) -> String {
+        format!(
+            "{}{}{}",
+            self.src().to_algebraic(),
+            self.target().to_algebraic(),
+            if self.is_promotion() {
+                match self.promotion_piece() {
+                    2 => "r",
+                    3 => "n",
+                    4 => "b",
+                    5 => "q",
+                    _ => ""
+                }
+            } else {
+                ""
+            }
+        )
+    }
 }

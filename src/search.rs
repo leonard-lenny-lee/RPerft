@@ -3,14 +3,38 @@ use evaluate::evaluate;
 use makemove::make_move;
 use movegen::find_moves;
 use position::Position;
+use transposition::{TranspositionTable, SearchEntry};
 
 const NEGATIVE_INFINITY: i32 = -1000000;
+
+pub fn nega_max_search(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) {
+    // Execute search
+    nega_max(pos, depth, table);
+    // Probe table for the results of the search
+    if let Some(entry) = table.get(pos.key.0, depth) {
+        println!(
+            "Best move: {} ({}{})",
+            entry.best_move.to_algebraic(),
+            if entry.evaluation >= 0 {
+                "+"
+            } else {
+                "-"
+            },
+            entry.evaluation
+        )
+    } else {
+        log::error!("Hash table lookup failed!")
+    }
+}
 
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
 ///
-pub fn nega_max(pos: &Position, depth: i8) -> i32 {
+pub fn nega_max(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> i32 {
+    if let Some(entry) = table.get(pos.key.0, depth) {
+        return entry.evaluation
+    }
     if depth == 0 {
         return evaluate(pos);
     }
@@ -23,14 +47,24 @@ pub fn nega_max(pos: &Position, depth: i8) -> i32 {
             return 0; // Stalemate
         }
     }
+    let mut best_move = movelist::Move::new_null();
     let mut max_evaluation = NEGATIVE_INFINITY;
     for mv in move_list.iter() {
         let new_pos = make_move(pos, mv);
-        let evaluation = -nega_max(&new_pos, depth - 1);
+        let evaluation = -nega_max(&new_pos, depth - 1, table);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
+            best_move = *mv;
         }
     }
+    table.set(
+        SearchEntry {
+            key: pos.key.0,
+            depth,
+            best_move,
+            evaluation: max_evaluation,
+        }
+    );
     return max_evaluation;
 }
 
@@ -147,19 +181,7 @@ pub mod perft {
                 }
             }
             // Report branch
-            let src = mv.src().to_algebraic();
-            let target = mv.target().to_algebraic();
-            let mut promotion_piece = "";
-            if mv.is_promotion() {
-                match mv.promotion_piece() {
-                    2 => promotion_piece = "r",
-                    3 => promotion_piece = "n",
-                    4 => promotion_piece = "b",
-                    5 => promotion_piece = "q",
-                    _ => (),
-                }
-            }
-            println!("{}{}{}: {}", src, target, promotion_piece, branch_nodes);
+            println!("{}: {}", mv.to_algebraic(), branch_nodes);
             nodes += branch_nodes;
         }
         // Report perft results

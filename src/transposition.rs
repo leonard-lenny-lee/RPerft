@@ -69,10 +69,9 @@ impl Entry for PerftEntry {
 #[derive(Clone, Copy)]
 pub struct SearchEntry {
     pub key: u64,
-    pub count: i64,
     pub depth: i8,
-    pub bestmove: movelist::Move,
-    pub evaluation: i64,
+    pub best_move: movelist::Move,
+    pub evaluation: i32,
 }
 
 impl Entry for SearchEntry {
@@ -87,9 +86,8 @@ impl Entry for SearchEntry {
     fn new_empty() -> Self {
         Self {
             key: 0,
-            count: 0,
             depth: -1,
-            bestmove: movelist::Move::new_null(),
+            best_move: movelist::Move::new_null(),
             evaluation: 0,
         }
     }

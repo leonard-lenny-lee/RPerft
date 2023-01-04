@@ -106,6 +106,12 @@ lazy_static! {
                 parent_command: Command::Root,
                 level: 1
             }),
+            (Command::Leaf(Leaf::Depth), CommandConfig {
+                token: "depth",
+                tokens_required: Requires::Args(1, 1),
+                parent_command: Command::Branch(Branch::Go),
+                level: 2
+            }),
         ])
     };
 }
@@ -136,6 +142,7 @@ pub enum Leaf {
     Undo,
     Uci,
     UciNewGame,
+    Depth
 }
 
 impl Command {
@@ -357,6 +364,7 @@ impl CommandNode {
                 Leaf::Perft => args_check::perft_token(args)?,
                 Leaf::Display | Leaf::Uci | Leaf::UciNewGame | Leaf::Quit => (),
                 Leaf::SetOption => log::warn!("setoption not implemented"), // TODO Implement SetOption
+                Leaf::Depth => args_check::positive_numerical_token(args[0])?,
             }
         } else {
             log::warn!("Attempted argument parsing of non-leaf command")
@@ -412,6 +420,11 @@ impl CommandNode {
                 Leaf::UciNewGame => execute::uci_new_game(state)?,
                 Leaf::Quit => (),
                 Leaf::SetOption => (), // TODO Implement
+                Leaf::Depth => {
+                    if let Some(args) = &self.args {
+                        execute::depth_search(state, args[0].as_str())?
+                    }
+                },
             }
             log::debug!("Command Executed {}", self.cmd.as_str())
         } else {
@@ -587,6 +600,14 @@ mod args_check {
         }
         Ok(())
     }
+
+    pub fn positive_numerical_token(token: &str) -> Result<(), ParseError> {
+        if let Err(_) = token.parse::<u32>() {
+            Err(ParseError::UnrecognisedTokens(token.to_string()))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 mod execute {
@@ -701,6 +722,12 @@ mod execute {
 
     pub fn uci_new_game(state: &mut State) -> Result<(), ExecutionError> {
         state.position_history = Vec::new();
+        Ok(())
+    }
+
+    pub fn depth_search(state: &mut State, depth: &str) -> Result<(), ExecutionError> {
+        let depth = depth.parse::<i8>().unwrap();
+        search::nega_max_search(&state.position, depth, &mut state.transposition_table);
         Ok(())
     }
 }
