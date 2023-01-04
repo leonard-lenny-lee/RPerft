@@ -69,7 +69,7 @@ pub fn alpha_beta(
 pub mod perft {
 
     use super::*;
-    use transposition::tables::*;
+    use transposition::{TranspositionTable, PerftEntry};
     use config::Config;
 
     pub fn perft(
