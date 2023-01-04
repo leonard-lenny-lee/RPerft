@@ -69,14 +69,14 @@ pub fn alpha_beta(
 pub mod perft {
 
     use super::*;
-    use transposition::PerftTable;
+    use transposition::tables::*;
     use config::Config;
 
     pub fn perft(
         pos: &Position, depth: i8, config: &Config
     ) -> (i64, f64, f64) {
         assert!(depth >= 1);
-        let mut table = PerftTable::new(config.table_size);
+        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
         let nodes = if config.hashing {
             perft_inner_with_table(pos, depth, &mut table, config)
@@ -105,7 +105,7 @@ pub mod perft {
     }
 
     fn perft_inner_with_table(
-        pos: &Position, depth: i8, table: &mut PerftTable, config: &Config
+        pos: &Position, depth: i8, table: &mut TranspositionTable<PerftEntry>, config: &Config
     ) -> i64 {
         let mut nodes = 0;
         if let Some(entry) = table.get(pos.key.0, depth) {
@@ -122,7 +122,13 @@ pub mod perft {
             let new_pos = make_move(pos, mv);
             nodes += perft_inner_with_table(&new_pos, depth-1, table, config);
         }
-        table.set(pos.key.0, nodes, depth);
+        table.set(
+            PerftEntry {
+                key: pos.key.0, 
+                count: nodes,
+                depth
+            }
+        );
         return nodes
     }
 
@@ -130,7 +136,7 @@ pub mod perft {
     /// search. Useful for perft debugging purposes
     pub fn perft_divided(pos: &Position, depth: i8, config: &Config) -> i64 {
         assert!(depth >= 1);
-        let mut table = PerftTable::new(config.table_size);
+        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
         let mut nodes = 0;
         let move_list = find_moves(pos);
