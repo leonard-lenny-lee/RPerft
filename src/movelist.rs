@@ -100,12 +100,20 @@ impl std::ops::Index<usize> for MoveList {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Move {
     word_one: u8,
     word_two: u8,
 }
 
 impl Move {
+
+    pub fn new_null() -> Move {
+        return Move {
+            word_one: 0,
+            word_two: 0,
+        }
+    }
 
     fn new_quiet_move(target: BB, src: BB) -> Move {
         return Move {

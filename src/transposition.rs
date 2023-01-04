@@ -1,49 +1,103 @@
-#[derive(Clone, Copy)]
-pub struct PerftEntry {
-    key: u64,
-    pub count: i64,
-    depth: i8
-    // Currently 17 bytes per entry
+use super::*;
+
+pub trait Entry: Sized + Clone + Copy {
+    fn key(&self) -> u64;
+    fn depth(&self) -> i8;
+    fn size_bytes() -> usize {
+        std::mem::size_of::<Self>()
+    }
+    fn new_empty() -> Self;
 }
 
-pub struct PerftTable {
-    entries: Box<[PerftEntry]>,
-    size: usize // Number of entries
+pub struct TranspositionTable<T: Entry> {
+    entries: Box<[T]>,
+    size: usize
 }
 
-impl PerftTable {
+impl<T: Entry> TranspositionTable<T> {
 
-    pub fn new(size_bytes: usize) -> PerftTable {
-        // Calculate the number of entries possible and initialise
-        let size = size_bytes / 17;
-        let vec = vec![
-            PerftEntry{
-                key: 0,
-                count: 0,
-                depth: -1
-            };
-            size
-        ];
-        PerftTable {
+    pub fn new(size_bytes: usize) -> Self {
+        let size = size_bytes / T::size_bytes();
+        let vec = vec![T::new_empty(); size];
+        Self {
             entries: vec.into_boxed_slice(),
-            size: size
+            size
         }
     }
 
-    pub fn get(&mut self, key: u64, depth: i8) -> Option<PerftEntry> {
+    pub fn get(&self, key: u64, depth: i8) -> Option<T> {
         let idx = key as usize % self.size;
         let entry = self.entries[idx];
-        if entry.key == key && entry.depth == depth {
-            Some(entry)
+        if entry.key() == key && entry.depth() == depth {
+            return Some(entry)
         } else {
-            None
+            return None
         }
     }
 
-    pub fn set(&mut self, key: u64, count: i64, depth: i8) {
-        let idx = key as usize % self.size;
+    pub fn set(&mut self, new_entry: T) {
+        let idx = new_entry.key() as usize % self.size;
         let entry = &mut self.entries[idx];
-        *entry = PerftEntry {key, count, depth}
+        *entry = new_entry
     }
 
 }
+
+#[derive(Clone, Copy)]
+pub struct PerftEntry {
+    pub key: u64,
+    pub count: i64,
+    pub depth: i8
+}
+
+impl Entry for PerftEntry {
+
+    fn key(&self) -> u64 {
+        return self.key
+    }
+
+    fn depth(&self) -> i8 {
+        return self.depth
+    }
+
+    fn new_empty() -> Self {
+        Self {
+            key: 0,
+            count: 0,
+            depth: -1
+        }
+    }
+
+}
+
+#[derive(Clone, Copy)]
+pub struct SearchEntry {
+    pub key: u64,
+    pub count: i64,
+    pub depth: i8,
+    pub bestmove: movelist::Move,
+    pub evaluation: i64
+}
+
+impl Entry for SearchEntry {
+
+    fn key(&self) -> u64 {
+        return self.key
+    }
+
+    fn depth(&self) -> i8 {
+        return self.depth
+    }
+
+    fn new_empty() -> Self {
+        Self {
+            key: 0,
+            count: 0,
+            depth: -1,
+            bestmove: movelist::Move::new_null(),
+            evaluation: 0,
+        }
+    }
+
+}
+
