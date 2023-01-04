@@ -1,8 +1,7 @@
 /// Command Parser and Executor
-
 use super::*;
-use state::State;
 use regex::Regex;
+use state::State;
 use std::collections::HashMap;
 
 macro_rules! to_lower {
@@ -115,13 +114,13 @@ lazy_static! {
 pub enum Command {
     Root,
     Branch(Branch),
-    Leaf(Leaf)
+    Leaf(Leaf),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Branch {
     Position,
-    Go
+    Go,
 }
 
 /// Leaf commands are those that should be executed
@@ -140,7 +139,6 @@ pub enum Leaf {
 }
 
 impl Command {
-
     fn parse(token: &str, level: u8) -> Result<Self, ParseError> {
         to_lower!(token);
         for (key, config) in COMMAND_CONFIGS.iter() {
@@ -148,13 +146,12 @@ impl Command {
                 return Ok(*key);
             }
         }
-        return Err(ParseError::UnrecognisedTokens(token.to_string()))
+        return Err(ParseError::UnrecognisedTokens(token.to_string()));
     }
 
     fn as_str(&self) -> &str {
         COMMAND_CONFIGS.get(self).unwrap().token
     }
-
 }
 
 enum Requires {
@@ -176,7 +173,6 @@ pub enum ParseError {
 }
 
 impl ParseError {
-
     pub fn warn(&self) {
         let msg = match self {
             Self::NullInput => "No input detected".to_string(),
@@ -188,21 +184,20 @@ impl ParseError {
             Self::MissingTokens(token) => {
                 let token = token.as_str();
                 format!("Additional tokens required for \"{token}\"")
-            },
+            }
             Self::UnrecognisedTokens(tokens) => format!("Unrecognised token(s): {tokens}"),
             Self::InvalidFen(msg) => format!("Invalid FEN string: {msg}"),
             Self::MissingArguments(token, min, n_tokens) => {
                 let token = token.as_str();
                 format!("Missing argument(s) for \"{token}\": {min} required, {n_tokens} provided")
-            },
+            }
             Self::ExcessArguments(token, max, n_tokens) => {
                 let token = token.as_str();
                 format!("Too many arguments for \"{token}\": {max} allowed, {n_tokens} provided")
             }
         };
-        log::error!("Could not parse command: {msg}\n");
+        log::error!("Could not parse command: {msg}");
     }
-
 }
 
 #[derive(Debug)]
@@ -210,20 +205,20 @@ pub enum ExecutionError {
     ParseFenError(String),
     ParseAlgebraicError(String),
     InvalidMoveError(String, String),
-    NullPromotionError(String, String)
+    NullPromotionError(String, String),
 }
 
 impl ExecutionError {
     pub fn warn(&self) {
         let msg = match self {
-            Self::ParseFenError(msg) => 
-                format!("Could not parse FEN: {msg}"),
-            Self::ParseAlgebraicError(msg) => 
-                format!("Could not parse move: {msg}"),
-            Self::InvalidMoveError(mv, fen) => 
-                format!("Invalid move \"{mv}\" in the position {fen}"),
-            Self::NullPromotionError(mv, fen) =>
+            Self::ParseFenError(msg) => format!("Could not parse FEN: {msg}"),
+            Self::ParseAlgebraicError(msg) => format!("Could not parse move: {msg}"),
+            Self::InvalidMoveError(mv, fen) => {
+                format!("Invalid move \"{mv}\" in the position {fen}")
+            }
+            Self::NullPromotionError(mv, fen) => {
                 format!("Missing promotion specifier for \"{mv}\" in the position {fen}")
+            }
         };
         log::error!("{msg}")
     }
@@ -236,13 +231,12 @@ pub struct CommandNode {
 }
 
 impl CommandNode {
-
     /// Tokenize and parse the input string into a Command struct
     pub fn parse(input: String) -> Result<Self, ParseError> {
         // Tokenize
         let input = input.trim();
         if input.len() == 0 {
-            return Err(ParseError::NullInput)
+            return Err(ParseError::NullInput);
         }
         let tokens: Vec<&str> = input.split_whitespace().collect();
         let subcmds = Self::parse_subcommand_tokens(&Command::Root, &tokens, 1)?;
@@ -250,8 +244,8 @@ impl CommandNode {
         return Ok(Self {
             cmd: Command::Root,
             subcmds: Some(subcmds),
-            args: None
-        })
+            args: None,
+        });
     }
 
     fn parse_tokens(tokens: &Vec<&str>, level: u8) -> Result<Self, ParseError> {
@@ -262,11 +256,15 @@ impl CommandNode {
         match COMMAND_CONFIGS.get(&cmd).unwrap().tokens_required {
             Requires::SubCmd => {
                 if n_tokens == 0 {
-                    return Err(ParseError::MissingTokens(cmd))
+                    return Err(ParseError::MissingTokens(cmd));
                 }
-                let subcmd = Self::parse_subcommand_tokens(&cmd, &args, level+1)?;
-                Ok(Self {cmd, subcmds: Some(subcmd), args: None})
-            },
+                let subcmd = Self::parse_subcommand_tokens(&cmd, &args, level + 1)?;
+                Ok(Self {
+                    cmd,
+                    subcmds: Some(subcmd),
+                    args: None,
+                })
+            }
             Requires::Args(min, max) => {
                 if n_tokens < min {
                     return Err(ParseError::MissingArguments(cmd, min, n_tokens));
@@ -275,23 +273,30 @@ impl CommandNode {
                     return Err(ParseError::ExcessArguments(cmd, max, n_tokens));
                 }
                 Self::check_arguments(&cmd, &args)?;
-                let args = args
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect();
-                Ok(Self {cmd, subcmds: None, args: Some(args)})
-            },
+                let args = args.iter().map(|s| s.to_string()).collect();
+                Ok(Self {
+                    cmd,
+                    subcmds: None,
+                    args: Some(args),
+                })
+            }
             Requires::None => {
                 if n_tokens > 0 {
-                    return Err(ParseError::ExcessArguments(cmd, 0, n_tokens))
+                    return Err(ParseError::ExcessArguments(cmd, 0, n_tokens));
                 }
-                Ok(Self {cmd, subcmds: None, args: None})
+                Ok(Self {
+                    cmd,
+                    subcmds: None,
+                    args: None,
+                })
             }
         }
     }
 
     fn parse_subcommand_tokens(
-        cmd: &Command, tokens: &Vec<&str>, level: u8
+        cmd: &Command,
+        tokens: &Vec<&str>,
+        level: u8,
     ) -> Result<Vec<CommandNode>, ParseError> {
         // Parse the tokens into blocks of subcommands and their associated arguments
         let mut subcmds = Vec::new();
@@ -312,7 +317,7 @@ impl CommandNode {
                 Err(e) => {
                     if subcmd_stack.is_empty() {
                         // Return error if the first token is not a subcommand
-                        return Err(e)
+                        return Err(e);
                     }
                     arg_stack.push(token)
                 }
@@ -329,14 +334,12 @@ impl CommandNode {
 
     /// Check that the subcommand provided is a valid option for the command
     /// * only should be invoked for commands requiring subcommands
-    fn check_subcommand(
-        cmd: &Command, subcmd: &Command
-    ) -> Result<(), ParseError> {
+    fn check_subcommand(cmd: &Command, subcmd: &Command) -> Result<(), ParseError> {
         if let Some(config) = COMMAND_CONFIGS.get(subcmd) {
             if *cmd != config.parent_command {
                 return Err(ParseError::InvalidSubCommand(*cmd, *subcmd));
             }
-            return Ok(())
+            return Ok(());
         } else {
             log::error!("Command not in config dictionary");
             Err(ParseError::UnrecognisedTokens(subcmd.as_str().to_string()))
@@ -345,9 +348,7 @@ impl CommandNode {
 
     /// Check that the arguments provided conform to the format expected
     /// * only should be invoked for commands requiring arguments
-    fn check_arguments(
-        cmd: &Command, args: &Vec<&str>
-    ) -> Result<(), ParseError> {
+    fn check_arguments(cmd: &Command, args: &Vec<&str>) -> Result<(), ParseError> {
         if let Command::Leaf(cmd) = cmd {
             match cmd {
                 Leaf::Fen => args_check::fen_tokens(args)?,
@@ -370,8 +371,8 @@ impl CommandNode {
                 for cmd in subcmds.iter() {
                     cmd.execute(state)?;
                 }
-            },
-            None => self.execute_cmd(state)?
+            }
+            None => self.execute_cmd(state)?,
         }
         Ok(())
     }
@@ -383,34 +384,34 @@ impl CommandNode {
                     if let Some(token) = &self.args {
                         execute::perft(state, token[0].to_string())?
                     }
-                },
+                }
                 Leaf::Display => {
                     println!("{}", state.position.data.to_string());
-                },
+                }
                 Leaf::Fen => {
                     if let Some(args) = &self.args {
                         execute::fen(state, args)?
                     }
-                },
+                }
                 Leaf::StartPos => {
                     if let Some(args) = &self.args {
                         execute::startpos(state, args)?
                     }
-                },
+                }
                 Leaf::Move => {
                     if let Some(args) = &self.args {
                         execute::moves(state, args)?
                     }
-                },
+                }
                 Leaf::Undo => {
                     if let Some(args) = &self.args {
                         execute::undo(state, args)?
                     }
-                },
+                }
                 Leaf::Uci => execute::uci(state)?,
                 Leaf::UciNewGame => execute::uci_new_game(state)?,
                 Leaf::Quit => (),
-                Leaf::SetOption => () // TODO Implement
+                Leaf::SetOption => (), // TODO Implement
             }
             log::debug!("Command Executed {}", self.cmd.as_str())
         } else {
@@ -424,9 +425,10 @@ impl CommandNode {
     pub fn print_parse_tree(&self, depth: usize) {
         println!(
             "{}Command=(\n{}{}",
-            " ".repeat((depth-1) * 4),
+            " ".repeat((depth - 1) * 4),
             " ".repeat((depth) * 4),
-            self.cmd.as_str());
+            self.cmd.as_str()
+        );
         match &self.subcmds {
             Some(subcmds) => {
                 for subcmd in subcmds.iter() {
@@ -439,27 +441,26 @@ impl CommandNode {
                 }
             }
         }
-        println!("{})", " ".repeat((depth-1) * 4))
+        println!("{})", " ".repeat((depth - 1) * 4))
     }
 
     /// Traverse the parse tree and look for the presence of a "quit" token
     pub fn quit(&self) -> bool {
         if self.cmd == Command::Leaf(Leaf::Quit) {
-            return true
+            return true;
         }
         match &self.subcmds {
             Some(subcmds) => {
                 for subcmd in subcmds.iter() {
                     if subcmd.cmd == Command::Leaf(Leaf::Quit) {
-                        return true
+                        return true;
                     }
-                };
-                return false
-            },
-            None => return false
+                }
+                return false;
+            }
+            None => return false,
         }
     }
-
 }
 
 mod args_check {
@@ -468,7 +469,9 @@ mod args_check {
 
     pub fn fen_tokens(args: &Vec<&str>) -> Result<(), ParseError> {
         if args.len() < 6 {
-            return Err(ParseError::InvalidFen("Insufficient number of tokens".to_string()))
+            return Err(ParseError::InvalidFen(
+                "Insufficient number of tokens".to_string(),
+            ));
         };
         self::fen_board_token(args[0])?;
         self::wtm_token(args[1])?;
@@ -484,11 +487,13 @@ mod args_check {
     fn fen_board_token(token: &str) -> Result<(), ParseError> {
         // Check that only valid characters are in the token
         const VALID_CHARS: [char; 21] = [
-            'P', 'R', 'N', 'B', 'Q', 'K', 'p', 'r', 'n', 'b', 'q', 'k',
-            '/', '1', '2', '3', '4', '5', '6', '7', '8'
+            'P', 'R', 'N', 'B', 'Q', 'K', 'p', 'r', 'n', 'b', 'q', 'k', '/', '1', '2', '3', '4',
+            '5', '6', '7', '8',
         ];
         if !token.chars().all(|c| VALID_CHARS.contains(&c)) {
-            return Err(ParseError::InvalidFen(format!("Invalid board token \"{token}\"")))
+            return Err(ParseError::InvalidFen(format!(
+                "Invalid board token \"{token}\""
+            )));
         }
         let (mut n_delimiters, mut n_squares) = (0, 0);
         for c in token.chars() {
@@ -502,7 +507,9 @@ mod args_check {
             }
         }
         if n_delimiters != 7 || n_squares != 64 {
-            return Err(ParseError::InvalidFen(format!("Invalid board token \"{token}\"")))
+            return Err(ParseError::InvalidFen(format!(
+                "Invalid board token \"{token}\""
+            )));
         }
         Ok(())
     }
@@ -511,16 +518,24 @@ mod args_check {
         if token == "w" || token == "b" {
             Ok(())
         } else {
-            Err(ParseError::InvalidFen(format!("Invalid w.t.m. token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!(
+                "Invalid w.t.m. token \"{token}\""
+            )))
         }
     }
 
     fn castle_token(token: &str) -> Result<(), ParseError> {
         const VALID_CHARS: [char; 4] = ['K', 'k', 'Q', 'q'];
-        if (token.chars().all(|c| VALID_CHARS.contains(&c) && token.len() <= 4)) || token == "-" {
+        if (token
+            .chars()
+            .all(|c| VALID_CHARS.contains(&c) && token.len() <= 4))
+            || token == "-"
+        {
             Ok(())
         } else {
-            Err(ParseError::InvalidFen(format!("Invalid castle token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!(
+                "Invalid castle token \"{token}\""
+            )))
         }
     }
 
@@ -528,13 +543,17 @@ mod args_check {
         if ALGB_TOKEN.is_match(token) || token == "-" {
             Ok(())
         } else {
-            Err(ParseError::InvalidFen(format!("Invalid e.p. token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!(
+                "Invalid e.p. token \"{token}\""
+            )))
         }
     }
 
     fn clock_token(token: &str) -> Result<(), ParseError> {
         if let Err(_) = token.parse::<u32>() {
-            Err(ParseError::InvalidFen(format!("Invalid clock token \"{token}\"")))
+            Err(ParseError::InvalidFen(format!(
+                "Invalid clock token \"{token}\""
+            )))
         } else {
             Ok(())
         }
@@ -548,14 +567,14 @@ mod args_check {
             }
         }
         if invalid_tokens.len() >= 1 {
-            return Err(ParseError::UnrecognisedTokens(invalid_tokens.join(" ")))
+            return Err(ParseError::UnrecognisedTokens(invalid_tokens.join(" ")));
         }
-        return Ok(())
+        return Ok(());
     }
 
     pub fn perft_token(token: &Vec<&str>) -> Result<(), ParseError> {
-        if !token[0].chars().all(|c| c.is_numeric()) && token[0] != "bench"{
-            return Err(ParseError::UnrecognisedTokens(token[0].to_string()))
+        if !token[0].chars().all(|c| c.is_numeric()) && token[0] != "bench" {
+            return Err(ParseError::UnrecognisedTokens(token[0].to_string()));
         }
         Ok(())
     }
@@ -563,12 +582,11 @@ mod args_check {
     pub fn undo_token(token: &Vec<&str>) -> Result<(), ParseError> {
         if token.len() == 1 {
             if let Err(_) = token[0].parse::<u32>() {
-                return Err(ParseError::UnrecognisedTokens(token[0].to_string()))
+                return Err(ParseError::UnrecognisedTokens(token[0].to_string()));
             }
         }
         Ok(())
     }
-
 }
 
 mod execute {
@@ -580,7 +598,7 @@ mod execute {
         match token {
             Ok(depth) => {
                 search::perft::perft_divided(&state.position, depth, &state.config);
-            },
+            }
             Err(_) => search::perft::run_perft_bench(),
         };
         Ok(())
@@ -621,9 +639,12 @@ mod execute {
                         "n" => Piece::Knight.value(),
                         "b" => Piece::Bishop.value(),
                         "q" => Piece::Queen.value(),
-                        _ => return Err(ExecutionError::InvalidMoveError(
-                            move_token.to_string(), state.position.data.fen()
-                        ))
+                        _ => {
+                            return Err(ExecutionError::InvalidMoveError(
+                                move_token.to_string(),
+                                state.position.data.fen(),
+                            ))
+                        }
                     };
                     if mv.is_promotion() && promotion_piece == mv.promotion_piece() {
                         matches.push(mv)
@@ -634,19 +655,21 @@ mod execute {
                 std::cmp::Ordering::Less => {
                     // Cannot find the specified move in the position
                     return Err(ExecutionError::InvalidMoveError(
-                        move_token.to_string(), state.position.data.fen()
-                    ))
-                },
+                        move_token.to_string(),
+                        state.position.data.fen(),
+                    ));
+                }
                 std::cmp::Ordering::Equal => {
                     // Execute the move
                     state.position_history.push(state.position.clone());
                     state.position = makemove::make_move(&state.position, &matches[0])
-                },
+                }
                 std::cmp::Ordering::Greater => {
                     // If there is more than 1 move, a promotion specifier was
                     // misiing
                     return Err(ExecutionError::NullPromotionError(
-                        move_token.to_string(), state.position.data.fen()
+                        move_token.to_string(),
+                        state.position.data.fen(),
                     ));
                 }
             }
@@ -655,13 +678,17 @@ mod execute {
     }
 
     pub fn undo(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
-        let n = if args.len() == 0 {1} else {args[0].parse::<u32>().unwrap()};
+        let n = if args.len() == 0 {
+            1
+        } else {
+            args[0].parse::<u32>().unwrap()
+        };
         let n = std::cmp::min(n, state.position_history.len() as u32);
         for _ in 0..n {
             if let Some(pos) = state.position_history.pop() {
                 state.position = pos;
             }
-        };
+        }
         Ok(())
     }
 
@@ -676,5 +703,4 @@ mod execute {
         state.position_history = Vec::new();
         Ok(())
     }
-
 }

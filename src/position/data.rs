@@ -1,6 +1,5 @@
 /// Contains the methods required to parse a FEN string into a Data struct
 /// The data struct holds all the data required to describe a position.
-
 use super::*;
 
 #[derive(Clone, Copy)]
@@ -17,9 +16,8 @@ pub struct Data {
 }
 
 impl Data {
-
     // Methods required to parse a FEN string into a Data struct
-    
+
     pub fn from_fen(fen: String) -> Result<Data, ExecutionError> {
         let tokens: Vec<&str> = fen.trim().split(" ").collect();
         assert!(tokens.len() == 6);
@@ -32,7 +30,7 @@ impl Data {
         pos.init_fullmove_clock(tokens[5])?;
         Ok(pos)
     }
-    
+
     pub fn new() -> Data {
         Data {
             w_pieces: PieceSet::new(),
@@ -43,13 +41,13 @@ impl Data {
             castling_rights: EMPTY_BB,
             en_passant_target_sq: EMPTY_BB,
             halfmove_clock: 0,
-            fullmove_clock: 0
+            fullmove_clock: 0,
         }
     }
 
-    /// Initialise a set of bitboards for white and black pieces from the 
+    /// Initialise a set of bitboards for white and black pieces from the
     /// portion of the FEN string representing the board. Also sets the master
-    /// occupied and free bitboards 
+    /// occupied and free bitboards
     fn init_bitboards(&mut self, board: &str) -> Result<(), ExecutionError> {
         let mut error_msg = Vec::new();
         let mut w_pieces: PieceSet = PieceSet::new();
@@ -86,7 +84,7 @@ impl Data {
                     'B' => pieceinit_to_modify.bishop |= mask,
                     'Q' => pieceinit_to_modify.queen |= mask,
                     'K' => pieceinit_to_modify.king |= mask,
-                    _ => invalid_chars.push(c)
+                    _ => invalid_chars.push(c),
                 }
                 i += 1;
             } else {
@@ -112,7 +110,7 @@ impl Data {
         if error_msg.len() >= 1 {
             let msg = error_msg.join(", ");
             let err = format!("Error parsing board token {}: {}", board, msg);
-            return Err(ExecutionError::ParseFenError(err))
+            return Err(ExecutionError::ParseFenError(err));
         }
         self.w_pieces = w_pieces;
         self.b_pieces = b_pieces;
@@ -139,11 +137,11 @@ impl Data {
                 'K' => self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ,
                 'k' => self.castling_rights |= B_KINGSIDE_ROOK_STARTING_SQ,
                 'Q' => self.castling_rights |= W_QUEENSIDE_ROOK_STARTING_SQ,
-                'q'=> self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ,
+                'q' => self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ,
                 '-' => (),
                 _ => {
                     let msg = format!("Invalid castling token {}", code);
-                    return Err(ExecutionError::ParseFenError(msg))
+                    return Err(ExecutionError::ParseFenError(msg));
                 }
             }
         }
@@ -157,21 +155,24 @@ impl Data {
             target_sq = EMPTY_BB;
         } else {
             match BB::from_algebraic(epts) {
-                Ok(r) =>  target_sq = r,
+                Ok(r) => target_sq = r,
                 Err(_) => {
                     let msg = format!("Invalid en passant token ({})", epts);
-                    return Err(ExecutionError::ParseFenError(msg))
+                    return Err(ExecutionError::ParseFenError(msg));
                 }
             }
         }
         self.en_passant_target_sq = target_sq;
-        return Ok(())
+        return Ok(());
     }
 
     /// Set the halfmove clock
     fn init_halfmove_clock(&mut self, clock: &str) -> Result<(), ExecutionError> {
         match clock.parse() {
-            Ok(c) => {self.halfmove_clock = c; Ok(())}
+            Ok(c) => {
+                self.halfmove_clock = c;
+                Ok(())
+            }
             Err(_) => {
                 let msg = format!("Invalid halfmove clock token ({})", clock);
                 Err(ExecutionError::ParseFenError(msg))
@@ -182,7 +183,10 @@ impl Data {
     /// Set the fullmove clock
     fn init_fullmove_clock(&mut self, clock: &str) -> Result<(), ExecutionError> {
         match clock.parse() {
-            Ok(c) => {self.fullmove_clock = c; Ok(())}
+            Ok(c) => {
+                self.fullmove_clock = c;
+                Ok(())
+            }
             Err(_) => {
                 let msg = format!("Invalid fullmove clock token ({})", clock);
                 Err(ExecutionError::ParseFenError(msg))
@@ -245,13 +249,21 @@ impl Data {
         let w_array = self.w_pieces.as_array();
         let b_array = self.b_pieces.as_array();
         let (w_char_set, b_char_set) = if pretty {
-            ([' ', '\u{2659}', '\u{2656}', '\u{2658}', '\u{2657}', '\u{2655}', '\u{2654}'],
-             [' ', '\u{265f}', '\u{265c}', '\u{265e}', '\u{265d}', '\u{265b}', '\u{265a}'])
+            (
+                [
+                    ' ', '\u{2659}', '\u{2656}', '\u{2658}', '\u{2657}', '\u{2655}', '\u{2654}',
+                ],
+                [
+                    ' ', '\u{265f}', '\u{265c}', '\u{265e}', '\u{265d}', '\u{265b}', '\u{265a}',
+                ],
+            )
         } else {
-            ([' ', 'P', 'R', 'N', 'B', 'Q', 'K'], [' ', 'p', 'r', 'n', 'b', 'q', 'k'])
+            (
+                [' ', 'P', 'R', 'N', 'B', 'Q', 'K'],
+                [' ', 'p', 'r', 'n', 'b', 'q', 'k'],
+            )
         };
         for i in 1..7 {
-
             for bit in b_array[i].forward_scan() {
                 let index = bit.to_index();
                 let x = index / 8;
@@ -265,12 +277,11 @@ impl Data {
                 let y = index % 8;
                 array[x][y] = w_char_set[i];
             }
-        };
+        }
         array
     }
 
     pub fn fen(&self) -> String {
-
         let array = self.to_array(false);
         let mut out = String::new();
         for i in 0..8 {
@@ -295,7 +306,7 @@ impl Data {
                 out.push('/')
             }
         }
-    
+
         if self.white_to_move {
             out.push_str(" w ")
         } else {
@@ -336,7 +347,6 @@ impl Data {
     /// Convert to string representation of the board for printing to the
     /// standard output
     pub fn board(&self) -> String {
-
         let array = self.to_array(true);
         let mut out = String::new();
         out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
@@ -356,9 +366,9 @@ impl Data {
             }
         }
         out.push_str(
-            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h \n"
+            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h \n",
         );
-        return out
+        return out;
     }
 
     /// Convert the board into a string for display
@@ -369,7 +379,6 @@ impl Data {
         out.push_str("\n");
         out
     }
-
 }
 
 #[cfg(test)]
@@ -396,16 +405,32 @@ mod tests {
         assert_eq!(data.w_pieces.any, RANK_1 | RANK_2, "w.any");
         assert_eq!(data.w_pieces.pawn, RANK_2, "w.pawn");
         assert_eq!(data.w_pieces.rook, BB::from_indices(vec![0, 7]), "w.rook");
-        assert_eq!(data.w_pieces.knight, BB::from_indices(vec![1, 6]), "w.knight");
-        assert_eq!(data.w_pieces.bishop, BB::from_indices(vec![2, 5]), "w.bishop");
+        assert_eq!(
+            data.w_pieces.knight,
+            BB::from_indices(vec![1, 6]),
+            "w.knight"
+        );
+        assert_eq!(
+            data.w_pieces.bishop,
+            BB::from_indices(vec![2, 5]),
+            "w.bishop"
+        );
         assert_eq!(data.w_pieces.queen, BB::from_indices(vec![3]), "w.queen");
         assert_eq!(data.w_pieces.king, BB::from_indices(vec![4]), "w.king");
         // Black pieces
         assert_eq!(data.b_pieces.any, RANK_7 | RANK_8, "b.any");
         assert_eq!(data.b_pieces.pawn, RANK_7, "b.pawn");
         assert_eq!(data.b_pieces.rook, BB::from_indices(vec![56, 63]), "b.rook");
-        assert_eq!(data.b_pieces.knight, BB::from_indices(vec![57, 62]), "b.knight");
-        assert_eq!(data.b_pieces.bishop, BB::from_indices(vec![58, 61]), "b.bishop");
+        assert_eq!(
+            data.b_pieces.knight,
+            BB::from_indices(vec![57, 62]),
+            "b.knight"
+        );
+        assert_eq!(
+            data.b_pieces.bishop,
+            BB::from_indices(vec![58, 61]),
+            "b.bishop"
+        );
         assert_eq!(data.b_pieces.queen, BB::from_indices(vec![59]), "b.queen");
         assert_eq!(data.b_pieces.king, BB::from_indices(vec![60]), "b.king");
         // Universal bitboards
@@ -413,12 +438,11 @@ mod tests {
         let expected_free = !expected_occ;
         assert_eq!(data.occ, expected_occ, "occ");
         assert_eq!(data.free, expected_free, "free");
-
     }
 
     #[test_case("w", true; "white")]
     #[test_case("b", false; "black")]
-    fn test_init_white_to_move (test_case: &str, expected: bool) {
+    fn test_init_white_to_move(test_case: &str, expected: bool) {
         let mut data = Data::new();
         data.init_white_to_move(test_case).unwrap();
         assert_eq!(data.white_to_move, expected)
@@ -436,8 +460,10 @@ mod tests {
         let mut data = Data::new();
         data.init_castling_rights("KkQq").unwrap();
         assert_eq!(
-            W_KINGSIDE_ROOK_STARTING_SQ | B_KINGSIDE_ROOK_STARTING_SQ |
-            W_QUEENSIDE_ROOK_STARTING_SQ | B_QUEENSIDE_ROOK_STARTING_SQ,
+            W_KINGSIDE_ROOK_STARTING_SQ
+                | B_KINGSIDE_ROOK_STARTING_SQ
+                | W_QUEENSIDE_ROOK_STARTING_SQ
+                | B_QUEENSIDE_ROOK_STARTING_SQ,
             data.castling_rights
         )
     }
@@ -476,5 +502,4 @@ mod tests {
         let data = Data::from_fen(POSITION_3.to_string()).unwrap();
         print!("{}", data.to_string())
     }
-
 }

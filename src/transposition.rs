@@ -11,17 +11,16 @@ pub trait Entry: Sized + Clone + Copy {
 
 pub struct TranspositionTable<T: Entry> {
     entries: Box<[T]>,
-    size: usize
+    size: usize,
 }
 
 impl<T: Entry> TranspositionTable<T> {
-
     pub fn new(size_bytes: usize) -> Self {
         let size = size_bytes / T::size_bytes();
         let vec = vec![T::new_empty(); size];
         Self {
             entries: vec.into_boxed_slice(),
-            size
+            size,
         }
     }
 
@@ -29,9 +28,9 @@ impl<T: Entry> TranspositionTable<T> {
         let idx = key as usize % self.size;
         let entry = self.entries[idx];
         if entry.key() == key && entry.depth() == depth {
-            return Some(entry)
+            return Some(entry);
         } else {
-            return None
+            return None;
         }
     }
 
@@ -40,34 +39,31 @@ impl<T: Entry> TranspositionTable<T> {
         let entry = &mut self.entries[idx];
         *entry = new_entry
     }
-
 }
 
 #[derive(Clone, Copy)]
 pub struct PerftEntry {
     pub key: u64,
     pub count: i64,
-    pub depth: i8
+    pub depth: i8,
 }
 
 impl Entry for PerftEntry {
-
     fn key(&self) -> u64 {
-        return self.key
+        return self.key;
     }
 
     fn depth(&self) -> i8 {
-        return self.depth
+        return self.depth;
     }
 
     fn new_empty() -> Self {
         Self {
             key: 0,
             count: 0,
-            depth: -1
+            depth: -1,
         }
     }
-
 }
 
 #[derive(Clone, Copy)]
@@ -76,17 +72,16 @@ pub struct SearchEntry {
     pub count: i64,
     pub depth: i8,
     pub bestmove: movelist::Move,
-    pub evaluation: i64
+    pub evaluation: i64,
 }
 
 impl Entry for SearchEntry {
-
     fn key(&self) -> u64 {
-        return self.key
+        return self.key;
     }
 
     fn depth(&self) -> i8 {
-        return self.depth
+        return self.depth;
     }
 
     fn new_empty() -> Self {
@@ -98,6 +93,4 @@ impl Entry for SearchEntry {
             evaluation: 0,
         }
     }
-
 }
-

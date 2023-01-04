@@ -1,10 +1,10 @@
-use test_case::test_case;
+use bitboard::BB;
 use chess_engine::*;
 use common::*;
-use bitboard::BB;
-use position::Position;
-use movelist::MoveList;
 use makemove::make_move;
+use movelist::MoveList;
+use position::Position;
+use test_case::test_case;
 
 #[test_case(
     POSITION_2, 21, 30,
@@ -19,7 +19,10 @@ use makemove::make_move;
     "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
     "loss of castling")]
 fn test_hash_update_quiet(
-    starting_pos: &str, src_sq: usize, target_sq: usize, expected_position: &str
+    starting_pos: &str,
+    src_sq: usize,
+    target_sq: usize,
+    expected_position: &str,
 ) {
     let pos = Position::from_fen(starting_pos.to_string()).unwrap();
     // Specify move
@@ -47,7 +50,10 @@ fn test_hash_update_quiet(
     "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2";
     "eps transfer")]
 fn test_hash_update_double_pawn_push(
-    starting_pos: &str, src_sq: usize, target_sq: usize, expected_position: &str
+    starting_pos: &str,
+    src_sq: usize,
+    target_sq: usize,
+    expected_position: &str,
 ) {
     let pos = Position::from_fen(starting_pos.to_string()).unwrap();
     // Specify move
@@ -69,7 +75,10 @@ fn test_hash_update_double_pawn_push(
     "r4rk1/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 w - - 2 4";
     "black")]
 fn test_hash_update_castling(
-    starting_pos: &str, src_sq: usize, target_sq: usize, expected_position: &str
+    starting_pos: &str,
+    src_sq: usize,
+    target_sq: usize,
+    expected_position: &str,
 ) {
     let pos = Position::from_fen(starting_pos.to_string()).unwrap();
     // Specify move
@@ -87,7 +96,10 @@ fn test_hash_update_castling(
     "r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/p1N2Q1p/1PPBBPPP/R3K2R w KQkq - 0 2";
     "black")]
 fn test_hash_update_en_passant(
-    starting_pos: &str, src_sq: usize, target_sq: usize, expected_position: &str
+    starting_pos: &str,
+    src_sq: usize,
+    target_sq: usize,
+    expected_position: &str,
 ) {
     let pos = Position::from_fen(starting_pos.to_string()).unwrap();
     // Specify move

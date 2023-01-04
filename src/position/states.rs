@@ -7,7 +7,6 @@ pub struct White;
 pub struct Black;
 
 impl Position {
-
     pub fn change_state(&mut self) {
         self.data.white_to_move = !self.data.white_to_move;
         self.state = self.state.change_state();
@@ -124,7 +123,7 @@ impl Position {
     pub fn pawn_en_passant_cap(&self) -> BB {
         self.state.pawn_en_passant_capture_square(&self.data)
     }
-    /// Return the mask of the squares the king must traverse to castle 
+    /// Return the mask of the squares the king must traverse to castle
     /// kingside
     pub fn kingside_castle_mask(&self) -> BB {
         self.state.kingside_castle_mask()
@@ -153,8 +152,7 @@ impl Position {
     }
     /// Locate their pawns checking our king
     pub fn their_checking_pawns(&self) -> BB {
-        self.state.pawn_checking_squares(&self.data) 
-        & self.their_pieces().pawn
+        self.state.pawn_checking_squares(&self.data) & self.their_pieces().pawn
     }
     /// Return our piece set as a mutable reference
     pub fn mut_our_pieces(&mut self) -> &mut PieceSet {
@@ -164,7 +162,6 @@ impl Position {
     pub fn mut_their_pieces(&mut self) -> &mut PieceSet {
         self.state.mut_their_pieces(&mut self.data)
     }
-
 }
 
 pub(crate) trait State {
@@ -251,11 +248,9 @@ pub(crate) trait State {
     fn mut_our_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet;
     /// Return a mutable reference to their pieceset
     fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet;
-
 }
 
 impl State for White {
-
     fn current_state(&self) -> Box<dyn State> {
         Box::new(White)
     }
@@ -264,7 +259,7 @@ impl State for White {
         Box::new(Black)
     }
 
-    fn target_promotion_rank(&self) -> BB { 
+    fn target_promotion_rank(&self) -> BB {
         RANK_8
     }
 
@@ -332,7 +327,6 @@ impl State for White {
         B_QUEENSIDE_ROOK_STARTING_SQ
     }
 
-
     fn pawn_sgl_push(&self, src: BB) -> BB {
         src.north_one()
     }
@@ -399,8 +393,7 @@ impl State for White {
     }
 
     fn pawn_en_passant_srcs(&self, data: &Data) -> BB {
-        (data.en_passant_target_sq.sout_west()
-            | data.en_passant_target_sq.sout_east())
+        (data.en_passant_target_sq.sout_west() | data.en_passant_target_sq.sout_east())
             & data.w_pieces.pawn
             & RANK_5
     }
@@ -422,14 +415,12 @@ impl State for White {
         &mut data.w_pieces
     }
 
-    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet{
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
         &mut data.b_pieces
     }
-
 }
 
 impl State for Black {
-
     fn current_state(&self) -> Box<dyn State> {
         Box::new(Black)
     }
@@ -506,7 +497,6 @@ impl State for Black {
         W_QUEENSIDE_ROOK_STARTING_SQ
     }
 
-
     fn pawn_sgl_push(&self, src: BB) -> BB {
         src.south_one()
     }
@@ -573,10 +563,9 @@ impl State for Black {
     }
 
     fn pawn_en_passant_srcs(&self, data: &Data) -> BB {
-        (data.en_passant_target_sq.nort_west()
-        | data.en_passant_target_sq.nort_east())
-        & data.b_pieces.pawn
-        & RANK_4
+        (data.en_passant_target_sq.nort_west() | data.en_passant_target_sq.nort_east())
+            & data.b_pieces.pawn
+            & RANK_4
     }
 
     fn pawn_en_passant_capture_square(&self, data: &Data) -> BB {
@@ -596,8 +585,7 @@ impl State for Black {
         &mut data.b_pieces
     }
 
-    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet{
+    fn mut_their_pieces<'a>(&'a self, data: &'a mut Data) -> &'a mut PieceSet {
         &mut data.w_pieces
     }
-
 }

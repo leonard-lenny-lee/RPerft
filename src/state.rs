@@ -1,11 +1,11 @@
 use super::*;
-use position::Position;
 use config::Config;
+use position::Position;
 
 pub struct State {
     pub position: Position,
     pub position_history: Vec<Position>,
-    pub config: Config
+    pub config: Config,
 }
 
 impl State {
@@ -14,7 +14,7 @@ impl State {
         Self {
             position: Position::from_fen(common::DEFAULT_FEN.to_string()).unwrap(),
             position_history: Vec::new(),
-            config: Config::initialize()
+            config: Config::initialize(),
         }
     }
 }

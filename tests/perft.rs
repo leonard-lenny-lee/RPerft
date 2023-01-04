@@ -1,16 +1,15 @@
-/// Tests to guarantee move enumeration fidelity and benchmarking 
-
+/// Tests to guarantee move enumeration fidelity and benchmarking
 use chess_engine::*;
-use config::Config;
 use common::*;
-use search::perft::*;
+use config::Config;
 use position::Position;
+use search::perft::*;
 use test_case::test_case;
 
 const GLOBAL: Config = Config::initialize();
 
-/// Light perft test suite. Compares the number of nodes generated in these 
-/// standard perft positions against the consensus. 
+/// Light perft test suite. Compares the number of nodes generated in these
+/// standard perft positions against the consensus.
 #[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609], 5; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603], 4; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083], 6; "position_three")]
@@ -70,7 +69,7 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     }
 }
 
-/// Highly intensive perft tests. Keep ignore flag to prevent from being 
+/// Highly intensive perft tests. Keep ignore flag to prevent from being
 /// run in a normal test suite.
 #[ignore]
 #[test_case(DEFAULT_FEN, 3195901860, 7; "starting_position")]

@@ -16,12 +16,12 @@ fn main() {
                     c.print_parse_tree(1);
                 }
                 if c.quit() {
-                    return
+                    return;
                 }
                 if let Err(e) = c.execute(&mut state) {
                     e.warn()
                 };
-            },
+            }
             Err(e) => e.warn(),
         };
     }

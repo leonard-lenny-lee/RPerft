@@ -1,28 +1,25 @@
-/// This engine uses the Polyglot book format. 
+/// This engine uses the Polyglot book format.
 /// http://hgm.nubati.net/book_format.html
-
 use super::*;
 use position::Data;
 
 #[derive(Clone, Copy)]
-pub struct ZobristKey (pub u64);
+pub struct ZobristKey(pub u64);
 
 impl ZobristKey {
-
     /// Generate a Zobrist hash key to encode the position data.
     pub fn init_key(data: &Data) -> Self {
         Self(
-            Self::hash_board(data) ^ Self::hash_castling(data)
-            ^ Self::hash_en_passant(data) ^ Self::hash_turn(data)
+            Self::hash_board(data)
+                ^ Self::hash_castling(data)
+                ^ Self::hash_en_passant(data)
+                ^ Self::hash_turn(data),
         )
     }
 
     fn hash_board(data: &Data) -> u64 {
         let mut hash = 0;
-        let pieces = [
-            data.b_pieces.as_hash_array(),
-            data.w_pieces.as_hash_array()
-        ];
+        let pieces = [data.b_pieces.as_hash_array(), data.w_pieces.as_hash_array()];
         for color in pieces.iter().enumerate() {
             for piece in color.1.iter().enumerate() {
                 for bit in piece.1.forward_scan() {
@@ -55,27 +52,33 @@ impl ZobristKey {
 
     fn hash_en_passant(data: &Data) -> u64 {
         let pawns = if data.white_to_move {
-            (data.en_passant_target_sq.sout_west() | data.en_passant_target_sq.sout_east()) & data.w_pieces.pawn
+            (data.en_passant_target_sq.sout_west() | data.en_passant_target_sq.sout_east())
+                & data.w_pieces.pawn
         } else {
-            (data.en_passant_target_sq.nort_west() | data.en_passant_target_sq.nort_east()) & data.b_pieces.pawn
+            (data.en_passant_target_sq.nort_west() | data.en_passant_target_sq.nort_east())
+                & data.b_pieces.pawn
         };
         if pawns != EMPTY_BB {
-            return HASH_KEYS[772 + data.en_passant_target_sq.to_index() % 8]
+            return HASH_KEYS[772 + data.en_passant_target_sq.to_index() % 8];
         }
-        return 0
+        return 0;
     }
 
-    fn hash_turn(data: &Data,) -> u64 {
+    fn hash_turn(data: &Data) -> u64 {
         if data.white_to_move {
-            return HASH_KEYS[780]
+            return HASH_KEYS[780];
         }
-        return 0
+        return 0;
     }
 
     /// Common hash update function
     pub fn update_key(
-        &mut self, moved_piece: usize, src: BB, target: BB,
-        new_data: &Data, old_data: &Data
+        &mut self,
+        moved_piece: usize,
+        src: BB,
+        target: BB,
+        new_data: &Data,
+        old_data: &Data,
     ) {
         // Turn has passed so we must xor turn
         self.0 ^= HASH_KEYS[780];
@@ -89,7 +92,11 @@ impl ZobristKey {
 
     /// Update at both source and target squares for the piece
     pub fn update_moved_piece(
-        &mut self, moved_piece: usize, src: BB, target: BB, white_to_move: bool
+        &mut self,
+        moved_piece: usize,
+        src: BB,
+        target: BB,
+        white_to_move: bool,
     ) {
         let piece_idx = PIECE_TO_HASH_INDEX[moved_piece] * 2 + white_to_move as usize;
         self.0 ^= HASH_KEYS[64 * piece_idx + src.to_index()];
@@ -113,16 +120,15 @@ impl ZobristKey {
         let mut castling_right_diff = new_data.castling_rights ^ old_data.castling_rights;
         while castling_right_diff.is_any() {
             match castling_right_diff.pop_ils1b() {
-                7 => update_hash ^= HASH_KEYS[768], // White kingside
-                0 => update_hash ^= HASH_KEYS[769], // White queenside
+                7 => update_hash ^= HASH_KEYS[768],  // White kingside
+                0 => update_hash ^= HASH_KEYS[769],  // White queenside
                 63 => update_hash ^= HASH_KEYS[770], // Black kingside
                 56 => update_hash ^= HASH_KEYS[771], // Black queenside
-                _ => panic!("Unrecognised bit in castling rights")
+                _ => panic!("Unrecognised bit in castling rights"),
             }
         }
         update_hash
     }
-
 }
 
 // Converts the internal enum discriminant of a piece into the appropriate
@@ -351,6 +357,4 @@ mod test {
         let hash = ZobristKey::init_key(&data);
         assert_eq!(hash.0, expected_hash);
     }
-
-    // TODO: Write tests for the Zobrist hashing updates. Are they still correct?
 }

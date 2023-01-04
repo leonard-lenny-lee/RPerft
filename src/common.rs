@@ -1,15 +1,15 @@
 /// This file contains hardcoded masks and Enums which are required by many
 /// other parts of the program.
-
 use super::*;
 
 // Standard chess positions useful for testing
-pub const DEFAULT_FEN: &str= "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+pub const DEFAULT_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const POSITION_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 pub const POSITION_3: &str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";
 pub const POSITION_4: &str = "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1";
 pub const POSITION_5: &str = "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8";
-pub const POSITION_6: &str = "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ";
+pub const POSITION_6: &str =
+    "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ";
 
 // Rank Masks
 pub const RANK_1: BB = BB(0x00000000000000ff);
@@ -21,7 +21,9 @@ pub const RANK_6: BB = BB(0x0000ff0000000000);
 pub const RANK_7: BB = BB(0x00ff000000000000);
 pub const RANK_8: BB = BB(0xff00000000000000);
 
-pub const RANK_MASKS: [BB; 8] = [RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8];
+pub const RANK_MASKS: [BB; 8] = [
+    RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8,
+];
 
 // File Masks
 pub const FILE_A: BB = BB(0x0101010101010101);
@@ -33,7 +35,9 @@ pub const FILE_F: BB = BB(0x2020202020202020);
 pub const FILE_G: BB = BB(0x4040404040404040);
 pub const FILE_H: BB = BB(0x8080808080808080);
 
-pub const FILE_MASKS: [BB; 8] = [FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H];
+pub const FILE_MASKS: [BB; 8] = [
+    FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H,
+];
 
 pub const FILLED_BB: BB = BB(0xffffffffffffffff);
 pub const EMPTY_BB: BB = BB(0x0);
@@ -62,19 +66,19 @@ pub enum Piece {
     Knight,
     Bishop,
     Queen,
-    King
+    King,
 }
 
 impl Piece {
     /// Returns the discriminant of the enum. Use for indexing arrays
-    pub fn value (&self) -> usize {
+    pub fn value(&self) -> usize {
         *self as usize
     }
 }
 
 pub enum Color {
     White,
-    Black
+    Black,
 }
 
 pub enum Axis {

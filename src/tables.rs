@@ -1,5 +1,4 @@
 /// Contains the tables generated at compile time for fast lookups at runtime
-
 use super::*;
 
 const KNIGHT_ATTACK_TABLE: [BB; 64] = {
@@ -69,9 +68,7 @@ const WPAWN_CAPTURE_TABLE: [BB; 64] = {
     let mut i = 0;
     while i < 64 {
         let origin = BB(1 << i);
-        table[i] = BB(
-            ((origin.0 & !FILE_H.0) << 9) | ((origin.0 & !FILE_A.0) << 7)
-        );
+        table[i] = BB(((origin.0 & !FILE_H.0) << 9) | ((origin.0 & !FILE_A.0) << 7));
         i += 1;
     }
     table
@@ -82,9 +79,7 @@ const BPAWN_CAPTURE_TABLE: [BB; 64] = {
     let mut i = 0;
     while i < 64 {
         let origin = BB(1 << i);
-        masks[i] = BB(
-            ((origin.0 & !FILE_H.0) >> 7) | ((origin.0 & !FILE_A.0) >> 9)
-        );
+        masks[i] = BB(((origin.0 & !FILE_H.0) >> 7) | ((origin.0 & !FILE_A.0) >> 9));
         i += 1;
     }
     masks
@@ -138,7 +133,6 @@ const BISHOP_MASKS: [u64; 64] = [
     0x0002040810204000, 0x0004081020400000, 0x000A102040000000, 0x0014224000000000,
     0x0028440200000000, 0x0050080402000000, 0x0020100804020000, 0x0040201008040200
 ];
-
 
 const ROOK_SHIFTS: [u64; 64] = [
     52, 53, 53, 53, 53, 53, 53, 52,
@@ -201,7 +195,6 @@ pub fn initialize_tables() {
 }
 
 fn initialize_magic_table(rook: bool) -> Vec<Vec<BB>> {
-
     let (magics, masks, shifts) = if rook {
         (ROOK_MAGICS, ROOK_MASKS, ROOK_SHIFTS)
     } else {
@@ -215,7 +208,7 @@ fn initialize_magic_table(rook: bool) -> Vec<Vec<BB>> {
         let n_entries = 1 << n_bits_in_mask;
         let mut sq_db = vec![BB(0); n_entries];
         // Enumerate through all the possible combinations of 0 and 1
-        // for a given mask, with 2 ** n_bits possible combinations 
+        // for a given mask, with 2 ** n_bits possible combinations
         for db_idx in 0..n_entries {
             // Build the occupancy mask
             let mut mask = masks[sq];
@@ -237,12 +230,11 @@ fn initialize_magic_table(rook: bool) -> Vec<Vec<BB>> {
             };
         }
         db.push(sq_db)
-    };
-    return db
+    }
+    return db;
 }
 
 impl BB {
-
     #[inline(always)]
     /// Return the attack squares of a single knight by lookup
     pub fn lookup_knight_attacks(&self) -> BB {
@@ -305,7 +297,7 @@ impl BB {
             Axis::File => FILE_TABLE[self.ils1b()],
             Axis::Rank => RANK_TABLE[self.ils1b()],
             Axis::Diagonal => DIAG_TABLE[self.ils1b()],
-            Axis::AntiDiagonal => ADIAG_TABLE[self.ils1b()]
+            Axis::AntiDiagonal => ADIAG_TABLE[self.ils1b()],
         };
         let mut forward = occ & mask;
         let mut reverse = forward.reverse_bits();
@@ -335,7 +327,6 @@ impl BB {
     pub fn lookup_queen_attacks(&self, occ: BB) -> BB {
         self.lookup_rook_attacks(occ) | self.lookup_bishop_attacks(occ)
     }
-    
 }
 
 #[cfg(test)]

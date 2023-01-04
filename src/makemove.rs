@@ -1,10 +1,9 @@
 use super::*;
-use position::Position;
 use movelist::Move;
+use position::Position;
 
 /// Create a new position by applying move data to a position
 pub fn make_move(pos: &Position, mv: &Move) -> Position {
-    
     // Create a copy of the current position to modify
     let mut new_pos = pos.clone();
     // Unpack move data
@@ -16,7 +15,7 @@ pub fn make_move(pos: &Position, mv: &Move) -> Position {
     update_our_bitboards(&mut new_pos, target, src, moved_piece);
     update_castling_rights(&mut new_pos, src, moved_piece);
     update_halfmove_clock(&mut new_pos, mv, moved_piece);
-    update_fullmove_clock(&mut new_pos, );
+    update_fullmove_clock(&mut new_pos);
     // Set en passant target sq to empty, this will be set to a value only
     // if the move was a pawn double push
     new_pos.data.en_passant_target_sq = EMPTY_BB;
@@ -42,30 +41,28 @@ pub fn make_move(pos: &Position, mv: &Move) -> Position {
     }
     // Change the turn and state
     new_pos.change_state();
-    new_pos.key.update_key(
-        moved_piece, src, target, &new_pos.data, &pos.data
-    );
-    return new_pos
+    new_pos
+        .key
+        .update_key(moved_piece, src, target, &new_pos.data, &pos.data);
+    return new_pos;
 }
 
 #[inline]
 fn update_shared_bitboards(pos: &mut Position, target: BB, src: BB) {
     // Source squares must be free after a move
-    pos.data.free |= src; 
+    pos.data.free |= src;
     pos.data.occ &= !src;
     // Target sqaures must be occupied after a move
-    pos.data.free &= !target; 
+    pos.data.free &= !target;
     pos.data.occ |= target;
 }
 
 #[inline]
-fn update_our_bitboards(
-    pos: &mut Position, target: BB, src: BB, moved_piece: usize
-) {
+fn update_our_bitboards(pos: &mut Position, target: BB, src: BB, moved_piece: usize) {
     let our_pieces = pos.mut_our_pieces();
     let move_mask = src | target;
     // Our bitboards must be flipped at target and source
-    our_pieces[moved_piece] ^= move_mask; 
+    our_pieces[moved_piece] ^= move_mask;
     our_pieces.any ^= move_mask;
 }
 
@@ -81,9 +78,8 @@ fn execute_capture(pos: &mut Position, target: BB) {
     // starting square. If so, unset their corresponding castling right
     pos.data.castling_rights &= !target;
     // Update Zobrist hash with the capture
-    pos.key.update_square(
-        captured_piece, target, !pos.data.white_to_move
-    )
+    pos.key
+        .update_square(captured_piece, target, !pos.data.white_to_move)
 }
 
 #[inline]
@@ -123,12 +119,10 @@ fn execute_promotions(pos: &mut Position, mv: &Move, target: BB) {
     // Unset the pawn from our pawn bitboard
     our_pieces[Piece::Pawn.value()] ^= target;
     // Update the Zobrist hashes
-    pos.key.update_square(
-        Piece::Pawn.value(), target, pos.data.white_to_move
-    );
-    pos.key.update_square(
-        promotion_piece, target, pos.data.white_to_move
-    );
+    pos.key
+        .update_square(Piece::Pawn.value(), target, pos.data.white_to_move);
+    pos.key
+        .update_square(promotion_piece, target, pos.data.white_to_move);
 }
 
 #[inline]
@@ -136,7 +130,7 @@ fn execute_castling(pos: &mut Position, mv: &Move, target: BB) {
     let our_pieces = pos.mut_our_pieces();
     // For castling moves, we also need the update our rook and shared
     // bitboards
-    let (rook_src,rook_target) = if mv.is_short_castle() {
+    let (rook_src, rook_target) = if mv.is_short_castle() {
         // For kingside castle, the rook has transported from a
         // position one east of the target square to one west
         (target.east_one(), target.west_one())
@@ -155,14 +149,16 @@ fn execute_castling(pos: &mut Position, mv: &Move, target: BB) {
     pos.data.free ^= castle_mask;
     // Update the Zobrist hash for the rook movement
     pos.key.update_moved_piece(
-        Piece::Rook.value(), rook_src, rook_target,
-        pos.data.white_to_move
+        Piece::Rook.value(),
+        rook_src,
+        rook_target,
+        pos.data.white_to_move,
     )
 }
 
 #[inline]
 fn execute_en_passant(pos: &mut Position, target: BB) {
-    // If white made the en passant capture, then the square at which the 
+    // If white made the en passant capture, then the square at which the
     // capture takes place is on square south of the target square and the
     // opposite for black
     let ep_capture_sq = pos.pawn_sgl_push_srcs(target);
@@ -174,10 +170,8 @@ fn execute_en_passant(pos: &mut Position, target: BB) {
     pos.data.occ ^= ep_capture_sq;
     pos.data.free ^= ep_capture_sq;
     // Update Zobrist hash
-    pos.key.update_square(
-        Piece::Pawn.value(), ep_capture_sq,
-        !pos.data.white_to_move
-    )
+    pos.key
+        .update_square(Piece::Pawn.value(), ep_capture_sq, !pos.data.white_to_move)
 }
 
 #[inline]

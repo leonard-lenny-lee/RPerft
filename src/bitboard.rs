@@ -1,10 +1,9 @@
 use super::*;
 
 #[derive(Debug, Clone, Copy)]
-pub struct BB (pub u64);
+pub struct BB(pub u64);
 
 impl BB {
-
     /// Create a one set bit bitboard at an index
     pub fn from_index(index: usize) -> BB {
         BB(1 << index)
@@ -77,7 +76,7 @@ impl BB {
     pub fn pop_ls1b(&mut self) -> BB {
         let lsb = self.ls1b();
         *self ^= lsb;
-        return lsb
+        return lsb;
     }
 
     /// Decomposes the bitboard into a vector of one bit bitboards
@@ -86,20 +85,20 @@ impl BB {
         let mut scan_result = Vec::new();
         while copy_self.is_any() {
             scan_result.push(copy_self.pop_ls1b())
-        };
-        return scan_result
+        }
+        return scan_result;
     }
-    
+
     /// Translate the bitboard north one
     pub const fn north_one(&self) -> BB {
         BB(self.0 << 8)
     }
-    
+
     /// Translate the bitboard north two
     pub const fn north_two(&self) -> BB {
         BB(self.0 << 16)
     }
-    
+
     /// Translate the bitboard north east one
     pub const fn nort_east(&self) -> BB {
         BB((self.0 & !FILE_H.0) << 9)
@@ -109,12 +108,12 @@ impl BB {
     pub const fn east_one(&self) -> BB {
         BB((self.0 & !FILE_H.0) << 1)
     }
-    
+
     /// Translate the bitboard east two
     pub const fn east_two(&self) -> BB {
         BB((self.0 & !(FILE_G.0 | FILE_H.0)) << 2)
     }
-    
+
     /// Translate the bitboard south east one
     pub const fn sout_east(&self) -> BB {
         BB((self.0 & !FILE_H.0) >> 7)
@@ -124,7 +123,7 @@ impl BB {
     pub const fn south_one(&self) -> BB {
         BB(self.0 >> 8)
     }
-    
+
     /// Translate the bitboard south two
     pub const fn south_two(&self) -> BB {
         BB(self.0 >> 16)
@@ -139,17 +138,17 @@ impl BB {
     pub const fn west_one(&self) -> BB {
         BB((self.0 & !FILE_A.0) >> 1)
     }
-    
+
     /// Translate the bitboard west two
     pub const fn west_two(&self) -> BB {
         BB((self.0 & !(FILE_A.0 | FILE_B.0)) >> 2)
     }
-    
+
     /// Translate the bitboard north west one
     pub const fn nort_west(&self) -> BB {
         BB((self.0 & !FILE_A.0) << 7)
     }
-    
+
     /// Translate the bitboard north north east
     pub const fn no_no_ea(&self) -> BB {
         BB((self.0 & !FILE_H.0) << 17)
@@ -159,7 +158,7 @@ impl BB {
     pub const fn no_ea_ea(&self) -> BB {
         BB((self.0 & !(FILE_G.0 | FILE_H.0)) << 10)
     }
-    
+
     /// Translate the bitboard south east east
     pub const fn so_ea_ea(&self) -> BB {
         BB((self.0 & !(FILE_G.0 | FILE_H.0)) >> 6)
@@ -169,27 +168,27 @@ impl BB {
     pub const fn so_so_ea(&self) -> BB {
         BB((self.0 & !FILE_H.0) >> 15)
     }
-    
+
     /// Translate the bitboard south south west
     pub const fn so_so_we(&self) -> BB {
         BB((self.0 & !FILE_A.0) >> 17)
     }
-    
+
     /// Translate the bitboard south west west
     pub const fn so_we_we(&self) -> BB {
         BB((self.0 & !(FILE_A.0 | FILE_B.0)) >> 10)
     }
-    
+
     /// Translate the bitboard north west west
     pub const fn no_we_we(&self) -> BB {
         BB((self.0 & !(FILE_A.0 | FILE_B.0)) << 6)
     }
-    
+
     /// Translate the bitboard north north west
     pub const fn no_no_we(&self) -> BB {
         BB((self.0 & !FILE_A.0) << 15)
     }
-    
+
     /// Flip the bitboard in the vertical direction
     pub fn flip_vertical(&self) -> BB {
         BB(self.0.swap_bytes())
@@ -203,25 +202,31 @@ impl BB {
     /// Return the attack squares of the knight
     /// * Uses bitwise shifting for compile time generation of lookup tables.
     /// * Use lookup_knight_attacks for run time.
-    pub const fn knight_attack_squares(&self) -> BB { 
-        BB(
-            self.no_no_ea().0 | self.no_ea_ea().0 | self.so_ea_ea().0 |
-            self.so_so_ea().0 | self.so_so_we().0 | self.so_we_we().0 |
-            self.no_we_we().0 | self.no_no_we().0
-        )
+    pub const fn knight_attack_squares(&self) -> BB {
+        BB(self.no_no_ea().0
+            | self.no_ea_ea().0
+            | self.so_ea_ea().0
+            | self.so_so_ea().0
+            | self.so_so_we().0
+            | self.so_we_we().0
+            | self.no_we_we().0
+            | self.no_no_we().0)
     }
 
     /// Return the attack squares of the king
     /// * Uses bitwise shifting for compile time generation of lookup tables.
     /// * Use lookup_king_attacks for run time.
     pub const fn king_attack_squares(&self) -> BB {
-        BB(
-            self.north_one().0 | self.nort_east().0 | self.east_one().0 |
-            self.sout_east().0 | self.south_one().0 | self.sout_west().0 |
-            self.west_one().0 | self.nort_west().0
-        )
+        BB(self.north_one().0
+            | self.nort_east().0
+            | self.east_one().0
+            | self.sout_east().0
+            | self.south_one().0
+            | self.sout_west().0
+            | self.west_one().0
+            | self.nort_west().0)
     }
-    
+
     /// Kogge-Stone north fill
     pub const fn nort_fill(&self) -> BB {
         let mut out = self.0;
@@ -237,7 +242,7 @@ impl BB {
         out |= out >> 8;
         out |= out >> 16;
         out |= out >> 32;
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone east fill
@@ -249,7 +254,7 @@ impl BB {
         out |= m_1 & (out << 1);
         out |= m_2 & (out << 2);
         out |= m_3 & (out << 4);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone north east fill
@@ -261,7 +266,7 @@ impl BB {
         out |= m_1 & (out << 9);
         out |= m_2 & (out << 18);
         out |= m_3 & (out << 36);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone south east fill
@@ -273,7 +278,7 @@ impl BB {
         out |= m_1 & (out >> 7);
         out |= m_2 & (out >> 14);
         out |= m_3 & (out >> 28);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone west fill
@@ -285,7 +290,7 @@ impl BB {
         out |= m_1 & (out >> 1);
         out |= m_2 & (out >> 2);
         out |= m_3 & (out >> 4);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone south west fill
@@ -297,7 +302,7 @@ impl BB {
         out |= m_1 & (out >> 9);
         out |= m_2 & (out >> 18);
         out |= m_3 & (out >> 36);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone north west fill
@@ -309,7 +314,7 @@ impl BB {
         out |= m_1 & (out << 7);
         out |= m_2 & (out << 14);
         out |= m_3 & (out << 28);
-        return BB(out)
+        return BB(out);
     }
 
     /// Kogge-Stone occluded north fill
@@ -320,7 +325,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 << 16);
         bb_2 &= bb_2 << 16;
         bb_1 |= bb_2 & (bb_1 << 32);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded south fill
@@ -331,7 +336,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 >> 16);
         bb_2 &= bb_2 >> 16;
         bb_1 |= bb_2 & (bb_1 >> 32);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded east fill
@@ -343,7 +348,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 << 2);
         bb_2 &= bb_2 << 2;
         bb_1 |= bb_2 & (bb_1 << 4);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded west fill
@@ -355,7 +360,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 >> 2);
         bb_2 &= bb_2 >> 2;
         bb_1 |= bb_2 & (bb_1 >> 4);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded north east fill
@@ -367,7 +372,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 << 18);
         bb_2 &= bb_2 << 18;
         bb_1 |= bb_2 & (bb_1 << 36);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded south east fill
@@ -379,7 +384,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 >> 14);
         bb_2 &= bb_2 >> 14;
         bb_1 |= bb_2 & (bb_1 >> 28);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded north west fill
@@ -391,7 +396,7 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 << 14);
         bb_2 &= bb_2 << 14;
         bb_1 |= bb_2 & (bb_1 << 28);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone occluded south west fill
@@ -403,44 +408,44 @@ impl BB {
         bb_1 |= bb_2 & (bb_1 >> 18);
         bb_2 &= bb_2 >> 18;
         bb_1 |= bb_2 & (bb_1 >> 36);
-        return BB(bb_1)
+        return BB(bb_1);
     }
 
     /// Kogge-Stone north attack squares
     pub fn nort_attacks(&self, other: BB) -> BB {
         self.nort_ofill(other).north_one()
     }
-    
+
     /// Kogge-Stone south attack squares
     pub fn sout_attacks(&self, other: BB) -> BB {
         self.sout_ofill(other).south_one()
     }
-    
+
     /// Kogge-Stone east attack squares
     pub fn east_attacks(&self, other: BB) -> BB {
         self.east_ofill(other).east_one()
     }
-    
+
     /// Kogge-Stone west attack squares
     pub fn west_attacks(&self, other: BB) -> BB {
         self.west_ofill(other).west_one()
     }
-    
+
     /// Kogge-Stone north-east attack squares
     pub fn no_ea_attacks(&self, other: BB) -> BB {
         self.no_ea_ofill(other).nort_east()
     }
-    
+
     /// Kogge-Stone north-west attack squares
     pub fn no_we_attacks(&self, other: BB) -> BB {
         self.no_we_ofill(other).nort_west()
     }
-    
+
     /// Kogge-Stone south-east attack squares
     pub fn so_ea_attacks(&self, other: BB) -> BB {
         self.so_ea_ofill(other).sout_east()
     }
-    
+
     /// Kogge-Stone south-west attack squares
     pub fn so_we_attacks(&self, other: BB) -> BB {
         self.so_we_ofill(other).sout_west()
@@ -450,27 +455,27 @@ impl BB {
     pub fn file_attacks(&self, other: BB) -> BB {
         self.nort_attacks(other) | self.sout_attacks(other)
     }
-    
+
     /// Kogge-Stone rank attack squares
     pub fn rank_attacks(&self, other: BB) -> BB {
         self.east_attacks(other) | self.west_attacks(other)
     }
-    
+
     /// Kogge-Stone diagonal attack squares
     pub fn diag_attacks(&self, other: BB) -> BB {
         self.no_ea_attacks(other) | self.so_we_attacks(other)
     }
-    
+
     /// Kogge-Stone anti-diagonal attack squares
     pub fn adiag_attacks(&self, other: BB) -> BB {
         self.no_we_attacks(other) | self.so_ea_attacks(other)
     }
-    
+
     /// Kogge-Stone rook attack squares
     pub fn rook_attacks(&self, other: BB) -> BB {
         self.file_attacks(other) | self.rank_attacks(other)
     }
-    
+
     /// Kogge-Stone bishop attack squares
     pub fn bishop_attacks(&self, other: BB) -> BB {
         self.diag_attacks(other) | self.adiag_attacks(other)
@@ -491,53 +496,66 @@ impl BB {
     /// Return a bitboard with the intervening bits between this single bit
     /// bitboard and another single bit bitboard filled
     pub fn connect_squares(&self, other: BB) -> BB {
-        assert!(self.0.count_ones() == 1, "Attempted use of self multi-bit bitboard");
-        assert!(other.0.count_ones() == 1, "Attempted use of other multi-bit bitboard");
+        assert!(
+            self.0.count_ones() == 1,
+            "Attempted use of self multi-bit bitboard"
+        );
+        assert!(
+            other.0.count_ones() == 1,
+            "Attempted use of other multi-bit bitboard"
+        );
         assert!(*self != other);
         let (this_sq, other_sq) = (self.ils1b(), other.ils1b());
         let translation = (this_sq as i32 - other_sq as i32).abs();
-        return *self ^ if this_sq > other_sq {
-            // Other square must be W, SW, S or SE
-            if translation % 9 == 0 {
-                // Diagonal translation
-                self.so_we_ofill(other)
-            } else if translation % 8 == 0 {
-                // Vertical translation
-                self.sout_ofill(other)
-            } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
-                // Anti-diagonal translation
-                self.so_ea_ofill(other)
-            } else if translation < 8 {
-                // Horizontal translation
-                self.west_ofill(other)
+        return *self
+            ^ if this_sq > other_sq {
+                // Other square must be W, SW, S or SE
+                if translation % 9 == 0 {
+                    // Diagonal translation
+                    self.so_we_ofill(other)
+                } else if translation % 8 == 0 {
+                    // Vertical translation
+                    self.sout_ofill(other)
+                } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
+                    // Anti-diagonal translation
+                    self.so_ea_ofill(other)
+                } else if translation < 8 {
+                    // Horizontal translation
+                    self.west_ofill(other)
+                } else {
+                    panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
+                }
             } else {
-                panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
-            }
-        } else {
-            // Other square must be E, NE, N or NW
-            if translation % 9 == 0 {
-                // Diagonal translation
-                self.no_ea_ofill(other)
-            } else if translation % 8 == 0 {
-                // Vertical translation
-                self.nort_ofill(other)
-            } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
-                // Anti-diagonal translation
-                self.no_we_ofill(other)
-            } else if translation < 8 {
-                // Horizontal translation
-                self.east_ofill(other)
-            } else {
-                panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
-            }
-        }
+                // Other square must be E, NE, N or NW
+                if translation % 9 == 0 {
+                    // Diagonal translation
+                    self.no_ea_ofill(other)
+                } else if translation % 8 == 0 {
+                    // Vertical translation
+                    self.nort_ofill(other)
+                } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
+                    // Anti-diagonal translation
+                    self.no_we_ofill(other)
+                } else if translation < 8 {
+                    // Horizontal translation
+                    self.east_ofill(other)
+                } else {
+                    panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
+                }
+            };
     }
 
     /// Return a bitboard of the common axis shared between this single bit
     /// bitboard and another single bit bitboard
     pub fn common_axis(&self, other: BB) -> BB {
-        assert!(self.0.count_ones() == 1, "Attempted use of self multi-bit bitboard");
-        assert!(other.0.count_ones() == 1, "Attempted use of other multi-bit bitboard");
+        assert!(
+            self.0.count_ones() == 1,
+            "Attempted use of self multi-bit bitboard"
+        );
+        assert!(
+            other.0.count_ones() == 1,
+            "Attempted use of other multi-bit bitboard"
+        );
         assert!(*self != other);
         let (this_sq, other_sq) = (self.ils1b(), other.ils1b());
         let translation = (this_sq as i32 - other_sq as i32).abs();
@@ -554,7 +572,10 @@ impl BB {
             // Horizontal translation
             self.lookup_rank_mask()
         } else {
-            panic!("Squares {} and {} cannot be connected by a common axis", this_sq, other_sq)
+            panic!(
+                "Squares {} and {} cannot be connected by a common axis",
+                this_sq, other_sq
+            )
         }
     }
 
@@ -562,17 +583,23 @@ impl BB {
     pub fn from_algebraic(algebraic: &str) -> Result<BB, interface::ExecutionError> {
         let chars: Vec<char> = algebraic.chars().collect();
         if chars.len() != 2 {
-            return Err(interface::ExecutionError::ParseAlgebraicError(algebraic.to_string()))
+            return Err(interface::ExecutionError::ParseAlgebraicError(
+                algebraic.to_string(),
+            ));
         }
         if !chars[0].is_alphabetic() || !chars[1].is_numeric() {
-            return Err(interface::ExecutionError::ParseAlgebraicError(algebraic.to_string()))
+            return Err(interface::ExecutionError::ParseAlgebraicError(
+                algebraic.to_string(),
+            ));
         }
         let file = chars[0].to_ascii_lowercase() as u8 - ASCIIBases::LowerA as u8;
         let rank = chars[1] as u8 - ASCIIBases::Zero as u8;
         if rank <= 8 && file <= 8 {
             Ok(BB(1 << (file + (rank - 1) * 8)))
         } else {
-            Err(interface::ExecutionError::ParseAlgebraicError(algebraic.to_string()))
+            Err(interface::ExecutionError::ParseAlgebraicError(
+                algebraic.to_string(),
+            ))
         }
     }
 
@@ -607,11 +634,9 @@ impl BB {
                 out.push_str("|   ")
             }
         }
-        out.push_str(
-            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h ");
+        out.push_str("|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h ");
         return out;
     }
-
 }
 
 impl std::cmp::PartialEq for BB {
@@ -624,7 +649,6 @@ impl std::cmp::PartialEq for BB {
 }
 
 impl std::cmp::Eq for BB {}
-
 
 impl std::ops::BitAnd for BB {
     type Output = Self;
@@ -719,11 +743,11 @@ impl std::iter::Iterator for BB {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.0 == EMPTY_BB.0 {
-            return None
+            return None;
         }
         let lsb = 1 << self.0.trailing_zeros();
         self.0 ^= lsb;
-        return Some(BB(lsb))
+        return Some(BB(lsb));
     }
 }
 
@@ -765,9 +789,14 @@ mod tests {
     fn test_forward_scan() {
         let scan_result = FILE_E.forward_scan();
         let expected = vec![
-            BB::from_index(4), BB::from_index(12), BB::from_index(20),
-            BB::from_index(28), BB::from_index(36), BB::from_index(44),
-            BB::from_index(52), BB::from_index(60)
+            BB::from_index(4),
+            BB::from_index(12),
+            BB::from_index(20),
+            BB::from_index(28),
+            BB::from_index(36),
+            BB::from_index(44),
+            BB::from_index(52),
+            BB::from_index(60),
         ];
         assert_eq!(scan_result, expected);
     }
