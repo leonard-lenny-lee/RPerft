@@ -127,12 +127,16 @@ pub mod perft {
 
     pub fn perft(pos: &Position, depth: i8, config: &PerftConfig) -> (i64, f64, f64) {
         assert!(depth >= 1);
-        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
         let nodes =
         if config.multithreading {
-            perft_multithreaded(pos, depth, config)
+            if config.hashing {
+                perft_multithreaded_with_hashing(pos, depth, config, false)
+            } else {
+                perft_multithreaded(pos, depth, config, false)
+            }
         } else if config.hashing {
+            let mut table = TranspositionTable::new(config.table_size);
             perft_inner_with_table(pos, depth, &mut table, config)
         } else {
             perft_inner(pos, depth, config)
@@ -142,7 +146,7 @@ pub mod perft {
         return (nodes, duration, nodes_per_second);
     }
 
-    fn perft_multithreaded(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
+    fn perft_multithreaded(pos: &Position, depth: i8, config: &PerftConfig, verbose: bool) -> i64 {
         let moves = find_moves(pos);
         let config = config.clone();
         let n_jobs = moves.len(); 
@@ -150,10 +154,36 @@ pub mod perft {
         let (tx, rx) = channel();
         for i in 0..n_jobs {
             let tx = tx.clone();
-            let new_pos = make_move(pos, &moves[i]);
+            let mv = moves[i];
+            let new_pos = make_move(pos, &mv);
             pool.execute(move || {
                 let count = perft_inner(&new_pos, depth - 1, &config);
                 tx.send(count).unwrap();
+                if verbose {
+                    println!("{}: {}", mv.to_algebraic(), count);
+                }
+            });
+        }
+        return rx.iter().take(n_jobs).fold(0, |a, b| a + b);
+    }
+
+    fn perft_multithreaded_with_hashing(pos: &Position, depth: i8, config: &PerftConfig, verbose: bool) -> i64 {
+        let moves = find_moves(pos);
+        let config = config.clone();
+        let n_jobs = moves.len(); 
+        let pool = ThreadPool::new(config.num_threads);
+        let (tx, rx) = channel();
+        for i in 0..n_jobs {
+            let tx = tx.clone();
+            let mv = moves[i];
+            let new_pos = make_move(pos, &mv);
+            let mut table = TranspositionTable::new(config.table_size);
+            pool.execute(move || {
+                let count = perft_inner_with_table(&new_pos, depth - 1, &mut table, &config);
+                tx.send(count).unwrap();
+                if verbose {
+                    println!("{}: {}", mv.to_algebraic(), count);
+                }
             });
         }
         return rx.iter().take(n_jobs).fold(0, |a, b| a + b);
@@ -209,20 +239,12 @@ pub mod perft {
     pub fn perft_divided(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
         assert!(depth >= 1);
         let start = std::time::Instant::now();
-        let mut nodes = 0;
-        let move_list = find_moves(pos);
-        for mv in move_list.iter() {
-            let new_pos = make_move(pos, mv);
-            let branch_nodes;
-            if depth == 1 {
-                branch_nodes = 1
-            } else {
-                branch_nodes = perft_multithreaded(&new_pos, depth-1, config)
-            }
-            // Report branch
-            println!("{}: {}", mv.to_algebraic(), branch_nodes);
-            nodes += branch_nodes;
-        }
+        // Perft generally runs faster with hashing at higher depths
+        let nodes = if depth >= 6 {
+            perft_multithreaded_with_hashing(pos, depth, config, true)
+        } else {
+            perft_multithreaded(&pos, depth, config, true)
+        };
         // Report perft results
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
@@ -277,7 +299,7 @@ pub mod perft {
         assert_eq!(positions.len(), depths.len());
         let n_tests = positions.len();
         println!("Running Perft Suite...");
-        (config.multithreading, config.hashing) = (false, true);
+        (config.multithreading, config.hashing) = (true, true);
         run_suite!(n_tests, positions, depths, config);
         (config.multithreading, config.hashing) = (true, false);
         run_suite!(n_tests, positions, depths, config);
