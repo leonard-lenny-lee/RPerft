@@ -11,7 +11,7 @@ impl Config {
         Config {
             /// Default perft configuration
             hashing: true,
-            table_size: 17_000_000, // 1 million Perft entries
+            table_size: 24_000_000, // 1 million Perft entries
             bulk_counting: true,
             uci_mode: false,
             uci_debug: false,

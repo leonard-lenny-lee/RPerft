@@ -2,6 +2,7 @@ use super::*;
 use evaluate::evaluate;
 use makemove::make_move;
 use movegen::find_moves;
+use movelist::Move;
 use position::Position;
 use transposition::{TranspositionTable, SearchEntry};
 
@@ -12,19 +13,41 @@ pub fn nega_max_search(pos: &Position, depth: i8, table: &mut TranspositionTable
     nega_max(pos, depth, table);
     // Probe table for the results of the search
     if let Some(entry) = table.get(pos.key.0, depth) {
+        let pv = probe_pv(pos, depth, table);
+        let pv_algebraic = pv
+            .into_iter()
+            .map(|m| m.to_algebraic())
+            .collect::<Vec<String>>()
+            .join(" ");
         println!(
-            "Best move: {} ({}{})",
+            "bestmove {} {} pv {}",
             entry.best_move.to_algebraic(),
-            if entry.evaluation >= 0 {
-                "+"
-            } else {
-                "-"
-            },
-            entry.evaluation
-        )
-    } else {
-        log::error!("Hash table lookup failed!")
+            entry.evaluation,
+            pv_algebraic,
+        );
+    };
+}
+
+fn probe_pv(
+    pos: &Position,
+    depth: i8,
+    table: &mut TranspositionTable<SearchEntry>
+) -> Vec<Move> {
+    let mut pos = pos.clone();
+    let mut depth = depth;
+    let mut pv = Vec::new();
+    while depth > 0 {
+        if let Some(entry) = table.get(pos.key.0, depth) {
+            if !entry.best_move.is_null() {
+                pos = make_move(&pos, &entry.best_move);
+                pv.push(entry.best_move);
+            }
+        } else {
+            break;
+        }
+        depth -= 1;
     }
+    return pv;
 }
 
 /// Search a position for the best evaluation using the exhaustative depth

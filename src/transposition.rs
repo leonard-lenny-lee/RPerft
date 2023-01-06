@@ -39,6 +39,10 @@ impl<T: Entry> TranspositionTable<T> {
         let entry = &mut self.entries[idx];
         *entry = new_entry
     }
+
+    pub fn clear(&mut self) {
+        self.entries = vec![T::new_empty(); self.size].into_boxed_slice();
+    }
 }
 
 #[derive(Clone, Copy)]
