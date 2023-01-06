@@ -121,26 +121,50 @@ pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32) -> i32 {
 pub mod perft {
 
     use super::*;
-    use config::Config;
+    use config::PerftConfig;
     use transposition::{PerftEntry, TranspositionTable};
+    use threadpool::ThreadPool;
+    use std::sync::mpsc::channel;
 
-    pub fn perft(pos: &Position, depth: i8, config: &Config) -> (i64, f64, f64) {
+    pub fn perft(pos: &Position, depth: i8, config: &PerftConfig) -> (i64, f64, f64) {
         assert!(depth >= 1);
         let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
-        let nodes = if config.hashing {
-            perft_inner_with_table(pos, depth, &mut table, config)
+        let nodes =
+        if config.multithreading {
+            perft_multithreaded(pos, depth, config)
+        } else if config.hashing {
+            perft_inner_with_table(pos, depth, &mut table, config.bulk_counting)
         } else {
-            perft_inner(pos, depth, config)
+            perft_inner(pos, depth, config.bulk_counting)
         };
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
         return (nodes, duration, nodes_per_second);
     }
 
-    fn perft_inner(pos: &Position, depth: i8, config: &Config) -> i64 {
+    fn perft_multithreaded(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
+        let moves = find_moves(pos);
+        let n_jobs = moves.len(); 
+        let pool = ThreadPool::new(config.n_threads);
+        
+        let bulk_counting = config.bulk_counting;
+        let (tx, rx) = channel();
+        for i in 0..n_jobs {
+            let tx = tx.clone();
+            let mv = &moves[i];
+            let new_pos = make_move(pos, mv);
+            pool.execute(move || {
+                let count = perft_inner(&new_pos, depth - 1, bulk_counting);
+                tx.send(count).unwrap();
+            });
+        }
+        return rx.iter().take(n_jobs).fold(0, |a, b| a + b);
+    }
+
+    fn perft_inner(pos: &Position, depth: i8, bulk_counting: bool) -> i64 {
         let mut nodes = 0;
-        if depth == 1 && config.bulk_counting {
+        if depth == 1 && bulk_counting {
             return find_moves(pos).len() as i64;
         }
         if depth == 0 {
@@ -149,7 +173,7 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner(&new_pos, depth - 1, config);
+            nodes += perft_inner(&new_pos, depth - 1, bulk_counting);
         }
         return nodes;
     }
@@ -158,13 +182,13 @@ pub mod perft {
         pos: &Position,
         depth: i8,
         table: &mut TranspositionTable<PerftEntry>,
-        config: &Config,
+        bulk_counting: bool,
     ) -> i64 {
         let mut nodes = 0;
         if let Some(entry) = table.get(pos.key.0, depth) {
             return entry.count;
         };
-        if depth == 1 && config.bulk_counting {
+        if depth == 1 && bulk_counting {
             return find_moves(pos).len() as i64;
         }
         if depth == 0 {
@@ -173,7 +197,7 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner_with_table(&new_pos, depth - 1, table, config);
+            nodes += perft_inner_with_table(&new_pos, depth - 1, table, bulk_counting);
         }
         table.set(PerftEntry {
             key: pos.key.0,
@@ -185,9 +209,8 @@ pub mod perft {
 
     /// Provides the number of nodes for down each branch of the first depth
     /// search. Useful for perft debugging purposes
-    pub fn perft_divided(pos: &Position, depth: i8, config: &Config) -> i64 {
+    pub fn perft_divided(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
         assert!(depth >= 1);
-        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
         let mut nodes = 0;
         let move_list = find_moves(pos);
@@ -197,11 +220,7 @@ pub mod perft {
             if depth == 1 {
                 branch_nodes = 1
             } else {
-                branch_nodes = if config.hashing {
-                    perft_inner_with_table(&new_pos, depth - 1, &mut table, config)
-                } else {
-                    perft_inner(&new_pos, depth - 1, config)
-                }
+                branch_nodes = perft_multithreaded(&new_pos, depth-1, config)
             }
             // Report branch
             println!("{}: {}", mv.to_algebraic(), branch_nodes);
@@ -246,7 +265,7 @@ pub mod perft {
     }
 
     pub fn run_perft_bench() {
-        let mut config = Config::initialize();
+        let mut config = PerftConfig::initialize();
 
         let positions = [
             DEFAULT_FEN,
@@ -261,9 +280,9 @@ pub mod perft {
         assert_eq!(positions.len(), depths.len());
         let n_tests = positions.len();
         println!("Running Perft Suite...");
-        config.hashing = true;
+        (config.multithreading, config.hashing) = (false, true);
         run_suite!(n_tests, positions, depths, config);
-        config.hashing = false;
+        (config.multithreading, config.hashing) = (true, false);
         run_suite!(n_tests, positions, depths, config);
         config.bulk_counting = false;
         run_suite!(n_tests, positions, depths, config);
