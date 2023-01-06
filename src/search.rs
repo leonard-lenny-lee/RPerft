@@ -53,7 +53,6 @@ fn probe_pv(
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-///
 pub fn nega_max(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> i32 {
     if let Some(entry) = table.get(pos.key.0, depth) {
         return entry.evaluation
@@ -134,9 +133,9 @@ pub mod perft {
         if config.multithreading {
             perft_multithreaded(pos, depth, config)
         } else if config.hashing {
-            perft_inner_with_table(pos, depth, &mut table, config.bulk_counting)
+            perft_inner_with_table(pos, depth, &mut table, config)
         } else {
-            perft_inner(pos, depth, config.bulk_counting)
+            perft_inner(pos, depth, config)
         };
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
@@ -145,26 +144,24 @@ pub mod perft {
 
     fn perft_multithreaded(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
         let moves = find_moves(pos);
+        let config = config.clone();
         let n_jobs = moves.len(); 
-        let pool = ThreadPool::new(config.n_threads);
-        
-        let bulk_counting = config.bulk_counting;
+        let pool = ThreadPool::new(config.num_threads);
         let (tx, rx) = channel();
         for i in 0..n_jobs {
             let tx = tx.clone();
-            let mv = &moves[i];
-            let new_pos = make_move(pos, mv);
+            let new_pos = make_move(pos, &moves[i]);
             pool.execute(move || {
-                let count = perft_inner(&new_pos, depth - 1, bulk_counting);
+                let count = perft_inner(&new_pos, depth - 1, &config);
                 tx.send(count).unwrap();
             });
         }
         return rx.iter().take(n_jobs).fold(0, |a, b| a + b);
     }
 
-    fn perft_inner(pos: &Position, depth: i8, bulk_counting: bool) -> i64 {
+    fn perft_inner(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
         let mut nodes = 0;
-        if depth == 1 && bulk_counting {
+        if depth == 1 && config.bulk_counting {
             return find_moves(pos).len() as i64;
         }
         if depth == 0 {
@@ -173,7 +170,7 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner(&new_pos, depth - 1, bulk_counting);
+            nodes += perft_inner(&new_pos, depth - 1, config);
         }
         return nodes;
     }
@@ -182,13 +179,13 @@ pub mod perft {
         pos: &Position,
         depth: i8,
         table: &mut TranspositionTable<PerftEntry>,
-        bulk_counting: bool,
+        config: &PerftConfig,
     ) -> i64 {
         let mut nodes = 0;
         if let Some(entry) = table.get(pos.key.0, depth) {
             return entry.count;
         };
-        if depth == 1 && bulk_counting {
+        if depth == 1 && config.bulk_counting {
             return find_moves(pos).len() as i64;
         }
         if depth == 0 {
@@ -197,7 +194,7 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner_with_table(&new_pos, depth - 1, table, bulk_counting);
+            nodes += perft_inner_with_table(&new_pos, depth - 1, table, config);
         }
         table.set(PerftEntry {
             key: pos.key.0,

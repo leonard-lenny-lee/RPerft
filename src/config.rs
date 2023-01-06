@@ -1,10 +1,10 @@
+#[derive(Clone, Copy)]
 pub struct Config {
     pub table_size: usize,
     pub n_threads: usize,
     pub perft_config: PerftConfig,
     pub uci_mode: bool,
     pub uci_debug: bool,
-
 }
 
 impl Config {
@@ -19,9 +19,10 @@ impl Config {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct PerftConfig {
     pub multithreading: bool,
-    pub n_threads: usize,
+    pub num_threads: usize,
     pub hashing: bool,
     pub table_size: usize,
     pub bulk_counting: bool,
@@ -31,7 +32,7 @@ impl PerftConfig {
     pub fn initialize() -> Self {
         Self {
             multithreading: true,
-            n_threads: num_cpus::get(),
+            num_threads: num_cpus::get(),
             hashing: true,
             table_size: 24_000_000,
             bulk_counting: true,
@@ -49,9 +50,13 @@ impl PerftConfig {
             };
         }
         println!(
-            "multithreading {} ({} threads), bulk counting {}, hashing {}",
+            "multithreading {}{}, bulk counting {}, hashing {}",
             report_bool!(self, multithreading),
-            self.n_threads,
+            if self.multithreading {
+                format!(" ({} threads)", self.num_threads)
+            } else {
+                "".to_string()
+            },
             report_bool!(self, bulk_counting),
             report_bool!(self, hashing)
         );
