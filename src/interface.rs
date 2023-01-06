@@ -727,7 +727,12 @@ mod execute {
 
     pub fn depth_search(state: &mut State, depth: &str) -> Result<(), ExecutionError> {
         let depth = depth.parse::<i8>().unwrap();
-        search::nega_max_search(&state.position, depth, &mut state.transposition_table);
+        search::do_search(
+            &mut state.config,
+            &state.position,
+            depth,
+            &mut state.transposition_table,
+        );
         Ok(())
     }
 }

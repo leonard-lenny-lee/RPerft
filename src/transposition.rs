@@ -72,6 +72,7 @@ pub struct SearchEntry {
     pub depth: i8,
     pub best_move: movelist::Move,
     pub evaluation: i32,
+    pub node_type: search::NodeType,
 }
 
 impl Entry for SearchEntry {
@@ -89,6 +90,7 @@ impl Entry for SearchEntry {
             depth: -1,
             best_move: movelist::Move::new_null(),
             evaluation: 0,
+            node_type: search::NodeType::PV,
         }
     }
 }
