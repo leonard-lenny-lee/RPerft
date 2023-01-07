@@ -1,5 +1,8 @@
 use super::*;
-use std::sync::{atomic::{AtomicU64, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 
 pub trait Entry: Sized + Clone + Copy {
     fn key(&self) -> u64;
@@ -122,7 +125,7 @@ impl Clone for SharedPerftEntry {
     fn clone(&self) -> Self {
         Self {
             key: AtomicU64::new(self.key.load(Ordering::Relaxed)),
-            data: AtomicU64::new(self.data.load(Ordering::Relaxed))
+            data: AtomicU64::new(self.data.load(Ordering::Relaxed)),
         }
     }
 }
@@ -130,7 +133,7 @@ impl Clone for SharedPerftEntry {
 impl SharedEntry for SharedPerftEntry {
     fn key(&self) -> u64 {
         self.key.load(Ordering::Relaxed)
-    }    
+    }
 
     fn data(&self) -> u64 {
         self.data.load(Ordering::Relaxed)
@@ -171,20 +174,17 @@ pub struct SharedHashTable<T: SharedEntry> {
     size: usize,
 }
 
-impl<T:SharedEntry> SharedHashTable<T> {
+impl<T: SharedEntry> SharedHashTable<T> {
     pub fn new(size_bytes: usize) -> Self {
         let size = size_bytes / T::size_bytes();
         log::info!(
             "Hash table initialized: {:.1} Mb, {} entries ({} b/entry)",
             size_bytes as f64 / 1_000_000.0,
             size,
-            std::mem::size_of::<SearchEntry>()
+            T::size_bytes()
         );
         let entries = vec![T::new_empty(); size].into();
-        Self {
-            entries,
-            size
-        }
+        Self { entries, size }
     }
 
     pub fn get(&self, key: u64, depth: u8) -> Option<T> {

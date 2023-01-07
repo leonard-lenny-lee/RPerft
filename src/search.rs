@@ -4,7 +4,7 @@ use makemove::make_move;
 use movegen::find_moves;
 use movelist::Move;
 use position::Position;
-use transposition::{SearchEntry, HashTable, SharedHashTable, SharedPerftEntry};
+use transposition::{HashTable, SearchEntry, SharedHashTable};
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
@@ -115,9 +115,9 @@ pub mod perft {
 
     use super::*;
     use config::PerftConfig;
-    use std::sync::{Arc, mpsc::channel};
+    use std::sync::{mpsc::channel, Arc};
     use threadpool::ThreadPool;
-    use transposition::{PerftEntry, HashTable};
+    use transposition::{PerftEntry, SharedPerftEntry};
 
     pub fn perft(pos: &Position, depth: u8, config: &PerftConfig) -> (u64, f64, f64) {
         assert!(depth >= 1);
@@ -223,10 +223,7 @@ pub mod perft {
             nodes += perft_inner_shared_hash_table(&new_pos, depth - 1, table, config);
         }
         if let Some(table) = table {
-            table.set(
-                SharedPerftEntry::new(pos.key.0, depth, nodes),
-                pos.key.0
-            );
+            table.set(SharedPerftEntry::new(pos.key.0, depth, nodes), pos.key.0);
         }
         return nodes;
     }
@@ -257,12 +254,12 @@ pub mod perft {
                 let (nodes, duration, nodes_per_second) = perft(&pos, $depths[i], &$config);
                 results.push((i + 1, nodes, duration, nodes_per_second));
             }
-            println!(" {}", "-".repeat(34));
+            println!("+{}+", "-".repeat(34));
             println!(
                 "|{:>3} |{:>11} |{:>6} |{:>7} |",
                 "#", "Nodes", "sec", "MN/s"
             );
-            println!(" {}", "-".repeat(34));
+            println!("+{}+", "-".repeat(34));
             for (n, nodes, duration, nodes_per_second) in results {
                 println!(
                     "|{:>3} |{:>11} |{:>6} |{:>7} |",
@@ -272,7 +269,7 @@ pub mod perft {
                     format!("{:.2}", nodes_per_second)
                 )
             }
-            println!(" {}", "-".repeat(34))
+            println!("+{}+", "-".repeat(34))
         };
     }
 
