@@ -645,7 +645,7 @@ mod execute {
     use super::*;
 
     pub fn perft(state: &mut State, arg: String) -> Result<(), ExecutionError> {
-        let token = arg.parse::<i8>();
+        let token = arg.parse::<u8>();
         match token {
             Ok(depth) => {
                 search::perft::perft_divided(&state.position, depth, &state.config.perft_config);
@@ -757,7 +757,7 @@ mod execute {
     }
 
     pub fn depth_search(state: &mut State, depth: &str) -> Result<(), ExecutionError> {
-        let depth = depth.parse::<i8>().unwrap();
+        let depth = depth.parse::<u8>().unwrap();
         search::nega_max_search(&state.position, depth, &mut state.transposition_table);
         Ok(())
     }

@@ -4,11 +4,11 @@ use makemove::make_move;
 use movegen::find_moves;
 use movelist::Move;
 use position::Position;
-use transposition::{SearchEntry, TranspositionTable};
+use transposition::{SearchEntry, HashTable, SharedHashTable, SharedPerftEntry};
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 
-pub fn nega_max_search(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) {
+pub fn nega_max_search(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) {
     // Execute search
     nega_max(pos, depth, table);
     // Probe table for the results of the search
@@ -28,7 +28,7 @@ pub fn nega_max_search(pos: &Position, depth: i8, table: &mut TranspositionTable
     };
 }
 
-fn probe_pv(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> Vec<Move> {
+fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Vec<Move> {
     let mut pos = pos.clone();
     let mut depth = depth;
     let mut pv = Vec::new();
@@ -49,7 +49,7 @@ fn probe_pv(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntr
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-pub fn nega_max(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> i32 {
+pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i32 {
     if let Some(entry) = table.get(pos.key.0, depth) {
         return entry.evaluation;
     }
@@ -115,18 +115,18 @@ pub mod perft {
 
     use super::*;
     use config::PerftConfig;
-    use std::sync::mpsc::channel;
+    use std::sync::{Arc, mpsc::channel};
     use threadpool::ThreadPool;
-    use transposition::{PerftEntry, TranspositionTable};
+    use transposition::{PerftEntry, HashTable};
 
-    pub fn perft(pos: &Position, depth: i8, config: &PerftConfig) -> (i64, f64, f64) {
+    pub fn perft(pos: &Position, depth: u8, config: &PerftConfig) -> (u64, f64, f64) {
         assert!(depth >= 1);
         let start = std::time::Instant::now();
         let nodes = if config.multithreading {
             perft_multithreaded(pos, depth, config.hashing, config, false)
         } else {
             let mut table = if config.hashing {
-                Some(TranspositionTable::new(config.table_size))
+                Some(HashTable::new(config.table_size))
             } else {
                 None
             };
@@ -139,27 +139,24 @@ pub mod perft {
 
     fn perft_multithreaded(
         pos: &Position,
-        depth: i8,
+        depth: u8,
         hashing: bool,
         config: &PerftConfig,
         verbose: bool,
-    ) -> i64 {
+    ) -> u64 {
         let moves = find_moves(pos);
         let config = config.clone();
         let n_jobs = moves.len();
         let pool = ThreadPool::new(config.num_threads);
         let (tx, rx) = channel();
+        let table = Arc::new(SharedHashTable::new(config.table_size));
         for i in 0..n_jobs {
             let tx = tx.clone();
             let mv = moves[i];
             let new_pos = make_move(pos, &mv);
-            let mut table = if hashing {
-                Some(TranspositionTable::new(config.table_size))
-            } else {
-                None
-            };
+            let table = if hashing { Some(table.clone()) } else { None };
             pool.execute(move || {
-                let count = perft_inner(&new_pos, depth - 1, &mut table, &config);
+                let count = perft_inner_shared_hash_table(&new_pos, depth - 1, &table, &config);
                 tx.send(count).unwrap();
                 if verbose {
                     println!("{}: {}", mv.to_algebraic(), count);
@@ -171,10 +168,10 @@ pub mod perft {
 
     fn perft_inner(
         pos: &Position,
-        depth: i8,
-        table: &mut Option<TranspositionTable<PerftEntry>>,
+        depth: u8,
+        table: &mut Option<HashTable<PerftEntry>>,
         config: &PerftConfig,
-    ) -> i64 {
+    ) -> u64 {
         let mut nodes = 0;
         if let Some(table) = table {
             if let Some(entry) = table.get(pos.key.0, depth) {
@@ -182,7 +179,7 @@ pub mod perft {
             };
         }
         if depth == 1 && config.bulk_counting {
-            return find_moves(pos).len() as i64;
+            return find_moves(pos).len() as u64;
         }
         if depth == 0 {
             return 1;
@@ -202,13 +199,45 @@ pub mod perft {
         return nodes;
     }
 
+    fn perft_inner_shared_hash_table(
+        pos: &Position,
+        depth: u8,
+        table: &Option<Arc<SharedHashTable<SharedPerftEntry>>>,
+        config: &PerftConfig,
+    ) -> u64 {
+        let mut nodes = 0;
+        if let Some(table) = table {
+            if let Some(entry) = table.get(pos.key.0, depth) {
+                return entry.count().into();
+            };
+        }
+        if depth == 1 && config.bulk_counting {
+            return find_moves(pos).len() as u64;
+        }
+        if depth == 0 {
+            return 1;
+        }
+        let move_list = find_moves(pos);
+        for mv in move_list.iter() {
+            let new_pos = make_move(pos, mv);
+            nodes += perft_inner_shared_hash_table(&new_pos, depth - 1, table, config);
+        }
+        if let Some(table) = table {
+            table.set(
+                SharedPerftEntry::new(pos.key.0, depth, nodes),
+                pos.key.0
+            );
+        }
+        return nodes;
+    }
+
     /// Provides the number of nodes for down each branch of the first depth
     /// search. Useful for perft debugging purposes
-    pub fn perft_divided(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
+    pub fn perft_divided(pos: &Position, depth: u8, config: &PerftConfig) -> u64 {
         assert!(depth >= 1);
         let start = std::time::Instant::now();
         // Perft generally runs faster with hashing at higher depths
-        let nodes = perft_multithreaded(pos, depth, depth >= 6, config, true);
+        let nodes = perft_multithreaded(pos, depth, config.hashing, config, true);
         // Report perft results
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);

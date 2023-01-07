@@ -3,13 +3,13 @@ use crate::transposition::SearchEntry;
 use super::*;
 use config::Config;
 use position::Position;
-use transposition::TranspositionTable;
+use transposition::HashTable;
 
 pub struct State {
     pub position: Position,
     pub position_history: Vec<Position>,
     pub config: Config,
-    pub transposition_table: TranspositionTable<SearchEntry>
+    pub transposition_table: HashTable<SearchEntry>
 }
 
 impl State {
@@ -19,7 +19,7 @@ impl State {
         Self {
             position: Position::from_fen(common::DEFAULT_FEN.to_string()).unwrap(),
             position_history: Vec::new(),
-            transposition_table: TranspositionTable::new(config.table_size),
+            transposition_table: HashTable::new(config.table_size),
             config,
         }
     }
