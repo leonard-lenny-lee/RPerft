@@ -648,7 +648,7 @@ mod execute {
         let token = arg.parse::<i8>();
         match token {
             Ok(depth) => {
-                search::perft::perft_divided(&state.position, depth, &state.config);
+                search::perft::perft_divided(&state.position, depth, &state.config.perft_config);
             }
             Err(_) => search::perft::run_perft_bench(),
         };
