@@ -20,8 +20,8 @@ pub enum NodeType {
 pub fn do_search(
     config: &mut Config,
     pos: &Position,
-    depth: i8,
-    table: &mut TranspositionTable<SearchEntry>,
+    depth: u8,
+    table: &mut HashTable<SearchEntry>,
 ) {
     // Execute search
     match config.search_method {
@@ -108,10 +108,10 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
 /// Implementation of alpha-beta pruning to search for the best evaluation
 pub fn alpha_beta(
     pos: &Position,
-    depth: i8,
+    depth: u8,
     mut alpha: i32,
     beta: i32,
-    table: &mut TranspositionTable<SearchEntry>,
+    table: &mut HashTable<SearchEntry>,
 ) -> i32 {
     if let Some(entry) = table.get(pos.key.0, depth) {
         return entry.evaluation;

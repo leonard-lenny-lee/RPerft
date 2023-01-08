@@ -757,7 +757,7 @@ mod execute {
     }
 
     pub fn depth_search(state: &mut State, depth: &str) -> Result<(), ExecutionError> {
-        let depth = depth.parse::<i8>().unwrap();
+        let depth = depth.parse::<u8>().unwrap();
         search::do_search(
             &mut state.config,
             &state.position,
