@@ -86,8 +86,9 @@ pub fn nega_max(pos: &Position, depth: i8, table: &mut TranspositionTable<Search
 
 /// Implementation of alpha-beta pruning to search for the best evaluation
 pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32, table: &mut TranspositionTable<SearchEntry>) -> i32 { 
-    let mut best_move = movelist::Move::new_null();
-    let mut is_pv = false;
+    if let Some(entry) = table.get(pos.key.0, depth) {
+        return entry.evaluation;
+    }
     if depth == 0 {
         return evaluate(pos);
     }
@@ -100,15 +101,17 @@ pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32, table: &
             return 0; // Stalemate
         }
     }
+    let mut best_move = movelist::Move::new_null();
+    let mut is_pv = false;
     for mv in move_list.iter() {
         let new_pos = make_move(pos, mv);
-        let evaluation = -alpha_beta(&new_pos, depth - 1, -alpha, -beta, table);
+        let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
             table.set(
                 SearchEntry {
                     key: pos.key.0,
-                    depth: depth,
-                    best_move: *mv,
+                    depth,
+                    best_move,
                     evaluation: beta,
                     node_type: NodeType::Cut,
                 }
@@ -124,8 +127,8 @@ pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32, table: &
     table.set(
         SearchEntry {
             key: pos.key.0,
-            depth: depth,
-            best_move: best_move,
+            depth,
+            best_move,
             evaluation: alpha,
             node_type: if is_pv {NodeType::PV} else {NodeType::All},
         }

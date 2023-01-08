@@ -21,7 +21,7 @@ impl Config {
             bulk_counting: true,
             uci_mode: false,
             uci_debug: false,
-            search_method: SearchMethod::Negamax,
+            search_method: SearchMethod::AlphaBeta,
         }
     }
 
