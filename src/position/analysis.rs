@@ -8,62 +8,38 @@ impl Position {
         // Remove our king from the occupancy bitboard for sliding piece move
         // generation to prevent the king from blocking other unsafe squares
         let occ = self.data.occ ^ self.our_pieces().king;
+        let their_pieces = self.their_pieces();
         // Calculate pawn attacks
         unsafe_squares |= self.unsafe_squares_pawn();
         // Calculate attacks in horizontal and vertical directions
-        unsafe_squares |= (self.their_pieces().rook | self.their_pieces().queen).rook_attacks(occ);
+        unsafe_squares |= (their_pieces.rook | their_pieces.queen).rook_attacks(occ);
         // Calculate attacks in the diagonal and anti-diagonal directions
-        unsafe_squares |=
-            (self.their_pieces().bishop | self.their_pieces().queen).bishop_attacks(occ);
+        unsafe_squares |= (their_pieces.bishop | their_pieces.queen).bishop_attacks(occ);
         // Calculate knight attacks
-        unsafe_squares |= self.unsafe_squares_knight();
-        // Calculate king attacks
-        unsafe_squares |= self.their_pieces().king.lookup_king_attacks();
-        return unsafe_squares;
-    }
-
-    /// Return all the squares attacked by opponent knights
-    pub fn unsafe_squares_knight(&self) -> BB {
-        let mut knights = self.their_pieces().knight;
-        let mut unsafe_squares = EMPTY_BB;
-        while knights.is_any() {
-            let knight = knights.pop_ls1b();
-            let attacks = knight.lookup_knight_attacks();
-            unsafe_squares |= attacks;
+        for sq in their_pieces.knight {
+            unsafe_squares |= sq.lookup_knight_attacks()
         }
-        unsafe_squares
+        // Calculate king attacks
+        unsafe_squares |= their_pieces.king.lookup_king_attacks();
+        return unsafe_squares;
     }
 
     /// Return a bitboard of opponent pieces giving check
     pub fn find_checkers(&self) -> BB {
         let mut checkers = EMPTY_BB;
+        let king = self.our_pieces().king;
+        let their_pieces = self.their_pieces();
         // Find checking pawns
         checkers |= self.their_checking_pawns();
         // Find checkers along the files and ranks
-        checkers |= self.file_and_rank_checkers();
+        checkers |=
+            king.lookup_rook_attacks(self.data.occ) & (their_pieces.rook | their_pieces.queen);
         // Find checkers along the diagonals
-        checkers |= self.diag_and_adiag_checkers();
+        checkers |=
+            king.lookup_bishop_attacks(self.data.occ) & (their_pieces.bishop | their_pieces.queen);
         // Find knight checkers
-        checkers |= self.knight_checkers();
+        checkers |= king.lookup_knight_attacks() & their_pieces.knight;
         checkers
-    }
-
-    #[inline(always)]
-    fn file_and_rank_checkers(&self) -> BB {
-        let pseudo_attacks = self.our_pieces().king.lookup_rook_attacks(self.data.occ);
-        pseudo_attacks & (self.their_pieces().rook | self.their_pieces().queen)
-    }
-
-    #[inline(always)]
-    fn diag_and_adiag_checkers(&self) -> BB {
-        let pseudo_attacks = self.our_pieces().king.lookup_bishop_attacks(self.data.occ);
-        pseudo_attacks & (self.their_pieces().bishop | self.their_pieces().queen)
-    }
-
-    #[inline(always)]
-    fn knight_checkers(&self) -> BB {
-        let pseudo_attacks = self.our_pieces().king.lookup_knight_attacks();
-        pseudo_attacks & self.their_pieces().knight
     }
 
     /// Return a bitboard of all pinned pieces
@@ -82,6 +58,26 @@ impl Position {
             king.hyp_quint(occ, Axis::AntiDiagonal) & diag_adiag_pieces.adiag_attacks(occ);
 
         file_pins | rank_pins | diag_pins | adiag_pins
+    }
+
+    /// Return a bitboard with all the squares our pieces are attacking
+    pub fn target_squares(&self) -> BB {
+        let mut target_squares = EMPTY_BB;
+        let our_pieces = self.our_pieces();
+        // Pawn attacks
+        target_squares |=
+            self.pawn_left_capture(our_pieces.pawn) | self.pawn_right_capture(our_pieces.pawn);
+        // Horizontal and vertical attacks
+        target_squares |= (our_pieces.rook | our_pieces.queen).rook_attacks(self.data.occ);
+        // Diagonal and antidiagonal attacks
+        target_squares |= (our_pieces.bishop | our_pieces.queen).bishop_attacks(self.data.occ);
+        // Knight attacks
+        for sq in our_pieces.knight {
+            target_squares |= sq.lookup_knight_attacks()
+        }
+        // King attacks
+        target_squares |= our_pieces.king.lookup_king_attacks();
+        return target_squares;
     }
 
     /// Identify which opponent piece is a particular position as the index
