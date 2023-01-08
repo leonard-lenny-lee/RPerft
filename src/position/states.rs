@@ -166,9 +166,9 @@ impl Position {
 
 pub(crate) trait State {
     /// Current state pointer
-    fn current_state(&self) -> Box<dyn State>;
+    fn current_state(&self) -> Box<dyn State + Send + Sync>;
     /// Other state pointer
-    fn change_state(&self) -> Box<dyn State>;
+    fn change_state(&self) -> Box<dyn State + Send + Sync>;
     /// Pawns reaching this rank can promote
     fn target_promotion_rank(&self) -> BB;
     /// Pawns starting from this rank can promote
@@ -251,11 +251,11 @@ pub(crate) trait State {
 }
 
 impl State for White {
-    fn current_state(&self) -> Box<dyn State> {
+    fn current_state(&self) -> Box<dyn State + Send + Sync> {
         Box::new(White)
     }
 
-    fn change_state(&self) -> Box<dyn State> {
+    fn change_state(&self) -> Box<dyn State + Send + Sync> {
         Box::new(Black)
     }
 
@@ -421,11 +421,11 @@ impl State for White {
 }
 
 impl State for Black {
-    fn current_state(&self) -> Box<dyn State> {
+    fn current_state(&self) -> Box<dyn State + Send + Sync> {
         Box::new(Black)
     }
 
-    fn change_state(&self) -> Box<dyn State> {
+    fn change_state(&self) -> Box<dyn State + Send + Sync> {
         Box::new(White)
     }
 

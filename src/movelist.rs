@@ -269,6 +269,10 @@ impl Move {
         self.word_two & SPECIAL_X
     }
 
+    pub fn is_null(&self) -> bool {
+        self.word_one == 0 && self.word_two == 0
+    }
+
     pub fn promotion_piece(&self) -> usize {
         match self.word_two & SPECIAL_X {
             0 => Piece::Knight.value(),

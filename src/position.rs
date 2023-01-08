@@ -15,7 +15,7 @@ pub use zobrist::ZobristKey;
 pub struct Position {
     pub data: Data,
     pub key: ZobristKey,
-    state: Box<dyn states::State>,
+    state: Box<dyn states::State + Send + Sync>,
 }
 
 impl Position {

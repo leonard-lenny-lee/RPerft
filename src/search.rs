@@ -3,6 +3,7 @@ use config::{Config, SearchMethod};
 use evaluate::evaluate;
 use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
+use movelist::Move;
 use position::Position;
 use transposition::{SearchEntry, TranspositionTable};
 
@@ -32,21 +33,42 @@ pub fn do_search(
 
     // Probe table for the results of the search
     if let Some(entry) = table.get(pos.key.0, depth) {
+        let pv = probe_pv(pos, depth, table);
+        let pv_algebraic = pv
+            .into_iter()
+            .map(|m| m.to_algebraic())
+            .collect::<Vec<String>>()
+            .join(" ");
         println!(
-            "Best move: {} ({}{})",
+            "bestmove {} {} pv {}",
             entry.best_move.to_algebraic(),
-            if entry.evaluation >= 0 { "+" } else { "" },
-            entry.evaluation
-        )
-    } else {
-        log::error!("Hash table lookup failed!")
+            entry.evaluation,
+            pv_algebraic,
+        );
+    };
+}
+
+fn probe_pv(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> Vec<Move> {
+    let mut pos = pos.clone();
+    let mut depth = depth;
+    let mut pv = Vec::new();
+    while depth > 0 {
+        if let Some(entry) = table.get(pos.key.0, depth) {
+            if !entry.best_move.is_null() {
+                pos = make_move(&pos, &entry.best_move);
+                pv.push(entry.best_move);
+            }
+        } else {
+            break;
+        }
+        depth -= 1;
     }
+    return pv;
 }
 
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-///
 pub fn nega_max(pos: &Position, depth: i8, table: &mut TranspositionTable<SearchEntry>) -> i32 {
     if let Some(entry) = table.get(pos.key.0, depth) {
         return entry.evaluation;
@@ -181,49 +203,73 @@ fn quiesce(pos: &Position, mut alpha: i32, beta: i32, ply: i8) -> i32 {
 pub mod perft {
 
     use super::*;
-    use config::Config;
+    use config::PerftConfig;
+    use std::sync::mpsc::channel;
+    use threadpool::ThreadPool;
     use transposition::{PerftEntry, TranspositionTable};
 
-    pub fn perft(pos: &Position, depth: i8, config: &Config) -> (i64, f64, f64) {
+    pub fn perft(pos: &Position, depth: i8, config: &PerftConfig) -> (i64, f64, f64) {
         assert!(depth >= 1);
-        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
-        let nodes = if config.hashing {
-            perft_inner_with_table(pos, depth, &mut table, config)
+        let nodes = if config.multithreading {
+            perft_multithreaded(pos, depth, config.hashing, config, false)
         } else {
-            perft_inner(pos, depth, config)
+            let mut table = if config.hashing {
+                Some(TranspositionTable::new(config.table_size))
+            } else {
+                None
+            };
+            perft_inner(pos, depth, &mut table, config)
         };
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
         return (nodes, duration, nodes_per_second);
     }
 
-    fn perft_inner(pos: &Position, depth: i8, config: &Config) -> i64 {
-        let mut nodes = 0;
-        if depth == 1 && config.bulk_counting {
-            return find_moves(pos).len() as i64;
-        }
-        if depth == 0 {
-            return 1;
-        }
-        let move_list = find_moves(pos);
-        for mv in move_list.iter() {
-            let new_pos = make_move(pos, mv);
-            nodes += perft_inner(&new_pos, depth - 1, config);
-        }
-        return nodes;
-    }
-
-    fn perft_inner_with_table(
+    fn perft_multithreaded(
         pos: &Position,
         depth: i8,
-        table: &mut TranspositionTable<PerftEntry>,
-        config: &Config,
+        hashing: bool,
+        config: &PerftConfig,
+        verbose: bool,
+    ) -> i64 {
+        let moves = find_moves(pos);
+        let config = config.clone();
+        let n_jobs = moves.len();
+        let pool = ThreadPool::new(config.num_threads);
+        let (tx, rx) = channel();
+        for i in 0..n_jobs {
+            let tx = tx.clone();
+            let mv = moves[i];
+            let new_pos = make_move(pos, &mv);
+            let mut table = if hashing {
+                Some(TranspositionTable::new(config.table_size))
+            } else {
+                None
+            };
+            pool.execute(move || {
+                let count = perft_inner(&new_pos, depth - 1, &mut table, &config);
+                tx.send(count).unwrap();
+                if verbose {
+                    println!("{}: {}", mv.to_algebraic(), count);
+                }
+            });
+        }
+        return rx.iter().take(n_jobs).fold(0, |a, b| a + b);
+    }
+
+    fn perft_inner(
+        pos: &Position,
+        depth: i8,
+        table: &mut Option<TranspositionTable<PerftEntry>>,
+        config: &PerftConfig,
     ) -> i64 {
         let mut nodes = 0;
-        if let Some(entry) = table.get(pos.key.0, depth) {
-            return entry.count;
-        };
+        if let Some(table) = table {
+            if let Some(entry) = table.get(pos.key.0, depth) {
+                return entry.count;
+            };
+        }
         if depth == 1 && config.bulk_counting {
             return find_moves(pos).len() as i64;
         }
@@ -233,40 +279,25 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner_with_table(&new_pos, depth - 1, table, config);
+            nodes += perft_inner(&new_pos, depth - 1, table, config);
         }
-        table.set(PerftEntry {
-            key: pos.key.0,
-            count: nodes,
-            depth,
-        });
+        if let Some(table) = table {
+            table.set(PerftEntry {
+                key: pos.key.0,
+                count: nodes,
+                depth,
+            });
+        }
         return nodes;
     }
 
     /// Provides the number of nodes for down each branch of the first depth
     /// search. Useful for perft debugging purposes
-    pub fn perft_divided(pos: &Position, depth: i8, config: &Config) -> i64 {
+    pub fn perft_divided(pos: &Position, depth: i8, config: &PerftConfig) -> i64 {
         assert!(depth >= 1);
-        let mut table = TranspositionTable::new(config.table_size);
         let start = std::time::Instant::now();
-        let mut nodes = 0;
-        let move_list = find_moves(pos);
-        for mv in move_list.iter() {
-            let new_pos = make_move(pos, mv);
-            let branch_nodes;
-            if depth == 1 {
-                branch_nodes = 1
-            } else {
-                branch_nodes = if config.hashing {
-                    perft_inner_with_table(&new_pos, depth - 1, &mut table, config)
-                } else {
-                    perft_inner(&new_pos, depth - 1, config)
-                }
-            }
-            // Report branch
-            println!("{}: {}", mv.to_algebraic(), branch_nodes);
-            nodes += branch_nodes;
-        }
+        // Perft generally runs faster with hashing at higher depths
+        let nodes = perft_multithreaded(pos, depth, depth >= 6, config, true);
         // Report perft results
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
@@ -306,7 +337,7 @@ pub mod perft {
     }
 
     pub fn run_perft_bench() {
-        let mut config = Config::initialize();
+        let mut config = PerftConfig::initialize();
 
         let positions = [
             DEFAULT_FEN,
@@ -321,9 +352,9 @@ pub mod perft {
         assert_eq!(positions.len(), depths.len());
         let n_tests = positions.len();
         println!("Running Perft Suite...");
-        config.hashing = true;
+        (config.multithreading, config.hashing) = (true, true);
         run_suite!(n_tests, positions, depths, config);
-        config.hashing = false;
+        (config.multithreading, config.hashing) = (true, false);
         run_suite!(n_tests, positions, depths, config);
         config.bulk_counting = false;
         run_suite!(n_tests, positions, depths, config);
