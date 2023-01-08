@@ -1,16 +1,36 @@
 use super::*;
+use config::{Config, SearchMethod};
 use evaluate::evaluate;
 use makemove::make_move;
-use movegen::find_moves;
+use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
 use transposition::{HashTable, SearchEntry, SharedHashTable};
 
 const NEGATIVE_INFINITY: i32 = -1000000;
+const POSITIVE_INFINITY: i32 = 1000000;
 
-pub fn nega_max_search(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) {
+#[derive(Clone, Copy)]
+pub enum NodeType {
+    PV,
+    Cut,
+    All,
+}
+
+pub fn do_search(
+    config: &mut Config,
+    pos: &Position,
+    depth: i8,
+    table: &mut TranspositionTable<SearchEntry>,
+) {
     // Execute search
-    nega_max(pos, depth, table);
+    match config.search_method {
+        SearchMethod::Negamax => nega_max(pos, depth, table),
+        SearchMethod::AlphaBeta => {
+            alpha_beta(pos, depth, NEGATIVE_INFINITY, POSITIVE_INFINITY, table)
+        }
+    };
+
     // Probe table for the results of the search
     if let Some(entry) = table.get(pos.key.0, depth) {
         let pv = probe_pv(pos, depth, table);
@@ -80,14 +100,24 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
         depth,
         best_move,
         evaluation: max_evaluation,
+        node_type: NodeType::PV,
     });
     return max_evaluation;
 }
 
 /// Implementation of alpha-beta pruning to search for the best evaluation
-pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32) -> i32 {
+pub fn alpha_beta(
+    pos: &Position,
+    depth: i8,
+    mut alpha: i32,
+    beta: i32,
+    table: &mut TranspositionTable<SearchEntry>,
+) -> i32 {
+    if let Some(entry) = table.get(pos.key.0, depth) {
+        return entry.evaluation;
+    }
     if depth == 0 {
-        return evaluate(pos);
+        return quiesce(pos, alpha, beta, 0);
     }
     let move_list = find_moves(pos);
     if move_list.len() == 0 {
@@ -98,16 +128,75 @@ pub fn alpha_beta(pos: &Position, depth: i8, mut alpha: i32, beta: i32) -> i32 {
             return 0; // Stalemate
         }
     }
+    let mut best_move = movelist::Move::new_null();
+    let mut is_pv = false;
     for mv in move_list.iter() {
         let new_pos = make_move(pos, mv);
-        let evaluation = -alpha_beta(&new_pos, depth - 1, -alpha, -beta);
+        let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
+            table.set(SearchEntry {
+                key: pos.key.0,
+                depth,
+                best_move,
+                evaluation: beta,
+                node_type: NodeType::Cut,
+            });
             return beta; // Pruning condition
         }
         if evaluation > alpha {
-            alpha = evaluation
+            alpha = evaluation;
+            is_pv = true;
+            best_move = *mv;
         }
     }
+    table.set(SearchEntry {
+        key: pos.key.0,
+        depth,
+        best_move,
+        evaluation: alpha,
+        node_type: if is_pv { NodeType::PV } else { NodeType::All },
+    });
+    return alpha;
+}
+
+fn quiesce(pos: &Position, mut alpha: i32, beta: i32, ply: i8) -> i32 {
+    let stand_pat = evaluate(pos);
+    if stand_pat >= beta {
+        return beta;
+    }
+    if alpha < stand_pat {
+        alpha = stand_pat;
+    }
+    let checkers = pos.find_checkers();
+    let target_squares = pos.target_squares(); // All squares our pieces are attacking
+    let possible_captures = target_squares & pos.their_pieces().any;
+    let move_list = if checkers != EMPTY_BB {
+        // If in check, the priority is to resolve the check
+        let move_list = find_check_evasions(pos, checkers);
+        if move_list.len() == 0 {
+            // Checkmate
+            return NEGATIVE_INFINITY;
+        }
+        move_list
+    } else if possible_captures != EMPTY_BB {
+        // Enumerate the through the captures only
+        find_captures(pos)
+    } else {
+        // No captures and not in check
+        return alpha;
+    };
+
+    for mv in move_list.iter() {
+        let new_pos = make_move(pos, mv);
+        let score = -quiesce(&new_pos, -beta, -alpha, ply + 1);
+        if score >= beta {
+            return beta;
+        }
+        if score > alpha {
+            alpha = score
+        }
+    }
+
     return alpha;
 }
 

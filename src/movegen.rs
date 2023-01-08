@@ -24,9 +24,7 @@ pub fn find_moves(pos: &Position) -> MoveList {
             capture_mask = checkers;
             if pos.their_piece_at_is_slider(checkers) {
                 // If the attacker is a sliding piece, then check can be
-                // If the attacker is a sliding piece, then check can be
-                // If the attacker is a sliding piece, then check can be
-                // blocked by another piece moving into the
+                // blocked by another piece moving into the intervening squares
                 push_mask = pos.our_pieces().king.connect_squares(checkers)
             } else {
                 // It can only be captured so give no options to block
@@ -41,23 +39,64 @@ pub fn find_moves(pos: &Position) -> MoveList {
     }
 
     // Add all moves to the move list
-
     find_single_pushes(pos, &mut move_list, push_mask, pinned_pieces);
-
     find_double_pushes(pos, &mut move_list, push_mask, pinned_pieces);
-
     find_pawn_captures(pos, &mut move_list, capture_mask, pinned_pieces);
-
     find_knight_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
-
     find_king_moves(pos, &mut move_list, unsafe_squares);
-
     find_sliding_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
-
     if n_checkers == 0 {
         find_castling_moves(pos, &mut move_list, unsafe_squares);
     }
     find_en_passant_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
+    return move_list;
+}
+
+/// Variation of the find moves function to find only captures
+pub fn find_captures(pos: &Position) -> MoveList {
+    debug_assert!(pos.find_checkers().pop_count() == 0);
+    let mut move_list = MoveList::new();
+    let their_pieces = pos.their_pieces();
+
+    let unsafe_squares = pos.unsafe_squares() | !their_pieces.any;
+    let pinned_pieces = pos.pinned_pieces();
+    let capture_mask = their_pieces.any;
+    let push_mask = their_pieces.any;
+
+    find_pawn_captures(pos, &mut move_list, capture_mask, pinned_pieces);
+    find_knight_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
+    find_king_moves(pos, &mut move_list, unsafe_squares);
+    find_sliding_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
+    find_en_passant_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
+    return move_list;
+}
+
+/// Find only check evasions in a position. Panics if used on a position where
+/// they are not in check
+pub fn find_check_evasions(pos: &Position, checkers: BB) -> MoveList {
+    let n_checkers = checkers.pop_count();
+    debug_assert!(n_checkers >= 1);
+    let mut move_list = MoveList::new();
+    let unsafe_squares = pos.unsafe_squares();
+    let pinned_pieces = pos.pinned_pieces();
+    if n_checkers > 1 {
+        // If in double check, only king moves are valid
+        find_king_moves(pos, &mut move_list, unsafe_squares);
+        return move_list;
+    }
+    // n_checkers must be 1
+    let push_mask = if pos.their_piece_at_is_slider(checkers) {
+        pos.our_pieces().king.connect_squares(checkers)
+    } else {
+        EMPTY_BB
+    };
+    find_single_pushes(pos, &mut move_list, push_mask, pinned_pieces);
+    find_double_pushes(pos, &mut move_list, push_mask, pinned_pieces);
+    find_pawn_captures(pos, &mut move_list, checkers, pinned_pieces);
+    find_knight_moves(pos, &mut move_list, checkers, push_mask, pinned_pieces);
+    find_king_moves(pos, &mut move_list, unsafe_squares);
+    find_sliding_moves(pos, &mut move_list, checkers, push_mask, pinned_pieces);
+    find_en_passant_moves(pos, &mut move_list, checkers, push_mask, pinned_pieces);
     return move_list;
 }
 
@@ -417,5 +456,28 @@ mod tests {
         }
         assert_eq!(expected_nodes, move_list.len() as i32, "nodes");
         assert_eq!(expected_captures, n_captures, "captures")
+    }
+
+    #[test_case(POSITION_2, 8; "position_two")]
+    #[test_case(POSITION_3, 1; "position_three")]
+    fn test_find_captures(fen: &str, expected_captures: i32) {
+        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let move_list = find_captures(&pos);
+        assert_eq!(move_list.len() as i32, expected_captures);
+        let mut n_captures = 0;
+        for mv in move_list.iter() {
+            if mv.is_capture() {
+                n_captures += 1
+            }
+        }
+        assert_eq!(n_captures, expected_captures);
+    }
+
+    #[test]
+    fn test_find_check_evasions() {
+        let pos = Position::from_fen("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1".to_string()).unwrap();
+        let checkers = pos.find_checkers();
+        let move_list = find_check_evasions(&pos, checkers);
+        assert_eq!(move_list.len(), 11)
     }
 }

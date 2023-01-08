@@ -1,10 +1,17 @@
 #[derive(Clone, Copy)]
+pub enum SearchMethod {
+    Negamax,
+    AlphaBeta,
+}
+
+#[derive(Clone, Copy)]
 pub struct Config {
     pub table_size: usize,
     pub n_threads: usize,
     pub perft_config: PerftConfig,
     pub uci_mode: bool,
     pub uci_debug: bool,
+    pub search_method: SearchMethod,
 }
 
 impl Config {
@@ -15,6 +22,7 @@ impl Config {
             perft_config: PerftConfig::initialize(),
             uci_mode: false,
             uci_debug: false,
+            search_method: SearchMethod::AlphaBeta,
         }
     }
 }
