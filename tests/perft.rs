@@ -1,12 +1,14 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking
 use chess_engine::*;
 use common::*;
-use config::Config;
+use config::PerftConfig;
 use position::Position;
 use search::perft::*;
 use test_case::test_case;
 
-const GLOBAL: Config = Config::initialize();
+lazy_static::lazy_static! {
+    static ref CONFIG: PerftConfig = PerftConfig::initialize();
+}
 
 /// Light perft test suite. Compares the number of nodes generated in these
 /// standard perft positions against the consensus.
@@ -19,7 +21,7 @@ const GLOBAL: Config = Config::initialize();
 fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let node = Position::from_fen(fen.to_string()).unwrap();
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, &GLOBAL).0;
+        let result = perft(&node, dpt, &CONFIG).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -42,7 +44,7 @@ fn light_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", 4, 23527; "stalemate & checkmate #2")]
 fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
     let node = Position::from_fen(fen.to_string()).unwrap();
-    assert_eq!(perft(&node, depth, &GLOBAL).0, expected_nodes);
+    assert_eq!(perft(&node, depth, &CONFIG).0, expected_nodes);
 }
 
 // Not part of perft test suite, useful for debugging.
@@ -51,7 +53,7 @@ fn talk_chess_perft_tests(fen: &str, depth: i8, expected_nodes: i64) {
 fn perft_debug() {
     let fen = "r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1";
     let node = Position::from_fen(fen.to_string()).unwrap();
-    perft_divided(&node, 4, &GLOBAL);
+    perft_divided(&node, 4, &CONFIG);
 }
 
 /// Medium depth perft tests. Extension of the light perft test suite.
@@ -64,7 +66,7 @@ fn perft_debug() {
 fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
     let node = Position::from_fen(fen.to_string()).unwrap();
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, &GLOBAL).0;
+        let result = perft(&node, dpt, &CONFIG).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -79,6 +81,6 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<i64>, depth: i8) {
 #[test_case(POSITION_6, 6923051137, 6; "position_six")]
 fn deep_perft_test(fen: &str, expected_nodes: i64, depth: i8) {
     let node = Position::from_fen(fen.to_string()).unwrap();
-    let result = perft(&node, depth, &GLOBAL).0;
+    let result = perft(&node, depth, &CONFIG).0;
     assert_eq!(result, expected_nodes)
 }

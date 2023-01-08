@@ -112,6 +112,12 @@ lazy_static! {
                 parent_command: Command::Branch(Branch::Go),
                 level: 2
             }),
+            (Command::Leaf(Leaf::Help), CommandConfig {
+                token: "help",
+                tokens_required: Requires::Args(0, 255),
+                parent_command: Command::Root,
+                level: 1
+            }),
         ])
     };
 }
@@ -142,14 +148,16 @@ pub enum Leaf {
     Undo,
     Uci,
     UciNewGame,
-    Depth
+    Depth,
+    Help,
 }
 
 impl Command {
     fn parse(token: &str, level: u8) -> Result<Self, ParseError> {
         to_lower!(token);
         for (key, config) in COMMAND_CONFIGS.iter() {
-            if token == config.token && level == config.level {
+            // Level 0 will allow any level token to match
+            if token == config.token && (level == config.level || level == 0) {
                 return Ok(*key);
             }
         }
@@ -365,6 +373,7 @@ impl CommandNode {
                 Leaf::Display | Leaf::Uci | Leaf::UciNewGame | Leaf::Quit => (),
                 Leaf::SetOption => log::warn!("setoption not implemented"), // TODO Implement SetOption
                 Leaf::Depth => args_check::positive_numerical_token(args[0])?,
+                Leaf::Help => args_check::help_tokens(args)?,
             }
         } else {
             log::warn!("Attempted argument parsing of non-leaf command")
@@ -423,6 +432,11 @@ impl CommandNode {
                 Leaf::Depth => {
                     if let Some(args) = &self.args {
                         execute::depth_search(state, args[0].as_str())?
+                    }
+                },
+                Leaf::Help => {
+                    if let Some(args) = &self.args {
+                        execute::help(args)?
                     }
                 },
             }
@@ -608,6 +622,22 @@ mod args_check {
             Ok(())
         }
     }
+
+    pub fn help_tokens(tokens: &Vec<&str>) -> Result<(), ParseError> {
+        let mut valid_tokens = 0;
+        let mut invalid_tokens = Vec::new();
+        for token in tokens.iter() {
+            match Command::parse(token, 0) {
+                Ok(_) => valid_tokens += 1,
+                Err(_) => invalid_tokens.push(*token)
+            }
+        }
+        if valid_tokens == 0 && tokens.len() > 0 {
+            Err(ParseError::UnrecognisedTokens(invalid_tokens.join(", ")))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 mod execute {
@@ -618,7 +648,7 @@ mod execute {
         let token = arg.parse::<i8>();
         match token {
             Ok(depth) => {
-                search::perft::perft_divided(&state.position, depth, &state.config);
+                search::perft::perft_divided(&state.position, depth, &state.config.perft_config);
             }
             Err(_) => search::perft::run_perft_bench(),
         };
@@ -629,7 +659,7 @@ mod execute {
         let fen = args[0..6].join(" ");
         let moves = args[6..].to_vec();
         if fen != state.position.data.fen() {
-            state.position_history = Vec::new();
+            uci_new_game(state)?;
         }
         state.position_history.push(state.position.clone());
         state.position = position::Position::from_fen(fen)?;
@@ -637,7 +667,7 @@ mod execute {
     }
 
     pub fn startpos(state: &mut State, args: &Vec<String>) -> Result<(), ExecutionError> {
-        state.position_history = Vec::new();
+        uci_new_game(state)?;
         state.position_history.push(state.position.clone());
         state.position = position::Position::from_fen(common::DEFAULT_FEN.to_string())?;
         self::moves(state, args)
@@ -722,6 +752,7 @@ mod execute {
 
     pub fn uci_new_game(state: &mut State) -> Result<(), ExecutionError> {
         state.position_history = Vec::new();
+        state.transposition_table.clear();
         Ok(())
     }
 
@@ -733,6 +764,43 @@ mod execute {
             depth,
             &mut state.transposition_table,
         );
+        Ok(())
+    }
+
+    pub fn help(args: &Vec<String>) -> Result<(), ExecutionError> {
+        if args.len() == 0 {
+            // No additional arguments provided so list all available commands
+            println!("\nAvailable Commands\n{}", "-".repeat(18));
+            list_commands(&Command::Root, 0);
+            println!("For more information on specific command usage, call \"help\", followed by the token");
+
+            fn list_commands(cmd: &Command, level: u8) {
+                for (subcmd, config) in COMMAND_CONFIGS.iter() {
+                    if config.parent_command == *cmd && level == config.level {
+                        println!(
+                            "{}{}",
+                            " ".repeat((level * 4) as usize),
+                            config.token
+                        );
+                        if matches!(config.tokens_required, Requires::SubCmd) {
+                            list_commands(subcmd, level+1)
+                        };
+                    }
+                }
+            }
+        } else {
+            let mut invalid_tokens = Vec::new();
+            for arg in args.iter() {
+                match Command::parse(arg.as_str(), 0) {
+                    Ok(_) => (), // TODO Write help and display help
+                    Err(_) => invalid_tokens.push(arg.as_str()),
+                }
+            }
+            log::error!(
+                "{} are not valid commands. For a list of valid commands, call \"help\"",
+                invalid_tokens.join(", "),
+            )
+        }
         Ok(())
     }
 }
