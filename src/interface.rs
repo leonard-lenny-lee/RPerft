@@ -403,7 +403,7 @@ impl CommandNode {
                     }
                 }
                 Leaf::Display => {
-                    println!("{}", state.position.data.to_string());
+                    println!("{}", state.position.to_string());
                 }
                 Leaf::Fen => {
                     if let Some(args) = &self.args {
@@ -433,12 +433,12 @@ impl CommandNode {
                     if let Some(args) = &self.args {
                         execute::depth_search(state, args[0].as_str())?
                     }
-                },
+                }
                 Leaf::Help => {
                     if let Some(args) = &self.args {
                         execute::help(args)?
                     }
-                },
+                }
             }
             log::debug!("Command Executed {}", self.cmd.as_str())
         } else {
@@ -629,7 +629,7 @@ mod args_check {
         for token in tokens.iter() {
             match Command::parse(token, 0) {
                 Ok(_) => valid_tokens += 1,
-                Err(_) => invalid_tokens.push(*token)
+                Err(_) => invalid_tokens.push(*token),
             }
         }
         if valid_tokens == 0 && tokens.len() > 0 {
@@ -772,13 +772,9 @@ mod execute {
             fn list_commands(cmd: &Command, level: u8) {
                 for (subcmd, config) in COMMAND_CONFIGS.iter() {
                     if config.parent_command == *cmd && level == config.level {
-                        println!(
-                            "{}{}",
-                            " ".repeat((level * 4) as usize),
-                            config.token
-                        );
+                        println!("{}{}", " ".repeat((level * 4) as usize), config.token);
                         if matches!(config.tokens_required, Requires::SubCmd) {
-                            list_commands(subcmd, level+1)
+                            list_commands(subcmd, level + 1)
                         };
                     }
                 }

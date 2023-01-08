@@ -54,4 +54,14 @@ impl Position {
             state: self.state.current_state(),
         }
     }
+
+    /// Convert the position into a string for display
+    pub fn to_string(&self) -> String {
+        format!(
+            "\n{}\nFen: {}\nKey: {:X}\n",
+            self.data.board(),
+            self.data.fen(),
+            self.key.0
+        )
+    }
 }

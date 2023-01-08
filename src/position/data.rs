@@ -347,15 +347,15 @@ impl Data {
     /// Convert to string representation of the board for printing to the
     /// standard output
     pub fn board(&self) -> String {
-        let array = self.to_array(true);
+        let array = self.to_array(false);
         let mut out = String::new();
-        out.push_str("   --- --- --- --- --- --- --- --- \n8 ");
+        out.push_str("  +---+---+---+---+---+---+---+---+\n8 ");
         for i in 0..8 {
             let i2 = 7 - i;
             let row = array[i2];
             if i != 0 {
                 let rank = &(8 - i).to_string()[..];
-                out.push_str("|\n   --- --- --- --- --- --- --- --- \n");
+                out.push_str("|\n  +---+---+---+---+---+---+---+---+\n");
                 out.push_str(rank);
                 out.push(' ');
             }
@@ -366,18 +366,9 @@ impl Data {
             }
         }
         out.push_str(
-            "|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h \n",
+            "|\n  +---+---+---+---+---+---+---+---+\n    a   b   c   d   e   f   g   h \n",
         );
         return out;
-    }
-
-    /// Convert the board into a string for display
-    pub fn to_string(&self) -> String {
-        let mut out = self.board();
-        out.push_str("\nFEN: ");
-        out.push_str(&self.fen()[..]);
-        out.push_str("\n");
-        out
     }
 }
 
@@ -494,12 +485,5 @@ mod tests {
     fn test_fen_parse() {
         let data = Data::from_fen(POSITION_3.to_string()).unwrap();
         assert_eq!(data.fen(), POSITION_3)
-    }
-
-    #[test]
-    #[ignore]
-    fn test_to_string() {
-        let data = Data::from_fen(POSITION_3.to_string()).unwrap();
-        print!("{}", data.to_string())
     }
 }
