@@ -116,6 +116,10 @@ impl Move {
         };
     }
 
+    pub fn from_words(word_one: u8, word_two: u8) -> Move {
+        return Move { word_one, word_two };
+    }
+
     fn new_quiet_move(target: BB, src: BB) -> Move {
         return Move {
             word_one: Move::encode_square(src),
@@ -261,6 +265,14 @@ impl Move {
         self.word_one & SPECIAL_X == 0 && self.word_two & SPECIAL_X == SPECIAL_2
     }
 
+    pub fn word_one(&self) -> u8 {
+        self.word_one
+    }
+
+    pub fn word_two(&self) -> u8 {
+        self.word_two
+    }
+
     pub fn flag_one(&self) -> u8 {
         self.word_one & SPECIAL_X
     }
@@ -294,7 +306,7 @@ impl Move {
                     3 => "n",
                     4 => "b",
                     5 => "q",
-                    _ => ""
+                    _ => "",
                 }
             } else {
                 ""

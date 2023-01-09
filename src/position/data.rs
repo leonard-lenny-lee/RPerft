@@ -195,52 +195,52 @@ impl Data {
     }
 
     /// The difference between the number of queens on the board
-    pub fn queen_diff(&self) -> i32 {
+    pub fn queen_diff(&self) -> i16 {
         self.w_pieces.n_queens() - self.b_pieces.n_queens()
     }
 
     /// The difference between the number of rooks on the board
-    pub fn rook_diff(&self) -> i32 {
+    pub fn rook_diff(&self) -> i16 {
         self.w_pieces.n_rooks() - self.b_pieces.n_rooks()
     }
 
     /// The difference between the number of bishops on the board
-    pub fn bishop_diff(&self) -> i32 {
+    pub fn bishop_diff(&self) -> i16 {
         self.w_pieces.n_bishops() - self.b_pieces.n_bishops()
     }
 
     /// The difference between the number of knights on the board
-    pub fn knight_diff(&self) -> i32 {
+    pub fn knight_diff(&self) -> i16 {
         self.w_pieces.n_knights() - self.b_pieces.n_knights()
     }
 
     /// The difference between the number of pawns on the board
-    pub fn pawn_diff(&self) -> i32 {
+    pub fn pawn_diff(&self) -> i16 {
         self.w_pieces.n_pawns() - self.b_pieces.n_pawns()
     }
 
     /// The total number of queens on the board
-    pub fn queen_sum(&self) -> i32 {
+    pub fn queen_sum(&self) -> i16 {
         self.w_pieces.n_queens() + self.b_pieces.n_queens()
     }
 
     /// The total number of rooks on the board
-    pub fn rook_sum(&self) -> i32 {
+    pub fn rook_sum(&self) -> i16 {
         self.w_pieces.n_rooks() + self.b_pieces.n_rooks()
     }
 
     /// The total number of bishops on the board
-    pub fn bishop_sum(&self) -> i32 {
+    pub fn bishop_sum(&self) -> i16 {
         self.w_pieces.n_bishops() + self.b_pieces.n_bishops()
     }
 
     /// The total number of knights on the board
-    pub fn knight_sum(&self) -> i32 {
+    pub fn knight_sum(&self) -> i16 {
         self.w_pieces.n_knights() + self.b_pieces.n_knights()
     }
 
     /// The total number of pawns on the board
-    pub fn pawn_sum(&self) -> i32 {
+    pub fn pawn_sum(&self) -> i16 {
         self.w_pieces.n_pawns() + self.b_pieces.n_pawns()
     }
 

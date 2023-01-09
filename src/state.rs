@@ -1,15 +1,13 @@
-use crate::transposition::SearchEntry;
-
 use super::*;
 use config::Config;
 use position::Position;
-use transposition::HashTable;
+use transposition::{HashTable, SearchEntry};
 
 pub struct State {
     pub position: Position,
     pub position_history: Vec<Position>,
     pub config: Config,
-    pub transposition_table: HashTable<SearchEntry>
+    pub transposition_table: HashTable<SearchEntry>,
 }
 
 impl State {

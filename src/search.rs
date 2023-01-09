@@ -5,10 +5,10 @@ use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
-use transposition::{HashTable, Probe, SearchEntry, SharedHashTable};
+use transposition::{HashTable, Probe, SearchEntry};
 
-const NEGATIVE_INFINITY: i32 = -1000000;
-const POSITIVE_INFINITY: i32 = 1000000;
+const NEGATIVE_INFINITY: i16 = -30000;
+const POSITIVE_INFINITY: i16 = 30000;
 
 #[derive(Clone, Copy)]
 pub enum NodeType {
@@ -70,7 +70,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Ve
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i32 {
+pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i16 {
     let probe_result = table.get(pos.key.0, depth);
     if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
@@ -114,10 +114,10 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
 pub fn alpha_beta(
     pos: &Position,
     depth: u8,
-    mut alpha: i32,
-    beta: i32,
+    mut alpha: i16,
+    beta: i16,
     table: &mut HashTable<SearchEntry>,
-) -> i32 {
+) -> i16 {
     let probe_result = table.get(pos.key.0, depth);
     if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
@@ -171,7 +171,7 @@ pub fn alpha_beta(
     return alpha;
 }
 
-fn quiesce(pos: &Position, mut alpha: i32, beta: i32, ply: i8) -> i32 {
+fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     let stand_pat = evaluate(pos);
     if stand_pat >= beta {
         return beta;
@@ -218,7 +218,7 @@ pub mod perft {
     use config::PerftConfig;
     use std::sync::{mpsc::channel, Arc};
     use threadpool::ThreadPool;
-    use transposition::{PerftEntry, SharedPerftEntry};
+    use transposition::{PerftEntry, SharedEntry, SharedHashTable, SharedPerftEntry};
 
     pub fn perft(pos: &Position, depth: u8, config: &PerftConfig) -> (u64, f64, f64) {
         assert!(depth >= 1);
@@ -257,7 +257,7 @@ pub mod perft {
             let new_pos = make_move(pos, &mv);
             let table = if hashing { Some(table.clone()) } else { None };
             pool.execute(move || {
-                let count = perft_inner_shared_hash_table(&new_pos, depth - 1, &table, &config);
+                let count = perft_inner_multithreaded(&new_pos, depth - 1, &table, &config);
                 tx.send(count).unwrap();
                 if verbose {
                     println!("{}: {}", mv.to_algebraic(), count);
@@ -303,7 +303,7 @@ pub mod perft {
         return nodes;
     }
 
-    fn perft_inner_shared_hash_table(
+    fn perft_inner_multithreaded(
         pos: &Position,
         depth: u8,
         table: &Option<Arc<SharedHashTable<SharedPerftEntry>>>,
@@ -311,8 +311,10 @@ pub mod perft {
     ) -> u64 {
         let mut nodes = 0;
         if let Some(table) = table {
-            if let Some(entry) = table.get(pos.key.0, depth) {
-                return entry.count().into();
+            if let Probe::Read(entry) = table.get(pos.key.0, depth) {
+                if depth == entry.depth() {
+                    return entry.count().into();
+                }
             };
         }
         if depth == 1 && config.bulk_counting {
@@ -324,10 +326,10 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner_shared_hash_table(&new_pos, depth - 1, table, config);
+            nodes += perft_inner_multithreaded(&new_pos, depth - 1, table, config);
         }
         if let Some(table) = table {
-            table.set(SharedPerftEntry::new(pos.key.0, depth, nodes), pos.key.0);
+            table.set(SharedPerftEntry::encode(pos.key.0, depth, nodes), pos.key.0);
         }
         return nodes;
     }
