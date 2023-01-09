@@ -4,9 +4,16 @@ use std::sync::{
     Arc,
 };
 
+pub enum Probe<T> {
+    Read(T),
+    Write,
+    Ignore,
+}
+
 pub trait Entry: Sized + Clone + Copy {
     fn key(&self) -> u64;
     fn depth(&self) -> u8;
+    fn age(&self) -> u8;
     fn size_bytes() -> usize {
         std::mem::size_of::<Self>()
     }
@@ -16,6 +23,7 @@ pub trait Entry: Sized + Clone + Copy {
 pub struct HashTable<T: Entry> {
     entries: Box<[T]>,
     size: usize,
+    pub age: u8,
 }
 
 impl<T: Entry> HashTable<T> {
@@ -25,17 +33,41 @@ impl<T: Entry> HashTable<T> {
         Self {
             entries: vec.into_boxed_slice(),
             size,
+            age: 1,
         }
     }
 
-    pub fn get(&self, key: u64, depth: u8) -> Option<T> {
+    pub fn get(&self, key: u64, depth: u8) -> Probe<T> {
         let idx = key as usize % self.size;
         let entry = self.entries[idx];
-        if entry.key() == key && entry.depth() == depth {
-            return Some(entry);
+        let (entry_key, entry_depth) = (entry.key(), entry.depth());
+        // Check if the entry key matches the access key
+        if entry_key == key {
+            // Key match so correct position. If entry depth is greater than
+            // or equal to the probe depth, then return the entry
+            if entry_depth >= depth {
+                return Probe::Read(entry);
+            }
+            // Else the entry is from a lower depth search and so can be
+            // replaced with a higher quality entry
+            return Probe::Write;
         } else {
-            return None;
+            // Key mismatch. If the entry is aged (from previous search), replace
+            // with the newer entry from the current search; recycles old entries
+            if self.age > entry.age() {
+                return Probe::Write;
+            }
+            // Else the entry is from the current search as it is impossible for
+            // entry age to be greater than the table age. In this case, keep
+            // entry if the entry has a depth as it contains more information
+            if entry_depth >= depth {
+                return Probe::Ignore;
+            }
+            // Else, overwrite with a higher quality entry
+            return Probe::Write;
         }
+        // * Note: the empty entries which initalise the table should have a
+        // * a depth and age of 0 so will always be overwritten
     }
 
     pub fn set(&mut self, new_entry: T) {
@@ -54,6 +86,7 @@ pub struct PerftEntry {
     pub key: u64,
     pub count: u64,
     pub depth: u8,
+    pub age: u8,
 }
 
 impl Entry for PerftEntry {
@@ -65,11 +98,16 @@ impl Entry for PerftEntry {
         return self.depth;
     }
 
+    fn age(&self) -> u8 {
+        return self.age;
+    }
+
     fn new_empty() -> Self {
         Self {
             key: 0,
             count: 0,
             depth: 0,
+            age: 0,
         }
     }
 }
@@ -78,6 +116,7 @@ impl Entry for PerftEntry {
 pub struct SearchEntry {
     pub key: u64,
     pub depth: u8,
+    pub age: u8,
     pub best_move: movelist::Move,
     pub evaluation: i32,
     pub node_type: search::NodeType,
@@ -92,10 +131,15 @@ impl Entry for SearchEntry {
         return self.depth;
     }
 
+    fn age(&self) -> u8 {
+        return self.age;
+    }
+
     fn new_empty() -> Self {
         Self {
             key: 0,
             depth: 0,
+            age: 0,
             best_move: movelist::Move::new_null(),
             evaluation: 0,
             node_type: search::NodeType::PV,

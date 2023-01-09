@@ -5,7 +5,7 @@ use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
-use transposition::{HashTable, SearchEntry, SharedHashTable};
+use transposition::{HashTable, Probe, SearchEntry, SharedHashTable};
 
 const NEGATIVE_INFINITY: i32 = -1000000;
 const POSITIVE_INFINITY: i32 = 1000000;
@@ -23,6 +23,7 @@ pub fn do_search(
     depth: u8,
     table: &mut HashTable<SearchEntry>,
 ) {
+    table.age += 1;
     // Execute search
     match config.search_method {
         SearchMethod::Negamax => nega_max(pos, depth, table),
@@ -32,7 +33,7 @@ pub fn do_search(
     };
 
     // Probe table for the results of the search
-    if let Some(entry) = table.get(pos.key.0, depth) {
+    if let Probe::Read(entry) = table.get(pos.key.0, depth) {
         let pv = probe_pv(pos, depth, table);
         let pv_algebraic = pv
             .into_iter()
@@ -53,7 +54,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Ve
     let mut depth = depth;
     let mut pv = Vec::new();
     while depth > 0 {
-        if let Some(entry) = table.get(pos.key.0, depth) {
+        if let Probe::Read(entry) = table.get(pos.key.0, depth) {
             if !entry.best_move.is_null() {
                 pos = make_move(&pos, &entry.best_move);
                 pv.push(entry.best_move);
@@ -70,7 +71,8 @@ fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Ve
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
 pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i32 {
-    if let Some(entry) = table.get(pos.key.0, depth) {
+    let probe_result = table.get(pos.key.0, depth);
+    if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
     }
     if depth == 0 {
@@ -95,13 +97,16 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
             best_move = *mv;
         }
     }
-    table.set(SearchEntry {
-        key: pos.key.0,
-        depth,
-        best_move,
-        evaluation: max_evaluation,
-        node_type: NodeType::PV,
-    });
+    if let Probe::Write = probe_result {
+        table.set(SearchEntry {
+            key: pos.key.0,
+            depth,
+            best_move,
+            evaluation: max_evaluation,
+            node_type: NodeType::PV,
+            age: table.age,
+        });
+    }
     return max_evaluation;
 }
 
@@ -113,7 +118,8 @@ pub fn alpha_beta(
     beta: i32,
     table: &mut HashTable<SearchEntry>,
 ) -> i32 {
-    if let Some(entry) = table.get(pos.key.0, depth) {
+    let probe_result = table.get(pos.key.0, depth);
+    if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
     }
     if depth == 0 {
@@ -134,13 +140,16 @@ pub fn alpha_beta(
         let new_pos = make_move(pos, mv);
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
-            table.set(SearchEntry {
-                key: pos.key.0,
-                depth,
-                best_move,
-                evaluation: beta,
-                node_type: NodeType::Cut,
-            });
+            if let Probe::Write = probe_result {
+                table.set(SearchEntry {
+                    key: pos.key.0,
+                    depth,
+                    best_move,
+                    evaluation: beta,
+                    node_type: NodeType::Cut,
+                    age: table.age,
+                });
+            }
             return beta; // Pruning condition
         }
         if evaluation > alpha {
@@ -149,13 +158,16 @@ pub fn alpha_beta(
             best_move = *mv;
         }
     }
-    table.set(SearchEntry {
-        key: pos.key.0,
-        depth,
-        best_move,
-        evaluation: alpha,
-        node_type: if is_pv { NodeType::PV } else { NodeType::All },
-    });
+    if let Probe::Write = probe_result {
+        table.set(SearchEntry {
+            key: pos.key.0,
+            depth,
+            best_move,
+            evaluation: alpha,
+            node_type: if is_pv { NodeType::PV } else { NodeType::All },
+            age: table.age,
+        });
+    }
     return alpha;
 }
 
@@ -263,8 +275,10 @@ pub mod perft {
     ) -> u64 {
         let mut nodes = 0;
         if let Some(table) = table {
-            if let Some(entry) = table.get(pos.key.0, depth) {
-                return entry.count;
+            if let Probe::Read(entry) = table.get(pos.key.0, depth) {
+                if depth == entry.depth {
+                    return entry.count;
+                }
             };
         }
         if depth == 1 && config.bulk_counting {
@@ -283,6 +297,7 @@ pub mod perft {
                 key: pos.key.0,
                 count: nodes,
                 depth,
+                age: table.age,
             });
         }
         return nodes;
