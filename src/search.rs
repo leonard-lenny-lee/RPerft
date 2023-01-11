@@ -7,7 +7,8 @@ use movelist::Move;
 use position::Position;
 use transposition::{HashTable, Probe, SearchEntry};
 
-const NEGATIVE_INFINITY: i16 = -30000;
+const NEGATIVE_INFINITY: i16 = -30001;
+const CHECKMATE: i16 = -30000;
 const POSITIVE_INFINITY: i16 = 30000;
 
 #[derive(Clone, Copy)]
@@ -82,7 +83,7 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
-            return NEGATIVE_INFINITY; // Checkmate
+            return CHECKMATE; // Checkmate
         } else {
             return 0; // Stalemate
         }
@@ -129,7 +130,7 @@ pub fn alpha_beta(
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
-            return NEGATIVE_INFINITY; // Checkmate
+            return CHECKMATE; // Checkmate
         } else {
             return 0; // Stalemate
         }
@@ -186,8 +187,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
         // If in check, the priority is to resolve the check
         let move_list = find_check_evasions(pos, checkers);
         if move_list.len() == 0 {
-            // Checkmate
-            return NEGATIVE_INFINITY;
+            return CHECKMATE;
         }
         move_list
     } else if possible_captures != EMPTY_BB {
