@@ -24,6 +24,7 @@ impl Position {
         let mut pos = Position::new(&data);
         pos.init_state();
         pos.init_key();
+        pos.check_legality()?;
         Ok(pos)
     }
 

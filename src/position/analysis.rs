@@ -116,4 +116,16 @@ impl Position {
     pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
         matches!(self.their_piece_at(n), 2 | 4 | 5)
     }
+
+    /// Check that in the position, we cannot capture their king. If so, it's
+    /// an illegal position
+    pub fn check_legality(&self) -> Result<(), ExecutionError> {
+        if (self.target_squares() & self.their_pieces().king).is_any() {
+            Err(ExecutionError::ParseFenError(
+                "fen represents an illegal position (king capture possible)".to_string(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
 }
