@@ -25,8 +25,12 @@ pub fn do_search(
 ) {
     // Execute search
     match config.search_method {
-        SearchMethod::Negamax => nega_max(pos, depth, table),
+        SearchMethod::Negamax => {
+            log::info!("Executing NegaMax search...");
+            nega_max(pos, depth, table)
+        }
         SearchMethod::AlphaBeta => {
+            log::info!("Executing AlphaBeta search...");
             alpha_beta(pos, depth, NEGATIVE_INFINITY, POSITIVE_INFINITY, table)
         }
     };

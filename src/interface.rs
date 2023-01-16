@@ -19,6 +19,16 @@ struct CommandConfig {
     level: u8,
 }
 
+struct SetOptionConfig {
+    name: &'static str,
+    value: ValueFormat,
+}
+
+enum ValueFormat {
+    String(Vec<&'static str>),
+    Integer(Option<i32>, Option<i32>),
+}
+
 lazy_static! {
     // Regex patterns for token validations
     static ref MOVE_TOKEN: Regex = Regex::new("([a-h][1-8]){2}[rnbq]?").unwrap();
@@ -27,98 +37,111 @@ lazy_static! {
     // Command-specific requirements and configurations used for parsing and
     // validation
     static ref COMMAND_CONFIGS: HashMap<Command, CommandConfig> = {
-        HashMap::from([
-            (Command::Root, CommandConfig {
-                token: "$ROOT",
-                tokens_required: Requires::SubCmd,
-                parent_command: Command::Root,
-                level: 0
-            }),
-            (Command::Branch(Branch::Position), CommandConfig {
-                token: "position",
-                tokens_required: Requires::SubCmd,
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Leaf(Leaf::Quit), CommandConfig {
-                token: "quit",
-                tokens_required: Requires::None,
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Branch(Branch::Go), CommandConfig {
-                token: "go",
-                tokens_required: Requires::SubCmd,
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Leaf(Leaf::SetOption), CommandConfig {
-                token: "setoption",
-                tokens_required: Requires::Args(4, 255),
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Leaf(Leaf::Fen), CommandConfig {
-                token: "fen",
-                tokens_required: Requires::Args(1, 255),
-                parent_command: Command::Branch(Branch::Position),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::StartPos), CommandConfig {
-                token: "startpos",
-                tokens_required: Requires::Args(0, 255),
-                parent_command: Command::Branch(Branch::Position),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Perft), CommandConfig {
-                token: "perft",
-                tokens_required: Requires::Args(1, 1),
-                parent_command: Command::Branch(Branch::Go),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Display), CommandConfig {
-                token: "display",
-                tokens_required: Requires::None,
-                parent_command: Command::Branch(Branch::Position),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Move), CommandConfig {
-                token: "move",
-                tokens_required: Requires::Args(1, 255),
-                parent_command: Command::Branch(Branch::Position),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Undo), CommandConfig {
-                token: "undo",
-                tokens_required: Requires::Args(0, 1),
-                parent_command: Command::Branch(Branch::Position),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Uci), CommandConfig {
-                token: "uci",
-                tokens_required: Requires::None,
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Leaf(Leaf::UciNewGame), CommandConfig {
-                token: "ucinewgame",
-                tokens_required: Requires::None,
-                parent_command: Command::Root,
-                level: 1
-            }),
-            (Command::Leaf(Leaf::Depth), CommandConfig {
-                token: "depth",
-                tokens_required: Requires::Args(1, 1),
-                parent_command: Command::Branch(Branch::Go),
-                level: 2
-            }),
-            (Command::Leaf(Leaf::Help), CommandConfig {
-                token: "help",
-                tokens_required: Requires::Args(0, 255),
-                parent_command: Command::Root,
-                level: 1
-            }),
-        ])
+        let mut configs = HashMap::new();
+        configs.insert(Command::Root, CommandConfig {
+            token: "$ROOT",
+            tokens_required: Requires::SubCmd,
+            parent_command: Command::Root,
+            level: 0
+        });
+        configs.insert(Command::Branch(Branch::Position), CommandConfig {
+            token: "position",
+            tokens_required: Requires::SubCmd,
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Leaf(Leaf::Quit), CommandConfig {
+            token: "quit",
+            tokens_required: Requires::None,
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Branch(Branch::Go), CommandConfig {
+            token: "go",
+            tokens_required: Requires::SubCmd,
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Leaf(Leaf::SetOption), CommandConfig {
+            token: "setoption",
+            tokens_required: Requires::Args(4, 4),
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Leaf(Leaf::Fen), CommandConfig {
+            token: "fen",
+            tokens_required: Requires::Args(1, 255),
+            parent_command: Command::Branch(Branch::Position),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::StartPos), CommandConfig {
+            token: "startpos",
+            tokens_required: Requires::Args(0, 255),
+            parent_command: Command::Branch(Branch::Position),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Perft), CommandConfig {
+            token: "perft",
+            tokens_required: Requires::Args(1, 1),
+            parent_command: Command::Branch(Branch::Go),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Display), CommandConfig {
+            token: "display",
+            tokens_required: Requires::None,
+            parent_command: Command::Branch(Branch::Position),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Move), CommandConfig {
+            token: "move",
+            tokens_required: Requires::Args(1, 255),
+            parent_command: Command::Branch(Branch::Position),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Undo), CommandConfig {
+            token: "undo",
+            tokens_required: Requires::Args(0, 1),
+            parent_command: Command::Branch(Branch::Position),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Uci), CommandConfig {
+            token: "uci",
+            tokens_required: Requires::None,
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Leaf(Leaf::UciNewGame), CommandConfig {
+            token: "ucinewgame",
+            tokens_required: Requires::None,
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs.insert(Command::Leaf(Leaf::Depth), CommandConfig {
+            token: "depth",
+            tokens_required: Requires::Args(1, 1),
+            parent_command: Command::Branch(Branch::Go),
+            level: 2
+        });
+        configs.insert(Command::Leaf(Leaf::Help), CommandConfig {
+            token: "help",
+            tokens_required: Requires::Args(0, 255),
+            parent_command: Command::Root,
+            level: 1
+        });
+        configs
+    };
+
+    static ref SET_OPTIONS: HashMap<SetOption, SetOptionConfig> = {
+        let mut configs = HashMap::new();
+        configs.insert(SetOption::SearchMethod, SetOptionConfig {
+            name: "searchmethod",
+            value: ValueFormat::String(vec!["negamax", "alphabeta"])
+        });
+        configs.insert(SetOption::HashTableSize, SetOptionConfig {
+            name: "hash",
+            value: ValueFormat::Integer(Some(1), Some(1000))
+        });
+        configs
     };
 }
 
@@ -166,6 +189,72 @@ impl Command {
 
     fn as_str(&self) -> &str {
         COMMAND_CONFIGS.get(self).unwrap().token
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SetOption {
+    SearchMethod,
+    HashTableSize,
+}
+
+impl SetOption {
+    fn parse(token: &str) -> Result<Self, ParseError> {
+        to_lower!(token);
+        for (key, config) in SET_OPTIONS.iter() {
+            if token == config.name {
+                return Ok(*key);
+            }
+        }
+        let msg = format!(
+            "{} -> Valid option names are: {}",
+            token.to_string(),
+            Self::valid_tokens()
+        );
+        return Err(ParseError::UnrecognisedTokens(msg));
+    }
+
+    fn valid_tokens() -> String {
+        let mut valid_tokens = Vec::new();
+        for (_, c) in SET_OPTIONS.iter() {
+            valid_tokens.push(c.name)
+        }
+        return valid_tokens.join(", ");
+    }
+
+    fn validate_value(&self, value_token: &str) -> Result<(), ParseError> {
+        if let Some(config) = SET_OPTIONS.get(self) {
+            match &config.value {
+                ValueFormat::String(values) => {
+                    let mut recognised = false;
+                    for value in values.iter() {
+                        if *value == value_token {
+                            recognised = true;
+                            break;
+                        }
+                    }
+                    if !recognised {
+                        let msg = format!(
+                            "{} -> Valid values for {} are: {}",
+                            value_token,
+                            config.name,
+                            values.join(", ")
+                        );
+                        return Err(ParseError::UnrecognisedTokens(msg));
+                    }
+                }
+                ValueFormat::Integer(_, _) => {
+                    if let Err(_) = value_token.parse::<i32>() {
+                        let msg = format!(
+                            "{} -> values for {} must be an integer value",
+                            value_token, config.name
+                        );
+                        return Err(ParseError::UnrecognisedTokens(msg));
+                    };
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -371,7 +460,7 @@ impl CommandNode {
                 Leaf::Undo => args_check::undo_token(args)?,
                 Leaf::Perft => args_check::perft_token(args)?,
                 Leaf::Display | Leaf::Uci | Leaf::UciNewGame | Leaf::Quit => (),
-                Leaf::SetOption => log::warn!("setoption not implemented"), // TODO Implement SetOption
+                Leaf::SetOption => args_check::set_option(args)?,
                 Leaf::Depth => args_check::positive_numerical_token(args[0])?,
                 Leaf::Help => args_check::help_tokens(args)?,
             }
@@ -428,7 +517,11 @@ impl CommandNode {
                 Leaf::Uci => execute::uci(state)?,
                 Leaf::UciNewGame => execute::uci_new_game(state)?,
                 Leaf::Quit => (),
-                Leaf::SetOption => (), // TODO Implement
+                Leaf::SetOption => {
+                    if let Some(token) = &self.args {
+                        execute::set_option(state, token[1].as_str(), token[3].as_str())?
+                    }
+                }
                 Leaf::Depth => {
                     if let Some(args) = &self.args {
                         execute::depth_search(state, args[0].as_str())?
@@ -638,6 +731,26 @@ mod args_check {
             Ok(())
         }
     }
+
+    pub fn set_option(tokens: &Vec<&str>) -> Result<(), ParseError> {
+        let mut unrecognised_tokens = Vec::new();
+        if tokens[0] != "name" {
+            unrecognised_tokens.push(tokens[0])
+        }
+        if tokens[2] != "value" {
+            unrecognised_tokens.push(tokens[2])
+        }
+        if unrecognised_tokens.len() > 0 {
+            let msg = format!(
+                "{}. Arguments must take the format of: name [name] value [value] ",
+                unrecognised_tokens.join(", ")
+            );
+            return Err(ParseError::UnrecognisedTokens(msg));
+        }
+        let option_token = SetOption::parse(tokens[1])?;
+        option_token.validate_value(tokens[3])?;
+        Ok(())
+    }
 }
 
 mod execute {
@@ -798,5 +911,46 @@ mod execute {
             )
         }
         Ok(())
+    }
+
+    pub fn set_option(state: &mut State, name: &str, value: &str) -> Result<(), ExecutionError> {
+        if let Ok(option) = SetOption::parse(name) {
+            match option {
+                SetOption::SearchMethod => match value {
+                    "negamax" => state.config.search_method = config::SearchMethod::Negamax,
+                    "alphabeta" => state.config.search_method = config::SearchMethod::AlphaBeta,
+                    _ => log::error!("Invalid value for searchmethod!"),
+                },
+                SetOption::HashTableSize => {
+                    state.config.table_size =
+                        transform_numerical_token(value, option) as usize * 1_000_000;
+                    state.transposition_table =
+                        transposition::HashTable::new(state.config.table_size)
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn transform_numerical_token(value: &str, set_option: SetOption) -> i32 {
+        let value = value.parse::<i32>().expect("Value should be numerical");
+        let config = SET_OPTIONS
+            .get(&set_option)
+            .expect("Logical error in parsing tokens");
+
+        if let ValueFormat::Integer(min, max) = config.value {
+            if let Some(min) = min {
+                if value < min {
+                    return min;
+                }
+            };
+            if let Some(max) = max {
+                if value > max {
+                    return max;
+                }
+            };
+            return value;
+        }
+        panic!("Fatal error")
     }
 }

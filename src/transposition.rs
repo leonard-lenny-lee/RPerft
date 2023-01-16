@@ -22,6 +22,12 @@ impl<T: Entry> HashTable<T> {
     pub fn new(size_bytes: usize) -> Self {
         let size = size_bytes / T::size_bytes();
         let vec = vec![T::new_empty(); size];
+        log::info!(
+            "Hash table initialized: {:.1} Mb, {} entries ({} b/entry)",
+            size_bytes as f64 / 1_000_000.0,
+            size,
+            T::size_bytes()
+        );
         Self {
             entries: vec.into_boxed_slice(),
             size,
