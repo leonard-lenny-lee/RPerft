@@ -5,10 +5,11 @@ use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
-use transposition::{HashTable, SearchEntry, SharedHashTable};
+use transposition::{HashTable, Probe, SearchEntry};
 
-const NEGATIVE_INFINITY: i32 = -1000000;
-const POSITIVE_INFINITY: i32 = 1000000;
+const NEGATIVE_INFINITY: i16 = -30001;
+const CHECKMATE: i16 = -30000;
+const POSITIVE_INFINITY: i16 = 30000;
 
 #[derive(Clone, Copy)]
 pub enum NodeType {
@@ -23,6 +24,7 @@ pub fn do_search(
     depth: u8,
     table: &mut HashTable<SearchEntry>,
 ) {
+    table.age += 1;
     // Execute search
     match config.search_method {
         SearchMethod::Negamax => {
@@ -36,7 +38,7 @@ pub fn do_search(
     };
 
     // Probe table for the results of the search
-    if let Some(entry) = table.get(pos.key.0, depth) {
+    if let Probe::Read(entry) = table.get(pos.key.0, depth) {
         let pv = probe_pv(pos, depth, table);
         let pv_algebraic = pv
             .into_iter()
@@ -57,7 +59,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Ve
     let mut depth = depth;
     let mut pv = Vec::new();
     while depth > 0 {
-        if let Some(entry) = table.get(pos.key.0, depth) {
+        if let Probe::Read(entry) = table.get(pos.key.0, depth) {
             if !entry.best_move.is_null() {
                 pos = make_move(&pos, &entry.best_move);
                 pv.push(entry.best_move);
@@ -73,8 +75,9 @@ fn probe_pv(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> Ve
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i32 {
-    if let Some(entry) = table.get(pos.key.0, depth) {
+pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -> i16 {
+    let probe_result = table.get(pos.key.0, depth);
+    if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
     }
     if depth == 0 {
@@ -84,7 +87,7 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
-            return NEGATIVE_INFINITY; // Checkmate
+            return CHECKMATE; // Checkmate
         } else {
             return 0; // Stalemate
         }
@@ -99,13 +102,16 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
             best_move = *mv;
         }
     }
-    table.set(SearchEntry {
-        key: pos.key.0,
-        depth,
-        best_move,
-        evaluation: max_evaluation,
-        node_type: NodeType::PV,
-    });
+    if let Probe::Write = probe_result {
+        table.set(SearchEntry {
+            key: pos.key.0,
+            depth,
+            best_move,
+            evaluation: max_evaluation,
+            node_type: NodeType::PV,
+            age: table.age,
+        });
+    }
     return max_evaluation;
 }
 
@@ -113,11 +119,12 @@ pub fn nega_max(pos: &Position, depth: u8, table: &mut HashTable<SearchEntry>) -
 pub fn alpha_beta(
     pos: &Position,
     depth: u8,
-    mut alpha: i32,
-    beta: i32,
+    mut alpha: i16,
+    beta: i16,
     table: &mut HashTable<SearchEntry>,
-) -> i32 {
-    if let Some(entry) = table.get(pos.key.0, depth) {
+) -> i16 {
+    let probe_result = table.get(pos.key.0, depth);
+    if let Probe::Read(entry) = probe_result {
         return entry.evaluation;
     }
     if depth == 0 {
@@ -127,7 +134,7 @@ pub fn alpha_beta(
     if move_list.len() == 0 {
         let n_checkers = pos.find_checkers().pop_count();
         if n_checkers > 0 {
-            return NEGATIVE_INFINITY; // Checkmate
+            return CHECKMATE; // Checkmate
         } else {
             return 0; // Stalemate
         }
@@ -138,13 +145,16 @@ pub fn alpha_beta(
         let new_pos = make_move(pos, mv);
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
-            table.set(SearchEntry {
-                key: pos.key.0,
-                depth,
-                best_move,
-                evaluation: beta,
-                node_type: NodeType::Cut,
-            });
+            if let Probe::Write = probe_result {
+                table.set(SearchEntry {
+                    key: pos.key.0,
+                    depth,
+                    best_move,
+                    evaluation: beta,
+                    node_type: NodeType::Cut,
+                    age: table.age,
+                });
+            }
             return beta; // Pruning condition
         }
         if evaluation > alpha {
@@ -153,17 +163,20 @@ pub fn alpha_beta(
             best_move = *mv;
         }
     }
-    table.set(SearchEntry {
-        key: pos.key.0,
-        depth,
-        best_move,
-        evaluation: alpha,
-        node_type: if is_pv { NodeType::PV } else { NodeType::All },
-    });
+    if let Probe::Write = probe_result {
+        table.set(SearchEntry {
+            key: pos.key.0,
+            depth,
+            best_move,
+            evaluation: alpha,
+            node_type: if is_pv { NodeType::PV } else { NodeType::All },
+            age: table.age,
+        });
+    }
     return alpha;
 }
 
-fn quiesce(pos: &Position, mut alpha: i32, beta: i32, ply: i8) -> i32 {
+fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     let stand_pat = evaluate(pos);
     if stand_pat >= beta {
         return beta;
@@ -178,8 +191,7 @@ fn quiesce(pos: &Position, mut alpha: i32, beta: i32, ply: i8) -> i32 {
         // If in check, the priority is to resolve the check
         let move_list = find_check_evasions(pos, checkers);
         if move_list.len() == 0 {
-            // Checkmate
-            return NEGATIVE_INFINITY;
+            return CHECKMATE;
         }
         move_list
     } else if possible_captures != EMPTY_BB {
@@ -210,7 +222,7 @@ pub mod perft {
     use config::PerftConfig;
     use std::sync::{mpsc::channel, Arc};
     use threadpool::ThreadPool;
-    use transposition::{PerftEntry, SharedPerftEntry};
+    use transposition::{PerftEntry, SharedEntry, SharedHashTable, SharedPerftEntry};
 
     pub fn perft(pos: &Position, depth: u8, config: &PerftConfig) -> (u64, f64, f64) {
         assert!(depth >= 1);
@@ -249,7 +261,7 @@ pub mod perft {
             let new_pos = make_move(pos, &mv);
             let table = if hashing { Some(table.clone()) } else { None };
             pool.execute(move || {
-                let count = perft_inner_shared_hash_table(&new_pos, depth - 1, &table, &config);
+                let count = perft_inner_multithreaded(&new_pos, depth - 1, &table, &config);
                 tx.send(count).unwrap();
                 if verbose {
                     println!("{}: {}", mv.to_algebraic(), count);
@@ -267,8 +279,10 @@ pub mod perft {
     ) -> u64 {
         let mut nodes = 0;
         if let Some(table) = table {
-            if let Some(entry) = table.get(pos.key.0, depth) {
-                return entry.count;
+            if let Probe::Read(entry) = table.get(pos.key.0, depth) {
+                if depth == entry.depth {
+                    return entry.count;
+                }
             };
         }
         if depth == 1 && config.bulk_counting {
@@ -287,12 +301,13 @@ pub mod perft {
                 key: pos.key.0,
                 count: nodes,
                 depth,
+                age: table.age,
             });
         }
         return nodes;
     }
 
-    fn perft_inner_shared_hash_table(
+    fn perft_inner_multithreaded(
         pos: &Position,
         depth: u8,
         table: &Option<Arc<SharedHashTable<SharedPerftEntry>>>,
@@ -300,8 +315,10 @@ pub mod perft {
     ) -> u64 {
         let mut nodes = 0;
         if let Some(table) = table {
-            if let Some(entry) = table.get(pos.key.0, depth) {
-                return entry.count().into();
+            if let Probe::Read(entry) = table.get(pos.key.0, depth) {
+                if depth == entry.depth() {
+                    return entry.count().into();
+                }
             };
         }
         if depth == 1 && config.bulk_counting {
@@ -313,10 +330,10 @@ pub mod perft {
         let move_list = find_moves(pos);
         for mv in move_list.iter() {
             let new_pos = make_move(pos, mv);
-            nodes += perft_inner_shared_hash_table(&new_pos, depth - 1, table, config);
+            nodes += perft_inner_multithreaded(&new_pos, depth - 1, table, config);
         }
         if let Some(table) = table {
-            table.set(SharedPerftEntry::new(pos.key.0, depth, nodes), pos.key.0);
+            table.set(SharedPerftEntry::encode(pos.key.0, depth, nodes), pos.key.0);
         }
         return nodes;
     }

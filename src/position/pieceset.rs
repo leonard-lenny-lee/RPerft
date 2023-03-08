@@ -69,28 +69,28 @@ impl PieceSet {
         *self.as_mut_array()[index] ^= rhs;
     }
 
-    pub fn n_kings(&self) -> i32 {
-        self.king.pop_count() as i32
+    pub fn n_kings(&self) -> i16 {
+        self.king.pop_count() as i16
     }
 
-    pub fn n_queens(&self) -> i32 {
-        self.queen.pop_count() as i32
+    pub fn n_queens(&self) -> i16 {
+        self.queen.pop_count() as i16
     }
 
-    pub fn n_rooks(&self) -> i32 {
-        self.rook.pop_count() as i32
+    pub fn n_rooks(&self) -> i16 {
+        self.rook.pop_count() as i16
     }
 
-    pub fn n_bishops(&self) -> i32 {
-        self.bishop.pop_count() as i32
+    pub fn n_bishops(&self) -> i16 {
+        self.bishop.pop_count() as i16
     }
 
-    pub fn n_knights(&self) -> i32 {
-        self.knight.pop_count() as i32
+    pub fn n_knights(&self) -> i16 {
+        self.knight.pop_count() as i16
     }
 
-    pub fn n_pawns(&self) -> i32 {
-        self.pawn.pop_count() as i32
+    pub fn n_pawns(&self) -> i16 {
+        self.pawn.pop_count() as i16
     }
 }
 

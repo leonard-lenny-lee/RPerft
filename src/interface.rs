@@ -545,8 +545,8 @@ impl CommandNode {
     pub fn print_parse_tree(&self, depth: usize) {
         println!(
             "{}Command=(\n{}{}",
-            " ".repeat((depth - 1) * 4),
             " ".repeat((depth) * 4),
+            " ".repeat((depth + 1) * 4),
             self.cmd.as_str()
         );
         match &self.subcmds {
@@ -557,11 +557,11 @@ impl CommandNode {
             }
             None => {
                 if let Some(args) = &self.args {
-                    println!("{}*args=({})", " ".repeat((depth) * 4), args.join(", "));
+                    println!("{}*args=({})", " ".repeat((depth + 1) * 4), args.join(", "));
                 }
             }
         }
-        println!("{})", " ".repeat((depth - 1) * 4))
+        println!("{})", " ".repeat((depth) * 4))
     }
 
     /// Traverse the parse tree and look for the presence of a "quit" token
