@@ -761,9 +761,15 @@ mod execute {
         let token = arg.parse::<u8>();
         match token {
             Ok(depth) => {
-                search::perft::perft_divided(&state.position, depth, &state.config.perft_config);
+                search::perft::perft(
+                    &state.position,
+                    depth,
+                    state.config.num_threads,
+                    state.config.table_size,
+                    true,
+                );
             }
-            Err(_) => search::perft::run_perft_bench(),
+            Err(_) => search::perft::run_perft_suite(&state.config),
         };
         Ok(())
     }

@@ -1,13 +1,13 @@
 use super::*;
 use config::Config;
 use position::Position;
-use transposition::{HashTable, SearchEntry};
+use transposition::HashTable;
 
 pub struct State {
     pub position: Position,
     pub position_history: Vec<Position>,
     pub config: Config,
-    pub transposition_table: HashTable<SearchEntry>,
+    pub transposition_table: HashTable,
 }
 
 impl State {
