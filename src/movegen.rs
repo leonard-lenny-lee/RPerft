@@ -111,7 +111,7 @@ fn find_single_pushes(pos: &Position, move_list: &mut MoveList, push_mask: BB, p
     let target_filter = pos.data.free & push_mask;
 
     let targets = (pos.pawn_sgl_push(free_pawns) & target_filter)
-        | (pos.pawn_sgl_push(pinned_pawns) & target_filter & our_pieces.king.lookup_file_mask());
+        | (pos.pawn_sgl_push(pinned_pawns) & target_filter & our_pieces.king.lu_file_mask());
 
     let promotion_rank = pos.target_promotion_rank();
     let promo_targets = targets & promotion_rank;
@@ -136,8 +136,8 @@ fn find_double_pushes(pos: &Position, move_list: &mut MoveList, push_mask: BB, p
     let dbl_push = pos.pawn_sgl_push(sgl_push) & pos.data.free & push_mask;
     let pinned_targets = pos.pawn_dbl_push(pinned_pieces);
 
-    let targets = (dbl_push & !pinned_targets)
-        | (dbl_push & pinned_targets & our_pieces.king.lookup_file_mask());
+    let targets =
+        (dbl_push & !pinned_targets) | (dbl_push & pinned_targets & our_pieces.king.lu_file_mask());
     let srcs = pos.pawn_dbl_push_srcs(targets);
     for (target, src) in zip(targets, srcs) {
         move_list.add_double_pawn_push(target, src)
@@ -210,7 +210,7 @@ fn find_knight_moves(
     // no legal moves
     let srcs = our_pieces.knight & !pinned_pieces;
     for src in srcs {
-        let targets = src.lookup_knight_attacks() & target_filter;
+        let targets = src.lu_knight_attacks() & target_filter;
         find_quiet_moves_and_captures(pos, move_list, targets, src)
     }
 }
@@ -222,7 +222,7 @@ fn find_king_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares: BB)
     let src = our_pieces.king;
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
-    let targets = src.lookup_king_attacks() & !our_pieces.any & !unsafe_squares;
+    let targets = src.lu_king_attacks() & !our_pieces.any & !unsafe_squares;
     find_quiet_moves_and_captures(pos, move_list, targets, src)
 }
 
@@ -240,21 +240,20 @@ fn find_sliding_moves(
     let filter = !our_pieces.any & (capture_mask | push_mask);
 
     for src in rook_movers & !pinned_pieces {
-        let targets = src.lookup_rook_attacks(pos.data.occ) & filter;
+        let targets = src.lu_rook_attacks(pos.data.occ) & filter;
         find_quiet_moves_and_captures(pos, move_list, targets, src);
     }
     for src in rook_movers & pinned_pieces {
-        let targets =
-            src.lookup_rook_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
+        let targets = src.lu_rook_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
         find_quiet_moves_and_captures(pos, move_list, targets, src)
     }
     for src in bishop_movers & !pinned_pieces {
-        let targets = src.lookup_bishop_attacks(pos.data.occ) & filter;
+        let targets = src.lu_bishop_attacks(pos.data.occ) & filter;
         find_quiet_moves_and_captures(pos, move_list, targets, src);
     }
     for src in bishop_movers & pinned_pieces {
         let targets =
-            src.lookup_bishop_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
+            src.lu_bishop_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
         find_quiet_moves_and_captures(pos, move_list, targets, src)
     }
 }

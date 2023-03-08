@@ -17,10 +17,10 @@ impl Position {
         unsafe_squares |= (their_pieces.bishop | their_pieces.queen).bishop_attacks(occ);
         // Calculate knight attacks
         for sq in their_pieces.knight {
-            unsafe_squares |= sq.lookup_knight_attacks()
+            unsafe_squares |= sq.lu_knight_attacks()
         }
         // Calculate king attacks
-        unsafe_squares |= their_pieces.king.lookup_king_attacks();
+        unsafe_squares |= their_pieces.king.lu_king_attacks();
         return unsafe_squares;
     }
 
@@ -32,13 +32,12 @@ impl Position {
         // Find checking pawns
         checkers |= self.their_checking_pawns();
         // Find checkers along the files and ranks
-        checkers |=
-            king.lookup_rook_attacks(self.data.occ) & (their_pieces.rook | their_pieces.queen);
+        checkers |= king.lu_rook_attacks(self.data.occ) & (their_pieces.rook | their_pieces.queen);
         // Find checkers along the diagonals
         checkers |=
-            king.lookup_bishop_attacks(self.data.occ) & (their_pieces.bishop | their_pieces.queen);
+            king.lu_bishop_attacks(self.data.occ) & (their_pieces.bishop | their_pieces.queen);
         // Find knight checkers
-        checkers |= king.lookup_knight_attacks() & their_pieces.knight;
+        checkers |= king.lu_knight_attacks() & their_pieces.knight;
         checkers
     }
 
@@ -73,10 +72,10 @@ impl Position {
         target_squares |= (our_pieces.bishop | our_pieces.queen).bishop_attacks(self.data.occ);
         // Knight attacks
         for sq in our_pieces.knight {
-            target_squares |= sq.lookup_knight_attacks()
+            target_squares |= sq.lu_knight_attacks()
         }
         // King attacks
-        target_squares |= our_pieces.king.lookup_king_attacks();
+        target_squares |= our_pieces.king.lu_king_attacks();
         return target_squares;
     }
 

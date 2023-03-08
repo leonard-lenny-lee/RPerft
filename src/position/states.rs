@@ -76,9 +76,6 @@ impl Position {
     pub fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
         self.state.pawn_right_capture_pin_mask(king)
     }
-    pub fn pawn_captures(&self, src: BB) -> BB {
-        self.state.pawn_captures(src)
-    }
     /// Return the single push target squares of our pawns
     pub fn pawn_sgl_push_targets(&self) -> BB {
         self.state.pawn_sgl_push_targets(&self.data)
@@ -195,8 +192,6 @@ pub(crate) trait State {
     fn pawn_left_capture(&self, src: BB) -> BB;
     /// Right capture towards the opponent end
     fn pawn_right_capture(&self, src: BB) -> BB;
-    /// Pawn captures towards the opponent end
-    fn pawn_captures(&self, src: BB) -> BB;
     /// Return left capture pin mask
     fn pawn_left_capture_pin_mask(&self, king: BB) -> BB;
     /// Return right capture pin mask
@@ -348,15 +343,11 @@ impl State for White {
     }
 
     fn pawn_left_capture_pin_mask(&self, king: BB) -> BB {
-        king.lookup_anti_diagonal_mask()
+        king.lu_anti_diagonal_mask()
     }
 
     fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
-        king.lookup_diagonal_mask()
-    }
-
-    fn pawn_captures(&self, src: BB) -> BB {
-        src.lookup_wpawn_capture_mask()
+        king.lu_diagonal_mask()
     }
 
     fn pawn_sgl_push_targets(&self, data: &Data) -> BB {
@@ -518,15 +509,11 @@ impl State for Black {
     }
 
     fn pawn_left_capture_pin_mask(&self, king: BB) -> BB {
-        king.lookup_diagonal_mask()
+        king.lu_diagonal_mask()
     }
 
     fn pawn_right_capture_pin_mask(&self, king: BB) -> BB {
-        king.lookup_anti_diagonal_mask()
-    }
-
-    fn pawn_captures(&self, src: BB) -> BB {
-        src.lookup_bpawn_capture_mask()
+        king.lu_anti_diagonal_mask()
     }
 
     fn pawn_sgl_push_targets(&self, data: &Data) -> BB {

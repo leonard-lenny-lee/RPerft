@@ -483,13 +483,13 @@ impl BB {
 
     /// Uses hyperbola quintessence to find the attack squares of a single
     /// rook, taking into account the occupancy of the current board
-    pub fn rook_attacks_hyp_quint(&self, occ: BB) -> BB {
+    pub fn rook_hq(&self, occ: BB) -> BB {
         self.hyp_quint(occ, Axis::File) | self.hyp_quint(occ, Axis::Rank)
     }
 
     /// Uses hyperbola quintessence to find the attack squares of a single
     /// bishop, taking into account the occupancy of the current board
-    pub fn bishop_attacks_hyp_quint(&self, occ: BB) -> BB {
+    pub fn bishop_hq(&self, occ: BB) -> BB {
         self.hyp_quint(occ, Axis::Diagonal) | self.hyp_quint(occ, Axis::AntiDiagonal)
     }
 
@@ -561,16 +561,16 @@ impl BB {
         let translation = (this_sq as i32 - other_sq as i32).abs();
         if translation % 9 == 0 {
             // Diagonal translation
-            self.lookup_diagonal_mask()
+            self.lu_diagonal_mask()
         } else if translation % 8 == 0 {
             // Vertical translation
-            self.lookup_file_mask()
+            self.lu_file_mask()
         } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
             // Anti-diagonal translation
-            self.lookup_anti_diagonal_mask()
+            self.lu_anti_diagonal_mask()
         } else if translation < 8 {
             // Horizontal translation
-            self.lookup_rank_mask()
+            self.lu_rank_mask()
         } else {
             panic!(
                 "Squares {} and {} cannot be connected by a common axis",

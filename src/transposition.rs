@@ -1,10 +1,7 @@
 use super::*;
 use movelist::Move;
 use search::NodeType;
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub enum Probe {
     Read(EntryData),
@@ -21,7 +18,7 @@ pub struct EntryData {
 }
 
 pub struct HashTable {
-    entries: Arc<[Entry]>,
+    entries: Box<[Entry]>,
     size: usize,
     pub age: u8,
 }

@@ -12,7 +12,7 @@ pub struct State {
 
 impl State {
     pub fn initalize() -> Self {
-        tables::initialize_tables(); // Initalize magic tables
+        tables::initialize(); // Initalize magic tables
         let config = Config::initialize();
         Self {
             position: Position::from_fen(common::DEFAULT_FEN.to_string()).unwrap(),
