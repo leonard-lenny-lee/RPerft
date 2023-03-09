@@ -23,10 +23,20 @@ struct MagicTable {
     magic_factors: &'static [u64; 64],
     masks: &'static [u64; 64],
     shifts: &'static [u64; 64],
+    pext_enabled: bool,
 }
 
 impl MagicTable {
     fn new(table_type: TableType) -> Self {
+        let pext_enabled;
+        #[cfg(target_arch = "x86_64")]
+        {
+            pext_enabled = is_x86_feature_detected!("bmi2")
+        }
+        #[cfg(not(target_arch = "x86_64"))]
+        {
+            pext_enabled = false
+        }
         let mut table = match table_type {
             TableType::Rook => Self {
                 tables: vec![vec![BB(0); 4096]; 64],
@@ -34,6 +44,7 @@ impl MagicTable {
                 magic_factors: &constants::ROOK_MAGICS,
                 masks: &constants::ROOK_MASKS,
                 shifts: &constants::ROOK_SHIFTS,
+                pext_enabled,
             },
             TableType::Bishop => Self {
                 tables: vec![vec![BB(0); 512]; 64],
@@ -41,6 +52,7 @@ impl MagicTable {
                 magic_factors: &constants::BISHOP_MAGICS,
                 masks: &constants::BISHOP_MASKS,
                 shifts: &constants::BISHOP_SHIFTS,
+                pext_enabled,
             },
         };
         table.init_tables();
@@ -69,7 +81,11 @@ impl MagicTable {
                 }
                 // Hash the occupancy config and use it to store the
                 // attacks in that config, as calculated by hyp quint
-                let key = (occ.wrapping_mul(*magic) >> shift) as usize;
+                let key = if self.pext_enabled {
+                    unsafe { std::arch::x86_64::_pext_u64(occ, *mask) as usize }
+                } else {
+                    (occ.wrapping_mul(*magic) >> shift) as usize
+                };
                 self.tables[sq][key] = match self.table_type {
                     TableType::Bishop => BB::from_index(sq).bishop_hq(BB(occ)),
                     TableType::Rook => BB::from_index(sq).rook_hq(BB(occ)),
@@ -82,8 +98,12 @@ impl MagicTable {
         assert!(sq.0.count_ones() == 1);
         let sq_key = sq.ils1b();
         // Hash the occlusion bitboard
-        let key = (occ.0 & self.masks[sq_key]).wrapping_mul(self.magic_factors[sq_key])
-            >> self.shifts[sq_key];
+        let key = if self.pext_enabled {
+            unsafe { std::arch::x86_64::_pext_u64(occ.0, self.masks[sq_key]) }
+        } else {
+            (occ.0 & self.masks[sq_key]).wrapping_mul(self.magic_factors[sq_key])
+                >> self.shifts[sq_key]
+        };
         return self.tables[sq_key][key as usize];
     }
 }
