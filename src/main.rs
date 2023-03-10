@@ -1,9 +1,9 @@
-use chess_engine::*;
-use interface::*;
+use chess::*;
+use uci::*;
 
 fn main() {
     env_logger::init();
-    let mut state = state::State::initalize();
+    let mut state = state::State::init();
     loop {
         let mut input = String::new();
         std::io::stdin()

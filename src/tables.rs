@@ -1,7 +1,9 @@
 /// Contains the tables generated at compile time for fast lookups at runtime
 use super::*;
 
-mod constants;
+#[rustfmt::skip]
+mod keys;
+
 mod magics;
 mod tables;
 

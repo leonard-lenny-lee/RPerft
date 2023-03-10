@@ -1,3 +1,6 @@
+/// Configuration struct
+const DEFAULT_TABLE_SIZE_BYTES: usize = 24_000_000;
+
 #[derive(Clone, Copy)]
 pub enum SearchMethod {
     Negamax,
@@ -14,10 +17,16 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn initialize() -> Config {
+    pub fn init() -> Config {
+        let num_threads = num_cpus::get();
+        log::info!(
+            "hash table size {} bytes. {} cpus detected",
+            DEFAULT_TABLE_SIZE_BYTES,
+            num_threads
+        );
         Config {
-            table_size: 24_000_000,
-            num_threads: num_cpus::get(),
+            table_size: DEFAULT_TABLE_SIZE_BYTES,
+            num_threads,
             uci_mode: false,
             uci_debug: false,
             search_method: SearchMethod::AlphaBeta,

@@ -871,7 +871,7 @@ mod execute {
 
     pub fn uci_new_game(state: &mut State) -> Result<(), ExecutionError> {
         state.position_history = Vec::new();
-        state.transposition_table.clear();
+        state.hash_table.clear();
         Ok(())
     }
 
@@ -881,7 +881,7 @@ mod execute {
             &mut state.config,
             &state.position,
             depth,
-            &mut state.transposition_table,
+            &mut state.hash_table,
         );
         Ok(())
     }
@@ -930,8 +930,7 @@ mod execute {
                 SetOption::HashTableSize => {
                     state.config.table_size =
                         transform_numerical_token(value, option) as usize * 1_000_000;
-                    state.transposition_table =
-                        transposition::HashTable::new(state.config.table_size)
+                    state.hash_table = hash::HashTable::new(state.config.table_size)
                 }
             }
         }

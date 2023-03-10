@@ -1,4 +1,4 @@
-use chess_engine::*;
+use chess::*;
 use common::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use makemove::make_move;

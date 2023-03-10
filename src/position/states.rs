@@ -279,11 +279,11 @@ impl State for White {
     }
 
     fn our_kingside_castle(&self, data: &Data) -> bool {
-        (data.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ).is_any()
+        (data.castling_rights & H1).is_not_empty()
     }
 
     fn our_queenside_castle(&self, data: &Data) -> bool {
-        (data.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ).is_any()
+        (data.castling_rights & A1).is_not_empty()
     }
 
     fn our_backrank(&self) -> BB {
@@ -307,19 +307,19 @@ impl State for White {
     }
 
     fn our_ks_rook_starting_sq(&self) -> BB {
-        W_KINGSIDE_ROOK_STARTING_SQ
+        H1
     }
 
     fn our_qs_rook_starting_sq(&self) -> BB {
-        W_QUEENSIDE_ROOK_STARTING_SQ
+        A1
     }
 
     fn their_ks_rook_starting_sq(&self) -> BB {
-        B_KINGSIDE_ROOK_STARTING_SQ
+        H8
     }
 
     fn their_qs_rook_starting_sq(&self) -> BB {
-        B_QUEENSIDE_ROOK_STARTING_SQ
+        A1
     }
 
     fn pawn_sgl_push(&self, src: BB) -> BB {
@@ -449,11 +449,11 @@ impl State for Black {
     }
 
     fn our_kingside_castle(&self, data: &Data) -> bool {
-        (data.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ).is_any()
+        (data.castling_rights & H8).is_not_empty()
     }
 
     fn our_queenside_castle(&self, data: &Data) -> bool {
-        (data.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ).is_any()
+        (data.castling_rights & A8).is_not_empty()
     }
 
     fn kingside_castle_mask(&self) -> BB {
@@ -473,19 +473,19 @@ impl State for Black {
     }
 
     fn our_ks_rook_starting_sq(&self) -> BB {
-        B_KINGSIDE_ROOK_STARTING_SQ
+        H8
     }
 
     fn our_qs_rook_starting_sq(&self) -> BB {
-        B_QUEENSIDE_ROOK_STARTING_SQ
+        A8
     }
 
     fn their_ks_rook_starting_sq(&self) -> BB {
-        W_KINGSIDE_ROOK_STARTING_SQ
+        H1
     }
 
     fn their_qs_rook_starting_sq(&self) -> BB {
-        W_QUEENSIDE_ROOK_STARTING_SQ
+        A1
     }
 
     fn pawn_sgl_push(&self, src: BB) -> BB {

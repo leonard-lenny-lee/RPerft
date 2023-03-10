@@ -1,5 +1,5 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking
-use chess_engine::*;
+use chess::*;
 use common::*;
 use config::Config;
 use position::Position;
@@ -7,7 +7,7 @@ use search::perft::*;
 use test_case::test_case;
 
 lazy_static::lazy_static! {
-    static ref CONFIG: Config = Config::initialize();
+    static ref CONFIG: Config = Config::init();
 }
 
 /// Light perft test suite. Compares the number of nodes generated in these

@@ -1,5 +1,5 @@
 use bitboard::BB;
-use chess_engine::*;
+use chess::*;
 use common::*;
 use makemove::make_move;
 use movelist::MoveList;

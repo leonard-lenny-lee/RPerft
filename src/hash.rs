@@ -1,3 +1,4 @@
+/// Hash Table implementation for transpositions
 use super::*;
 use movelist::Move;
 use search::NodeType;
@@ -48,7 +49,7 @@ impl HashTable {
         let entry = &self.entries[index];
         let entry_key = entry.key();
         if key == entry_key {
-            let (entry_depth, node_count) = entry.load_perft();
+            let (entry_depth, node_count) = entry.decode_perft();
             if depth == entry_depth {
                 return Some(node_count);
             }
@@ -61,7 +62,7 @@ impl HashTable {
     pub fn probe_search(&self, key: u64, depth: u8) -> Probe {
         let index = key as usize % self.size;
         let entry = &self.entries[index];
-        let (entry_key, entry_data) = (entry.key(), entry.load_search());
+        let (entry_key, entry_data) = (entry.key(), entry.decode_search());
         if entry_key == key {
             // *KEY MATCH
             if entry_data.depth >= depth {
@@ -90,10 +91,10 @@ impl HashTable {
     pub fn write_perft(&self, key: u64, depth: u8, node_count: u64) {
         let idx = key as usize % self.size;
         let entry = &self.entries[idx];
-        entry.store_perft(key, depth, node_count)
+        entry.encode_perft(key, depth, node_count)
     }
 
-    /// Write a search entry into the hash hash
+    /// Write a search entry into the hash table
     pub fn write_search(
         &self,
         key: u64,
@@ -104,7 +105,7 @@ impl HashTable {
     ) {
         let idx = key as usize % self.size;
         let entry = &self.entries[idx];
-        entry.store_search(key, depth, self.age, best_move, score, node_type);
+        entry.encode_search(key, depth, self.age, best_move, score, node_type);
     }
 
     /// Clear all hash entries
@@ -143,19 +144,19 @@ impl Entry {
     }
 
     // Only depth and node count needs to be stored for perft entries
-    fn store_perft(&self, key: u64, depth: u8, count: u64) {
+    fn encode_perft(&self, key: u64, depth: u8, count: u64) {
         // Upper 56 bits store node count, lowest 8 bits store depth
         let data = depth as u64 | (count << 8);
         self.write(key, data);
     }
 
-    fn load_perft(&self) -> (u8, u64) {
+    fn decode_perft(&self) -> (u8, u64) {
         let data = self.data();
         return (data as u8, data >> 8);
     }
 
     // Encode and store a search entry according to the scheme
-    fn store_search(
+    fn encode_search(
         &self,
         key: u64,
         depth: u8,
@@ -185,7 +186,7 @@ impl Entry {
         self.write(key, data);
     }
 
-    fn load_search(&self) -> EntryData {
+    fn decode_search(&self) -> EntryData {
         let data = self.data();
         return EntryData {
             depth: data as u8,

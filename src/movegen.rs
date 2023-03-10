@@ -280,10 +280,10 @@ fn find_en_passant_moves(
     let their_pieces = pos.their_pieces();
     let mut srcs = pos.pawn_en_passant_srcs();
 
-    while srcs.is_any() {
+    while srcs.is_not_empty() {
         let src = srcs.pop_ls1b();
         // If pawn is pinned, check capture is along pin axis
-        if (src & pinned_pieces).is_any() {
+        if (src & pinned_pieces).is_not_empty() {
             let pin_mask = our_pieces.king.common_axis(src);
             if target & pin_mask == EMPTY_BB {
                 continue;
@@ -292,11 +292,11 @@ fn find_en_passant_moves(
         // Check rare en passant case that may occur if the king is on the
         // same rank as the pawns involved in the en passant capture where
         // an en passant capture may reveal a discovered check
-        if (our_pieces.king & pos.ep_capture_rank()).is_any() {
+        if (our_pieces.king & pos.ep_capture_rank()).is_not_empty() {
             let occ = pos.data.occ & !(src | captured_pawn);
             if (our_pieces.king.hyp_quint(occ, Axis::Rank)
                 & (their_pieces.rook | their_pieces.queen))
-                .is_any()
+                .is_not_empty()
             {
                 continue;
             }

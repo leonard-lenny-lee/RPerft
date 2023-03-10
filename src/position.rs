@@ -8,8 +8,8 @@ mod pieceset;
 mod states;
 
 pub use data::Data;
-use interface::ExecutionError;
 use pieceset::PieceSet;
+use uci::ExecutionError;
 pub use zobrist::ZobristKey;
 
 pub struct Position {

@@ -85,7 +85,7 @@ impl Position {
         debug_assert!(bb.pop_count() == 1);
         let their_pieces = self.their_pieces();
         for piece in 1..7 {
-            if (their_pieces[piece] & bb).is_any() {
+            if (their_pieces[piece] & bb).is_not_empty() {
                 return piece;
             }
         }
@@ -101,7 +101,7 @@ impl Position {
         debug_assert!(bb.pop_count() == 1);
         let our_pieces = self.our_pieces();
         for piece in 1..7 {
-            if (our_pieces[piece] & bb).is_any() {
+            if (our_pieces[piece] & bb).is_not_empty() {
                 return piece;
             }
         }
@@ -119,7 +119,7 @@ impl Position {
     /// Check that in the position, we cannot capture their king. If so, it's
     /// an illegal position
     pub fn check_legality(&self) -> Result<(), ExecutionError> {
-        if (self.target_squares() & self.their_pieces().king).is_any() {
+        if (self.target_squares() & self.their_pieces().king).is_not_empty() {
             Err(ExecutionError::ParseFenError(
                 "fen represents an illegal position (king capture possible)".to_string(),
             ))

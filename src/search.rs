@@ -1,11 +1,11 @@
 use super::*;
 use config::{Config, SearchMethod};
 use evaluate::evaluate;
+use hash::{HashTable, Probe};
 use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
-use transposition::{HashTable, Probe};
 
 const NEGATIVE_INFINITY: i16 = -30001;
 const CHECKMATE: i16 = -30000;
@@ -195,7 +195,6 @@ pub mod perft {
     use super::*;
     use std::sync::{mpsc::channel, Arc};
     use threadpool::ThreadPool;
-    use transposition::HashTable;
 
     pub fn perft(
         pos: &Position,

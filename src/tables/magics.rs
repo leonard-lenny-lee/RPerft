@@ -41,17 +41,17 @@ impl MagicTable {
             TableType::Rook => Self {
                 tables: vec![vec![BB(0); 4096]; 64],
                 table_type,
-                magic_factors: &constants::ROOK_MAGICS,
-                masks: &constants::ROOK_MASKS,
-                shifts: &constants::ROOK_SHIFTS,
+                magic_factors: &keys::ROOK_MAGICS,
+                masks: &keys::ROOK_MASKS,
+                shifts: &keys::ROOK_SHIFTS,
                 pext_enabled,
             },
             TableType::Bishop => Self {
                 tables: vec![vec![BB(0); 512]; 64],
                 table_type,
-                magic_factors: &constants::BISHOP_MAGICS,
-                masks: &constants::BISHOP_MASKS,
-                shifts: &constants::BISHOP_SHIFTS,
+                magic_factors: &keys::BISHOP_MAGICS,
+                masks: &keys::BISHOP_MASKS,
+                shifts: &keys::BISHOP_SHIFTS,
                 pext_enabled,
             },
         };
@@ -136,16 +136,8 @@ mod tests {
     #[test_case(TableType::Rook; "rook")]
     fn test_magics(table_type: TableType) {
         let (magics, masks, shifts) = match table_type {
-            TableType::Bishop => (
-                constants::BISHOP_MAGICS,
-                constants::BISHOP_MASKS,
-                constants::BISHOP_SHIFTS,
-            ),
-            TableType::Rook => (
-                constants::ROOK_MAGICS,
-                constants::ROOK_MASKS,
-                constants::ROOK_SHIFTS,
-            ),
+            TableType::Bishop => (keys::BISHOP_MAGICS, keys::BISHOP_MASKS, keys::BISHOP_SHIFTS),
+            TableType::Rook => (keys::ROOK_MAGICS, keys::ROOK_MASKS, keys::ROOK_SHIFTS),
         };
         for square in 0..64 {
             let magic = magics[square];

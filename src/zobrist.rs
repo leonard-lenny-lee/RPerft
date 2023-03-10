@@ -35,16 +35,20 @@ impl ZobristKey {
 
     fn hash_castling(data: &Data) -> u64 {
         let mut hash = 0;
-        if (data.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ).is_any() {
+        // White kingside castle
+        if (data.castling_rights & H1).is_not_empty() {
             hash ^= HASH_KEYS[768]
         }
-        if (data.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ).is_any() {
+        // White queenside castle
+        if (data.castling_rights & A1).is_not_empty() {
             hash ^= HASH_KEYS[769]
         }
-        if (data.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ).is_any() {
+        // Black kingside castle
+        if (data.castling_rights & H8).is_not_empty() {
             hash ^= HASH_KEYS[770]
         }
-        if (data.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ).is_any() {
+        // Black queenside castle
+        if (data.castling_rights & A8).is_not_empty() {
             hash ^= HASH_KEYS[771]
         }
         return hash;
@@ -118,7 +122,7 @@ impl ZobristKey {
     fn update_castling_rights(new_data: &Data, old_data: &Data) -> u64 {
         let mut update_hash = 0;
         let mut castling_right_diff = new_data.castling_rights ^ old_data.castling_rights;
-        while castling_right_diff.is_any() {
+        while castling_right_diff.is_not_empty() {
             match castling_right_diff.pop_ils1b() {
                 7 => update_hash ^= HASH_KEYS[768],  // White kingside
                 0 => update_hash ^= HASH_KEYS[769],  // White queenside
@@ -139,6 +143,7 @@ const PIECE_TO_HASH_INDEX: [usize; 7] = [0, 0, 3, 1, 2, 4, 5];
 // to test that our hashing algorithm is working correctly or use these for all
 // our Zobrist hashes.
 
+#[rustfmt::skip]
 const HASH_KEYS: [u64; 781] = [
     0x9D39247E33776D41, 0x2AF7398005AAA5C7, 0x44DB015024623547, 0x9C15F73E62A76AE2,
     0x75834465489C0C89, 0x3290AC3A203001BF, 0x0FBBAD1F61042279, 0xE83A908FF2FB60CA,

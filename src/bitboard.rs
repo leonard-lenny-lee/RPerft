@@ -34,7 +34,7 @@ impl BB {
     }
 
     /// Returns whether any of the bits are set
-    pub fn is_any(&self) -> bool {
+    pub fn is_not_empty(&self) -> bool {
         self.0 != 0
     }
 
@@ -81,9 +81,9 @@ impl BB {
 
     /// Decomposes the bitboard into a vector of one bit bitboards
     pub fn forward_scan(&self) -> Vec<BB> {
-        let mut copy_self = self.clone();
+        let mut copy_self = *self;
         let mut scan_result = Vec::new();
-        while copy_self.is_any() {
+        while copy_self.is_not_empty() {
             scan_result.push(copy_self.pop_ls1b())
         }
         return scan_result;
@@ -496,68 +496,26 @@ impl BB {
     /// Return a bitboard with the intervening bits between this single bit
     /// bitboard and another single bit bitboard filled
     pub fn connect_squares(&self, other: BB) -> BB {
-        assert!(
-            self.0.count_ones() == 1,
-            "Attempted use of self multi-bit bitboard"
-        );
-        assert!(
-            other.0.count_ones() == 1,
-            "Attempted use of other multi-bit bitboard"
-        );
+        assert!(self.0.count_ones() == 1);
+        assert!(other.0.count_ones() == 1);
         assert!(*self != other);
-        let (this_sq, other_sq) = (self.ils1b(), other.ils1b());
-        let translation = (this_sq as i32 - other_sq as i32).abs();
-        return *self
-            ^ if this_sq > other_sq {
-                // Other square must be W, SW, S or SE
-                if translation % 9 == 0 {
-                    // Diagonal translation
-                    self.so_we_ofill(other)
-                } else if translation % 8 == 0 {
-                    // Vertical translation
-                    self.sout_ofill(other)
-                } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
-                    // Anti-diagonal translation
-                    self.so_ea_ofill(other)
-                } else if translation < 8 {
-                    // Horizontal translation
-                    self.west_ofill(other)
-                } else {
-                    panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
-                }
-            } else {
-                // Other square must be E, NE, N or NW
-                if translation % 9 == 0 {
-                    // Diagonal translation
-                    self.no_ea_ofill(other)
-                } else if translation % 8 == 0 {
-                    // Vertical translation
-                    self.nort_ofill(other)
-                } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
-                    // Anti-diagonal translation
-                    self.no_we_ofill(other)
-                } else if translation < 8 {
-                    // Horizontal translation
-                    self.east_ofill(other)
-                } else {
-                    panic!("Squares {} and {} cannot be connected", this_sq, other_sq)
-                }
-            };
+        // Calculate if the bitboards are connected via a file/rank or
+        // a diagonal/antidiagonal
+        let (this_sq, other_sq) = (self.to_index(), other.to_index());
+        if this_sq / 8 == other_sq / 8 || this_sq % 8 == other_sq % 8 {
+            self.lu_rook_attacks(other) & other.lu_rook_attacks(*self)
+        } else {
+            self.lu_bishop_attacks(other) & other.lu_bishop_attacks(*self)
+        }
     }
 
     /// Return a bitboard of the common axis shared between this single bit
     /// bitboard and another single bit bitboard
     pub fn common_axis(&self, other: BB) -> BB {
-        assert!(
-            self.0.count_ones() == 1,
-            "Attempted use of self multi-bit bitboard"
-        );
-        assert!(
-            other.0.count_ones() == 1,
-            "Attempted use of other multi-bit bitboard"
-        );
+        assert!(self.0.count_ones() == 1);
+        assert!(other.0.count_ones() == 1);
         assert!(*self != other);
-        let (this_sq, other_sq) = (self.ils1b(), other.ils1b());
+        let (this_sq, other_sq) = (self.to_index(), other.to_index());
         let translation = (this_sq as i32 - other_sq as i32).abs();
         if translation % 9 == 0 {
             // Diagonal translation
@@ -580,15 +538,15 @@ impl BB {
     }
 
     /// Convert from algebraic notation e.g. a5 to a one bit bitboard
-    pub fn from_algebraic(algebraic: &str) -> Result<BB, interface::ExecutionError> {
+    pub fn from_algebraic(algebraic: &str) -> Result<BB, uci::ExecutionError> {
         let chars: Vec<char> = algebraic.chars().collect();
         if chars.len() != 2 {
-            return Err(interface::ExecutionError::ParseAlgebraicError(
+            return Err(uci::ExecutionError::ParseAlgebraicError(
                 algebraic.to_string(),
             ));
         }
         if !chars[0].is_alphabetic() || !chars[1].is_numeric() {
-            return Err(interface::ExecutionError::ParseAlgebraicError(
+            return Err(uci::ExecutionError::ParseAlgebraicError(
                 algebraic.to_string(),
             ));
         }
@@ -597,7 +555,7 @@ impl BB {
         if rank <= 8 && file <= 8 {
             Ok(BB(1 << (file + (rank - 1) * 8)))
         } else {
-            Err(interface::ExecutionError::ParseAlgebraicError(
+            Err(uci::ExecutionError::ParseAlgebraicError(
                 algebraic.to_string(),
             ))
         }
@@ -816,7 +774,11 @@ mod tests {
     #[ignore]
     #[test]
     fn test_print_bb() {
-        let out = BB(0x000101010101017E).to_string();
+        let king = E1;
+        let checker = E8;
+        let out = king.connect_squares(checker).to_string();
+        // let conn = king.connect_squares(checker);
+        // let out = conn.to_string();
         print!("{}", out)
     }
 

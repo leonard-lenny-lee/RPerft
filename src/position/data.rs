@@ -134,10 +134,10 @@ impl Data {
     fn init_castling_rights(&mut self, code: &str) -> Result<(), ExecutionError> {
         for c in code.chars() {
             match c {
-                'K' => self.castling_rights |= W_KINGSIDE_ROOK_STARTING_SQ,
-                'k' => self.castling_rights |= B_KINGSIDE_ROOK_STARTING_SQ,
-                'Q' => self.castling_rights |= W_QUEENSIDE_ROOK_STARTING_SQ,
-                'q' => self.castling_rights |= B_QUEENSIDE_ROOK_STARTING_SQ,
+                'K' => self.castling_rights |= H1,
+                'k' => self.castling_rights |= H8,
+                'Q' => self.castling_rights |= A1,
+                'q' => self.castling_rights |= A8,
                 '-' => (),
                 _ => {
                     let msg = format!("Invalid castling token {}", code);
@@ -314,16 +314,16 @@ impl Data {
         }
 
         let mut castling_token = String::new();
-        if self.castling_rights & W_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+        if self.castling_rights & H1 != EMPTY_BB {
             castling_token.push('K')
         }
-        if self.castling_rights & W_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+        if self.castling_rights & A1 != EMPTY_BB {
             castling_token.push('Q')
         }
-        if self.castling_rights & B_KINGSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+        if self.castling_rights & H8 != EMPTY_BB {
             castling_token.push('k')
         }
-        if self.castling_rights & B_QUEENSIDE_ROOK_STARTING_SQ != EMPTY_BB {
+        if self.castling_rights & A8 != EMPTY_BB {
             castling_token.push('q')
         }
         if castling_token.len() == 0 {
@@ -450,13 +450,7 @@ mod tests {
     fn test_init_castling_rights() {
         let mut data = Data::new();
         data.init_castling_rights("KkQq").unwrap();
-        assert_eq!(
-            W_KINGSIDE_ROOK_STARTING_SQ
-                | B_KINGSIDE_ROOK_STARTING_SQ
-                | W_QUEENSIDE_ROOK_STARTING_SQ
-                | B_QUEENSIDE_ROOK_STARTING_SQ,
-            data.castling_rights
-        )
+        assert_eq!(A1 | H1 | A8 | H8, data.castling_rights)
     }
 
     #[test_case("-", EMPTY_BB; "n_empty")]
