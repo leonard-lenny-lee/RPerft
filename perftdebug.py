@@ -1,5 +1,6 @@
 """Use Stockfish to debug Perft errors
 """
+import argparse
 from enum import Enum
 from subprocess import Popen, PIPE
 from re import match
@@ -8,6 +9,24 @@ from typing import List, Dict
 ENGINE_PATH = "./target/debug/chess"
 STOCKFISH_PATH = "stockfish"
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Debug Perft by comparing against a reference engine"
+    )
+    parser.add_argument("--ref", "-r", metavar="R", type=str, nargs=1,
+                        help="path to reference engine", default=STOCKFISH_PATH)
+    parser.add_argument("--eng", "-e", metavar="E", type=str, nargs=1,
+                        help="path to test engine", default=ENGINE_PATH)
+    parser.add_argument("--depth", "-d", metavar="D", type=int, nargs=1,
+                        help="depth to search", required=False, default=5)
+    parser.add_argument("--fen", "-f", metavar="F", type=str, nargs="+",
+                        help="fen string", required=False, default=STARTING_FEN)
+    args = parser.parse_args()
+    args = map(lambda x: " ".join(x) if isinstance(x, list) else x,
+               (args.depth, args.fen, args.ref, args.eng))
+    debug(*args)
 
 
 class DebugResult(Enum):
@@ -23,14 +42,12 @@ class DebugResult(Enum):
         return self
 
 
-def debug(depth: int, fen: str = None):
-    if fen is None:
-        fen = STARTING_FEN
+def debug(depth: int, fen: str, ref: str, eng: str):
     moves = []
     for d in range(depth, 0, -1):
-        debug_result = _debug(d, fen, moves)
+        debug_result = _debug(ref, eng, d, fen, moves)
         if debug_result is DebugResult.OK:
-            print(debug_result)
+            print(f"{debug_result} {fen} depth {depth}")
             return
         if debug_result is DebugResult.COUNT_MISMATCH:
             # Explore deeper
@@ -43,9 +60,9 @@ def debug(depth: int, fen: str = None):
     print("Debug failed to find variation")
 
 
-def _debug(depth: int, fen: str = None, moves: List[str] = None) -> DebugResult:
-    chess_perft = _run("engine", depth, fen, moves)
-    stockfish_perft = _run("stockfish", depth, fen, moves)
+def _debug(ref: str, eng: str, depth: int, fen: str, moves: List[str] = None) -> DebugResult:
+    chess_perft = _run(eng, depth, fen, moves)
+    stockfish_perft = _run(ref, depth, fen, moves)
     # Check if there is disagreement in number of, or identity, of moves
     # found in the current position, load mismatch information
     egn_moves, sf_moves = set(chess_perft.keys()), set(stockfish_perft.keys())
@@ -64,20 +81,15 @@ def _debug(depth: int, fen: str = None, moves: List[str] = None) -> DebugResult:
     return DebugResult.OK
 
 
-def _run(engine: str, depth: int, fen: str = None, moves: List[str] = None) -> Dict[str, int]:
-    if engine == "stockfish":
-        path = STOCKFISH_PATH
-    else:
-        path = ENGINE_PATH
+def _run(path: str, depth: int, fen: str, moves: List[str] = None) -> Dict[str, int]:
     p = Popen(path, stdin=PIPE, stdout=PIPE, encoding="UTF8")
     if moves is not None:
         moves = " ".join(moves)
-    if fen is not None:
-        # Remove this conditional logic when engine is UCI compliant
-        if engine == "stockfish":
-            p.stdin.write(f"position fen {fen} moves {moves}\n")
-        else:
-            p.stdin.write(f"position fen {fen} {moves}\n")
+    # Remove this conditional logic when engine is UCI compliant
+    if "stockfish" in path:
+        p.stdin.write(f"position fen {fen} moves {moves}\n")
+    else:
+        p.stdin.write(f"position fen {fen} {moves}\n")
     p.stdin.write(f"go perft {depth}\n")
     p.stdin.write("quit\n")
     p.stdin.flush()
@@ -92,4 +104,4 @@ def _run(engine: str, depth: int, fen: str = None, moves: List[str] = None) -> D
 
 
 if __name__ == "__main__":
-    debug(5, "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8")
+    main()
