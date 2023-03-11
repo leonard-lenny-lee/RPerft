@@ -12,7 +12,7 @@ lazy_static::lazy_static! {
 
 /// Light perft test suite. Compares the number of nodes generated in these
 /// standard perft positions against the consensus.
-#[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609], 5; "starting_position")]
+#[test_case(STARTING_POSITION, vec![20, 400, 8902, 197281, 4865609], 5; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603], 4; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083], 6; "position_three")]
 #[test_case(POSITION_4, vec![6, 264, 9467, 422333], 4; "position_four")]
@@ -60,7 +60,7 @@ fn perft_debug() {
 }
 
 /// Medium depth perft tests. Extension of the light perft test suite.
-#[test_case(DEFAULT_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
+#[test_case(STARTING_POSITION, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "starting_position")]
 #[test_case(POSITION_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "position_two")]
 #[test_case(POSITION_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "position_three")]
 #[test_case(POSITION_4, vec![6, 264, 9467, 422333, 15833292], 5; "position_four")]
@@ -77,7 +77,7 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
 /// Highly intensive perft tests. Keep ignore flag to prevent from being
 /// run in a normal test suite.
 #[ignore]
-#[test_case(DEFAULT_FEN, 3195901860, 7; "starting_position")]
+#[test_case(STARTING_POSITION, 3195901860, 7; "starting_position")]
 #[test_case(POSITION_2, 8031647685, 6; "position_two")]
 #[test_case(POSITION_3, 3009794393, 8; "position_three")]
 #[test_case(POSITION_4, 706045033, 6; "position_four")]

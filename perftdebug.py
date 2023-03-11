@@ -19,8 +19,8 @@ def main():
                         help="path to reference engine", default=STOCKFISH_PATH)
     parser.add_argument("--eng", "-e", metavar="E", type=str, nargs=1,
                         help="path to test engine", default=ENGINE_PATH)
-    parser.add_argument("--depth", "-d", metavar="D", type=int, nargs=1,
-                        help="depth to search", required=False, default=5)
+    parser.add_argument("--depth", "-d", metavar="D", type=str, nargs=1,
+                        help="depth to search", required=False, default="5")
     parser.add_argument("--fen", "-f", metavar="F", type=str, nargs="+",
                         help="fen string", required=False, default=STARTING_FEN)
     args = parser.parse_args()
@@ -42,9 +42,9 @@ class DebugResult(Enum):
         return self
 
 
-def debug(depth: int, fen: str, ref: str, eng: str):
+def debug(depth: str, fen: str, ref: str, eng: str):
     moves = []
-    for d in range(depth, 0, -1):
+    for d in range(int(depth), 0, -1):
         debug_result = _debug(ref, eng, d, fen, moves)
         if debug_result is DebugResult.OK:
             print(f"{debug_result} {fen} depth {depth}")
@@ -85,11 +85,7 @@ def _run(path: str, depth: int, fen: str, moves: List[str] = None) -> Dict[str, 
     p = Popen(path, stdin=PIPE, stdout=PIPE, encoding="UTF8")
     if moves is not None:
         moves = " ".join(moves)
-    # Remove this conditional logic when engine is UCI compliant
-    if "stockfish" in path:
-        p.stdin.write(f"position fen {fen} moves {moves}\n")
-    else:
-        p.stdin.write(f"position fen {fen} {moves}\n")
+    p.stdin.write(f"position fen {fen} moves {moves}\n")
     p.stdin.write(f"go perft {depth}\n")
     p.stdin.write("quit\n")
     p.stdin.flush()
@@ -97,7 +93,7 @@ def _run(path: str, depth: int, fen: str, moves: List[str] = None) -> Dict[str, 
     response = p.stdout.read().split("\n")
     result = {}
     for line in response:
-        if match("^[a-h]{1}[1-8]{1}", line):
+        if match("^[a-h][1-8]{2}", line):
             move, node_count = line.split(":")
             result[move] = node_count
     return result

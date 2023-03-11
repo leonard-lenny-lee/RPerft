@@ -258,9 +258,9 @@ pub mod perft {
         return nodes;
     }
 
-    pub fn run_perft_suite(config: &Config) {
+    pub fn run_perft_suite(num_threads: usize, table_size: usize) {
         let positions = [
-            DEFAULT_FEN,
+            STARTING_POSITION,
             POSITION_2,
             POSITION_3,
             POSITION_4,
@@ -272,7 +272,7 @@ pub mod perft {
         for (i, (pos_fen, depth)) in std::iter::zip(positions, depths).enumerate() {
             let pos = Position::from_fen(pos_fen.to_string()).unwrap();
             let (nodes, duration, nodes_per_second) =
-                perft(&pos, depth, config.num_threads, config.table_size, false);
+                perft(&pos, depth, num_threads, table_size, false);
             results.push((i + 1, nodes, duration, nodes_per_second));
         }
         // Report results

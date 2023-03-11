@@ -118,9 +118,9 @@ impl Position {
 
     /// Check that in the position, we cannot capture their king. If so, it's
     /// an illegal position
-    pub fn check_legality(&self) -> Result<(), ExecutionError> {
+    pub fn check_legality(&self) -> Result<(), RuntimeError> {
         if (self.target_squares() & self.their_pieces().king).is_not_empty() {
-            Err(ExecutionError::ParseFenError(
+            Err(RuntimeError::ParseFenError(
                 "fen represents an illegal position (king capture possible)".to_string(),
             ))
         } else {

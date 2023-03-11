@@ -1,6 +1,6 @@
-/// Contains the Data struct, which holds the all the bitboards and data
-/// to describe the current position, as well as methods to derive other
-/// bitboards required for move generation and evaluation
+/// Contains the Position struct, which wraps the Data struct, which fully
+/// describes a chess position, as well as its Zobrist Hash and state machine
+/// which changes the behavior for when it's wtm or btm.
 use super::*;
 mod analysis;
 mod data;
@@ -8,9 +8,8 @@ mod pieceset;
 mod states;
 
 pub use data::Data;
-use pieceset::PieceSet;
-use uci::ExecutionError;
-pub use zobrist::ZobristKey;
+use uci::RuntimeError;
+use zobrist::ZobristKey;
 
 pub struct Position {
     pub data: Data,
@@ -19,13 +18,17 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn from_fen(fen: String) -> Result<Self, ExecutionError> {
+    pub fn from_fen(fen: String) -> Result<Self, RuntimeError> {
         let data = Data::from_fen(fen)?;
         let mut pos = Position::new(&data);
         pos.init_state();
         pos.init_key();
         pos.check_legality()?;
         Ok(pos)
+    }
+
+    pub fn new_starting() -> Self {
+        return Self::from_fen(STARTING_POSITION.to_string()).unwrap();
     }
 
     fn new(data: &Data) -> Self {

@@ -1,7 +1,7 @@
-use super::*;
-
 /// Turn specific logic, methods and data are delegated to the White and Black
 /// structs which implement the State trait
+use super::*;
+use pieceset::PieceSet;
 
 pub struct White;
 pub struct Black;

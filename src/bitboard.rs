@@ -496,9 +496,9 @@ impl BB {
     /// Return a bitboard with the intervening bits between this single bit
     /// bitboard and another single bit bitboard filled
     pub fn connect_squares(&self, other: BB) -> BB {
-        assert!(self.0.count_ones() == 1);
-        assert!(other.0.count_ones() == 1);
-        assert!(*self != other);
+        debug_assert_eq!(self.0.count_ones(), 1);
+        debug_assert_eq!(other.0.count_ones(), 1);
+        debug_assert_ne!(*self, other);
         // Calculate if the bitboards are connected via a file/rank or
         // a diagonal/antidiagonal
         let (this_sq, other_sq) = (self.to_index(), other.to_index());
@@ -512,9 +512,9 @@ impl BB {
     /// Return a bitboard of the common axis shared between this single bit
     /// bitboard and another single bit bitboard
     pub fn common_axis(&self, other: BB) -> BB {
-        assert!(self.0.count_ones() == 1);
-        assert!(other.0.count_ones() == 1);
-        assert!(*self != other);
+        debug_assert_eq!(self.0.count_ones(), 1);
+        debug_assert_eq!(other.0.count_ones(), 1);
+        debug_assert_ne!(*self, other);
         let (this_sq, other_sq) = (self.to_index(), other.to_index());
         let translation = (this_sq as i32 - other_sq as i32).abs();
         if translation % 9 == 0 {
@@ -538,15 +538,15 @@ impl BB {
     }
 
     /// Convert from algebraic notation e.g. a5 to a one bit bitboard
-    pub fn from_algebraic(algebraic: &str) -> Result<BB, uci::ExecutionError> {
+    pub fn from_algebraic(algebraic: &str) -> Result<BB, uci::RuntimeError> {
         let chars: Vec<char> = algebraic.chars().collect();
         if chars.len() != 2 {
-            return Err(uci::ExecutionError::ParseAlgebraicError(
+            return Err(uci::RuntimeError::ParseAlgebraicError(
                 algebraic.to_string(),
             ));
         }
         if !chars[0].is_alphabetic() || !chars[1].is_numeric() {
-            return Err(uci::ExecutionError::ParseAlgebraicError(
+            return Err(uci::RuntimeError::ParseAlgebraicError(
                 algebraic.to_string(),
             ));
         }
@@ -555,7 +555,7 @@ impl BB {
         if rank <= 8 && file <= 8 {
             Ok(BB(1 << (file + (rank - 1) * 8)))
         } else {
-            Err(uci::ExecutionError::ParseAlgebraicError(
+            Err(uci::RuntimeError::ParseAlgebraicError(
                 algebraic.to_string(),
             ))
         }
