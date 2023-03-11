@@ -3,8 +3,8 @@ use super::*;
 
 use regex::Regex;
 use vampirc_uci::{
-    parse_one, CommunicationDirection, Serializable, UciFen, UciMessage, UciMove, UciSearchControl,
-    UciTimeControl,
+    parse_one, CommunicationDirection, Serializable, UciFen, UciMessage, UciMove, UciOptionConfig,
+    UciSearchControl, UciTimeControl,
 };
 
 use engine::{Engine, EngineMode};
@@ -31,12 +31,12 @@ impl MessageHandler {
 impl Engine {
     /// Match UciMessage and execute command instructed
     pub fn execute_cmd(&mut self, cmd: UciMessage) {
-        match cmd {
+        let r = match cmd {
             UciMessage::Uci => self.exec_uci(),
-            UciMessage::Debug(on) => self.debug = on,
+            UciMessage::Debug(_on) => Ok(()), // TODO delegate to setoption
             UciMessage::IsReady => self.exec_isready(),
             // Registration not required, always ignore this command
-            UciMessage::Register { .. } => (),
+            UciMessage::Register { .. } => Ok(()),
             UciMessage::Position {
                 startpos,
                 fen,
@@ -46,81 +46,108 @@ impl Engine {
             UciMessage::UciNewGame => self.exec_ucinewgame(),
             UciMessage::Stop => todo!(),
             UciMessage::PonderHit => todo!(),
-            UciMessage::Quit => (),
+            UciMessage::Quit => Ok(()),
             UciMessage::Go {
                 time_control,
                 search_control,
             } => self.exec_go(time_control, search_control),
             UciMessage::Unknown(msg, _) => self.exec_unknown(msg),
-            _ => assert!(matches!(
-                cmd.direction(),
-                CommunicationDirection::GuiToEngine
-            )),
+            _ => match cmd.direction() {
+                CommunicationDirection::EngineToGui => {
+                    Err(RuntimeError::UciCommError { uci_cmd: cmd })
+                }
+                CommunicationDirection::GuiToEngine => Err(RuntimeError::ParseStdinError {
+                    str: cmd.serialize(),
+                }),
+            },
+        };
+
+        // In user mode, the engine should provide verbose log messages if there
+        // are errors with the input. In UCI mode, assume input is correct, ignore
+        // any messages that cannot be parsed or executed.
+        if let Err(e) = r {
+            if matches!(self.mode, EngineMode::User) {
+                e.warn()
+            }
         }
     }
 
-    // Command executor methods
+    /* Command executor methods */
 
-    fn exec_uci(&mut self) {
+    fn exec_uci(&mut self) -> Result<(), RuntimeError> {
         self.mode = EngineMode::Uci;
         println!("{}", UciMessage::id_name(ENGINE_NAME).serialize());
         println!("{}", UciMessage::id_author(AUTHOR_NAME).serialize());
+
         // TODO Send configurable option data via "option" commands
+        println!(
+            "{}",
+            UciMessage::Option(UciOptionConfig::Spin {
+                name: "Hash".to_string(),
+                default: Some(32),
+                min: Some(16),
+                max: None,
+            })
+            .serialize()
+        );
+
         println!("{}", UciMessage::UciOk.serialize());
+        return Ok(());
     }
 
-    fn exec_isready(&self) {
+    fn exec_isready(&self) -> Result<(), RuntimeError> {
         // Respond with "readyok"
         println!("{}", UciMessage::ReadyOk.serialize());
+        return Ok(());
     }
 
-    fn exec_ucinewgame(&mut self) {
+    // Future moves are from a different game
+    fn exec_ucinewgame(&mut self) -> Result<(), RuntimeError> {
         self.hash_table.clear();
+        return Ok(());
     }
 
-    fn exec_position(&mut self, startpos: bool, fen: Option<UciFen>, moves: Vec<UciMove>) {
+    // Modify current game position
+    fn exec_position(
+        &mut self,
+        startpos: bool,
+        fen: Option<UciFen>,
+        moves: Vec<UciMove>,
+    ) -> Result<(), RuntimeError> {
         if startpos {
             self.cur_pos = Position::new_starting();
         }
+
+        // Attempt to parse and load the fen string into the position
         if let Some(f) = fen {
-            // Attempt to parse and load the fen string into the position
-            match Position::from_fen(f.to_string()) {
-                Ok(p) => self.cur_pos = p,
-                Err(e) => match self.mode {
-                    EngineMode::Uci => (),
-                    EngineMode::User => e.warn(),
-                },
-            }
+            self.cur_pos = Position::from_fen(f.to_string())?
         }
+
         // Sequentially apply the moves specified to the position
         for ucimove in moves {
-            let mut valid = false;
             let movelist = movegen::find_moves(&self.cur_pos);
-            // Scan movelist for ucimove specified move
-            for mv in movelist.iter() {
-                // Found move so play it and mark move as valid
-                if format!("{ucimove}") == mv.to_algebraic() {
-                    self.cur_pos = makemove::make_move(&self.cur_pos, mv);
-                    valid = true;
-                    break;
-                }
+            let mv_algebraic = format!("{ucimove}");
+
+            if let Some(mv) = movelist.find(mv_algebraic) {
+                self.cur_pos = makemove::make_move(&self.cur_pos, &mv);
+                continue;
             }
-            // Warn user of invalid move, ignore in UCI mode
-            if !valid && matches!(self.mode, EngineMode::User) {
-                RuntimeError::InvalidMoveError {
-                    mv: format!("{ucimove}"),
-                    fen: self.cur_pos.data.fen(),
-                }
-                .warn()
-            }
+
+            return Err(RuntimeError::InvalidMoveError {
+                move_algebraic: format!("{ucimove}"),
+                fen_str: self.cur_pos.data.fen(),
+            });
         }
+
+        return Ok(());
     }
 
+    // Execute search and calculation commands
     fn exec_go(
         &self,
         time_control: Option<UciTimeControl>,
         search_control: Option<UciSearchControl>,
-    ) {
+    ) -> Result<(), RuntimeError> {
         if let Some(tc) = time_control {
             // TODO Awaiting implementation of iterative deepening
             match tc {
@@ -130,36 +157,49 @@ impl Engine {
                 UciTimeControl::MoveTime(_) => todo!(),
             }
         }
+
         if let Some(_sc) = search_control {
             // TODO Implement search
         }
+
+        return Ok(());
     }
 
-    fn exec_unknown(&mut self, msg: String) {
+    // Check for command patterns not in the UCI protocol, for human-input
+    fn exec_unknown(&mut self, msg: String) -> Result<(), RuntimeError> {
         // Ignore unknown messages in UCI mode
         if !matches!(self.mode, EngineMode::User) {
-            return;
+            return Ok(());
         }
         // Attempt to parse custom inputs
         lazy_static! {
             static ref PERFT_D: Regex = Regex::new(r"^go perft \d+$").unwrap();
         }
+
         let msg = msg.trim();
+
+        // Perft test runner suite
         if msg == "go perft bench" {
             search::perft::run_perft_suite(self.num_threads, self.table_size_bytes);
-            return;
+            return Ok(());
         }
+
+        // Display current position board
         if msg == "d" || msg == "display" {
             print!("{}", self.cur_pos.to_string());
-            return;
+            return Ok(());
         }
+
+        // Perft runner on current position
         if PERFT_D.is_match(msg) {
             let mut m: Vec<&str> = msg.split(" ").collect();
+
             let depth = m
                 .pop()
                 .expect("regex matched 3 tokens")
                 .parse::<u8>()
                 .expect("regex matched last token as numerical");
+
             search::perft::perft(
                 &self.cur_pos,
                 depth,
@@ -167,26 +207,40 @@ impl Engine {
                 self.table_size_bytes,
                 true,
             );
-            return;
+            return Ok(());
         }
-        // Else unrecognised command
-        RuntimeError::StdinParseError(msg.to_string()).warn();
+
+        // Else, unrecognised command, raise runtime error
+        return Err(RuntimeError::ParseStdinError {
+            str: msg.to_string(),
+        });
     }
 }
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    StdinParseError(String),
+    ParseStdinError {
+        str: String,
+    },
+    UciCommError {
+        uci_cmd: UciMessage,
+    },
     ParseFenError(String),
     ParseAlgebraicError(String),
-    InvalidMoveError { mv: String, fen: String },
+    InvalidMoveError {
+        move_algebraic: String,
+        fen_str: String,
+    },
 }
 
 impl RuntimeError {
     pub fn warn(&self) {
         let msg = match self {
-            Self::StdinParseError(msg) => {
-                format!("Could not parse command: {msg}")
+            Self::ParseStdinError { str } => {
+                format!("Could not parse command: {str}")
+            }
+            Self::UciCommError { uci_cmd } => {
+                format!("UCI command {uci_cmd} in wrong iostream")
             }
             Self::ParseFenError(msg) => {
                 format!("Could not parse FEN: {msg}")
@@ -194,8 +248,11 @@ impl RuntimeError {
             Self::ParseAlgebraicError(msg) => {
                 format!("Could not parse move: {msg}")
             }
-            Self::InvalidMoveError { mv, fen } => {
-                format!("Invalid move \"{mv}\" in the position {fen}")
+            Self::InvalidMoveError {
+                move_algebraic,
+                fen_str,
+            } => {
+                format!("Invalid move \"{move_algebraic}\" in the position {fen_str}")
             }
         };
         log::error!("{msg}")

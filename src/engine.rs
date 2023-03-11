@@ -26,9 +26,7 @@ impl Engine {
         }
     }
 }
-// In user mode, the engine should provide verbose log messages if there
-// are errors with the input. In UCI mode, input should be correct, ignore
-// any messages that cannot be parsed or executed.
+
 pub enum EngineMode {
     User,
     Uci,

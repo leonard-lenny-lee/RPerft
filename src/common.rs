@@ -110,6 +110,11 @@ pub const F8: BB = BB(1 << 61);
 pub const G8: BB = BB(1 << 62);
 pub const H8: BB = BB(1 << 63);
 
+// ASCII Codes for converting int values to char
+pub const ASCII_LOWER_A: usize = 97;
+pub const ASCII_UPPER_A: usize = 65;
+pub const ASCII_ZERO: usize = 48;
+
 pub enum ASCIIBases {
     LowerA = 97,
     UpperA = 65,

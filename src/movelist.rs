@@ -92,6 +92,15 @@ impl MoveList {
     pub fn pop(&mut self) -> Option<Move> {
         self.move_list.pop()
     }
+
+    pub fn find(&self, mv: String) -> Option<Move> {
+        for m in self.move_list.iter() {
+            if mv == m.to_algebraic() {
+                return Some(*m);
+            }
+        }
+        return None;
+    }
 }
 
 impl std::ops::Index<usize> for MoveList {
