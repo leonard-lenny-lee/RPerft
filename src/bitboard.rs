@@ -54,10 +54,10 @@ impl BB {
         self.0.trailing_zeros() as usize
     }
 
-    /// Return the index of a single bitboard as a u8
-    pub fn to_index_u8(&self) -> u8 {
+    /// Return the index of a single bitboard as a u16
+    pub fn to_index_uint16(&self) -> u16 {
         debug_assert!(self.pop_count() == 1);
-        self.0.trailing_zeros() as u8
+        self.0.trailing_zeros() as u16
     }
 
     /// Pop off and return the index of the least significant one bit

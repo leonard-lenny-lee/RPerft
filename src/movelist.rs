@@ -1,32 +1,5 @@
 use super::*;
 
-const FROM_TO: u8 = 63; // xx111111
-const SPECIAL_1: u8 = 128; // 10xxxxxx
-const SPECIAL_2: u8 = 64; // 01xxxxxx
-const SPECIAL_X: u8 = 192; // 11xxxxxx
-
-/*
-    Moves are encoded in two 8 bit integers.
-    Bits 0-5 of word_one and word_two encode the source
-    and target square, respectively. Bits 6 and 7 encode
-    special move flags with the encoding below:
-    CODES
-    -----
-    1  2  <- word
-    76 76 <- index
-    00 00 - quiet moves
-    00 01 - double pawn push
-    00 10 - king castle
-    00 11 - queen castle
-    x1 xx - capture flag
-    01 01 - en passant capture
-    1x xx - promotion flag
-    1x 00 - knight promotion
-    1x 01 - bishop promotion
-    1x 10 - rook promotion
-    1x 11 - queen promotion
-*/
-
 pub struct MoveList {
     move_list: Vec<Move>,
 }
@@ -111,195 +84,199 @@ impl std::ops::Index<usize> for MoveList {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Move {
-    word_one: u8,
-    word_two: u8,
+/*
+    Moves are encoded in an 16 bit integer.
+    Bits 0-5 and 6-11 encode the source and target square, respectively.
+    Bits 12-15 encode special move flags with the encoding below:
+
+    FLAGS
+    -----
+    0000 - quiet moves
+    0001 - double pawn push
+    0010 - king castle
+    0011 - queen castle
+    0100 - captures
+    0101 - en passant capture
+    0110 - NONE
+    0111 - NONE
+    1000 - knight promotion
+    1001 - bishop promotion
+    1010 - rook promotion
+    1011 - queen promotion
+    1100 - knight-promo capture
+    1101 - bishop-promo capture
+    1110 - rook-promo capture
+    1111 - queen-promo capture
+
+    x1xx - capture flag
+    1xxx - promotion flag
+*/
+
+// Special move flags
+const QUIET: u16 = 0x0000;
+const DOUBLE_PAWN_PUSH: u16 = 0x1000;
+const SHORT_CASTLE: u16 = 0x2000;
+const LONG_CASTLE: u16 = 0x3000;
+const CAPTURE: u16 = 0x4000;
+const ENPASSANT: u16 = 0x5000;
+const KNIGHT_PROMO: u16 = 0x8000;
+const BISHOP_PROMO: u16 = 0x9000;
+const ROOK_PROMO: u16 = 0xa000;
+const QUEEN_PROMO: u16 = 0xb000;
+const KNIGHT_PROMO_CAPTURE: u16 = 0xc000;
+const BISHOP_PROMO_CAPTURE: u16 = 0xd000;
+const ROOK_PROMO_CAPTURE: u16 = 0xe000;
+const QUEEN_PROMO_CAPTURE: u16 = 0xf000;
+
+const CAPTURE_FLAG: u16 = 0x4000;
+const PROMO_FLAG: u16 = 0x8000;
+
+const SRC: u16 = 0x003f;
+const TARGET: u16 = 0x0fc0;
+const FLAGS: u16 = 0xf000;
+
+pub enum MoveType {
+    Quiet,
+    DoublePawnPush,
+    ShortCastle,
+    LongCastle,
+    Capture,
+    EnPassant,
+    KnightPromo,
+    BishopPromo,
+    RookPromo,
+    QueenPromo,
+    KnightPromoCapture,
+    BishopPromoCapture,
+    RookPromoCapture,
+    QueenPromoCapture,
 }
+
+#[derive(Clone, Copy)]
+pub struct Move(pub u16);
 
 impl Move {
     pub fn new_null() -> Move {
-        return Move {
-            word_one: 0,
-            word_two: 0,
-        };
+        return Move(0);
     }
 
-    pub fn from_words(word_one: u8, word_two: u8) -> Move {
-        return Move { word_one, word_two };
+    pub fn from_uint16(word: u16) -> Move {
+        return Move(word);
     }
 
     fn new_quiet_move(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src),
-            word_two: Move::encode_square(target),
-        };
+        return Move(Move::encode_move(src, target));
     }
 
     fn new_double_pawn_push(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src),
-            word_two: Move::encode_square(target) | SPECIAL_2,
-        };
+        return Move(Move::encode_move(src, target) | DOUBLE_PAWN_PUSH);
     }
 
     fn new_short_castle(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src),
-            word_two: Move::encode_square(target) | SPECIAL_1,
-        };
+        return Move(Move::encode_move(src, target) | SHORT_CASTLE);
     }
 
     fn new_long_castle(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src),
-            word_two: Move::encode_square(target) | SPECIAL_X,
-        };
+        return Move(Move::encode_move(src, target) | LONG_CASTLE);
     }
 
     fn new_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_2,
-            word_two: Move::encode_square(target),
-        };
+        return Move(Move::encode_move(src, target) | CAPTURE);
     }
 
     fn new_ep_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_2,
-            word_two: Move::encode_square(target) | SPECIAL_2,
-        };
+        return Move(Move::encode_move(src, target) | ENPASSANT);
     }
 
     fn new_knight_promotion(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_1,
-            word_two: Move::encode_square(target),
-        };
+        return Move(Move::encode_move(src, target) | KNIGHT_PROMO);
     }
 
     fn new_bishop_promotion(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_1,
-            word_two: Move::encode_square(target) | SPECIAL_2,
-        };
+        return Move(Move::encode_move(src, target) | BISHOP_PROMO);
     }
 
     fn new_rook_promotion(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_1,
-            word_two: Move::encode_square(target) | SPECIAL_1,
-        };
+        return Move(Move::encode_move(src, target) | ROOK_PROMO);
     }
 
     fn new_queen_promotion(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_1,
-            word_two: Move::encode_square(target) | SPECIAL_X,
-        };
+        return Move(Move::encode_move(src, target) | QUEEN_PROMO);
     }
 
     fn new_knight_promo_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_X,
-            word_two: Move::encode_square(target),
-        };
+        return Move(Move::encode_move(src, target) | KNIGHT_PROMO_CAPTURE);
     }
 
     fn new_bishop_promo_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_X,
-            word_two: Move::encode_square(target) | SPECIAL_2,
-        };
+        return Move(Move::encode_move(src, target) | BISHOP_PROMO_CAPTURE);
     }
 
     fn new_rook_promo_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_X,
-            word_two: Move::encode_square(target) | SPECIAL_1,
-        };
+        return Move(Move::encode_move(src, target) | ROOK_PROMO_CAPTURE);
     }
 
     fn new_queen_promo_capture(target: BB, src: BB) -> Move {
-        return Move {
-            word_one: Move::encode_square(src) | SPECIAL_X,
-            word_two: Move::encode_square(target) | SPECIAL_X,
-        };
+        return Move(Move::encode_move(src, target) | QUEEN_PROMO_CAPTURE);
     }
 
-    fn encode_square(square: BB) -> u8 {
-        square.to_index_u8()
+    fn encode_move(src: BB, target: BB) -> u16 {
+        return src.to_index_uint16() | (target.to_index_uint16() << 6);
     }
 
     /// Decode the target into a one bit bitmask
     pub fn target(&self) -> BB {
-        BB::from_index((self.word_two & FROM_TO).into())
+        BB::from_index(((self.0 & TARGET) >> 6).into())
     }
 
     /// Decode the source into a one bit bitmask
     pub fn src(&self) -> BB {
-        BB::from_index((self.word_one & FROM_TO).into())
+        BB::from_index((self.0 & SRC).into())
     }
 
-    pub fn is_quiet(&self) -> bool {
-        self.word_one & SPECIAL_X == 0 && self.word_two & SPECIAL_X == 0
+    /// Decode the type of move
+    pub fn movetype(&self) -> MoveType {
+        match self.0 & FLAGS {
+            QUIET => MoveType::Quiet,
+            DOUBLE_PAWN_PUSH => MoveType::DoublePawnPush,
+            SHORT_CASTLE => MoveType::ShortCastle,
+            LONG_CASTLE => MoveType::LongCastle,
+            CAPTURE => MoveType::Capture,
+            ENPASSANT => MoveType::EnPassant,
+            KNIGHT_PROMO => MoveType::KnightPromo,
+            BISHOP_PROMO => MoveType::BishopPromo,
+            ROOK_PROMO => MoveType::RookPromo,
+            QUEEN_PROMO => MoveType::QueenPromo,
+            KNIGHT_PROMO_CAPTURE => MoveType::KnightPromoCapture,
+            BISHOP_PROMO_CAPTURE => MoveType::BishopPromoCapture,
+            ROOK_PROMO_CAPTURE => MoveType::RookPromoCapture,
+            QUEEN_PROMO_CAPTURE => MoveType::QueenPromoCapture,
+            _ => panic!("Unrecognised move type encoding"),
+        }
     }
 
-    /// Decode if the piece is a capture
+    /// Decode if the move encodes a capture of any sort
     pub fn is_capture(&self) -> bool {
-        self.word_one & SPECIAL_2 != 0
+        return self.0 & CAPTURE_FLAG != 0;
     }
 
+    /// Decode if the move encodes a promotion of any sort
     pub fn is_promotion(&self) -> bool {
-        self.word_one & SPECIAL_1 != 0
+        return self.0 & PROMO_FLAG != 0;
     }
 
-    pub fn is_castle(&self) -> bool {
-        self.word_two & SPECIAL_1 != 0 && self.word_one & SPECIAL_X == 0
-    }
-
-    pub fn is_short_castle(&self) -> bool {
-        self.word_one & SPECIAL_X == 0 && self.word_two & SPECIAL_X == SPECIAL_1
-    }
-
-    pub fn is_long_castle(&self) -> bool {
-        self.word_one & SPECIAL_X == 0 && self.word_two & SPECIAL_X == SPECIAL_X
-    }
-
-    pub fn is_en_passant(&self) -> bool {
-        self.word_one & SPECIAL_X == SPECIAL_2 && self.word_two & SPECIAL_X == SPECIAL_2
-    }
-
-    pub fn is_double_pawn_push(&self) -> bool {
-        self.word_one & SPECIAL_X == 0 && self.word_two & SPECIAL_X == SPECIAL_2
-    }
-
-    pub fn word_one(&self) -> u8 {
-        self.word_one
-    }
-
-    pub fn word_two(&self) -> u8 {
-        self.word_two
-    }
-
-    pub fn flag_one(&self) -> u8 {
-        self.word_one & SPECIAL_X
-    }
-
-    pub fn flag_two(&self) -> u8 {
-        self.word_two & SPECIAL_X
-    }
-
+    /// Is the move a null move
     pub fn is_null(&self) -> bool {
-        self.word_one == 0 && self.word_two == 0
+        return self.0 == 0;
     }
 
+    /// What kind of promotion is encoded
     pub fn promotion_piece(&self) -> Option<Piece> {
-        match self.word_two & SPECIAL_X {
-            0 => Some(Piece::Knight),
-            SPECIAL_1 => Some(Piece::Rook),
-            SPECIAL_2 => Some(Piece::Bishop),
-            SPECIAL_X => Some(Piece::Queen),
+        match self.0 & FLAGS {
+            KNIGHT_PROMO | KNIGHT_PROMO_CAPTURE => Some(Piece::Knight),
+            ROOK_PROMO | ROOK_PROMO_CAPTURE => Some(Piece::Rook),
+            BISHOP_PROMO | BISHOP_PROMO_CAPTURE => Some(Piece::Bishop),
+            QUEEN_PROMO | QUEEN_PROMO_CAPTURE => Some(Piece::Queen),
             _ => None,
         }
     }

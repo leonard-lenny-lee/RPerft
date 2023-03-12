@@ -172,16 +172,14 @@ impl Entry {
             |   0-7 |      depth |   u8 |
             |  8-15 |        age |   u8 |
             | 16-23 |   nodetype |   u8 |
-            | 24-31 | bestmove.1 |   u8 |
-            | 32=39 | bestmove.2 |   u8 |
+            | 24-39 |   bestmove |  u16 |
             | 40-55 |      score |  i16 |
             +-------+------------+------+
         */
         let data = depth as u64
             | (age as u64) << 8
             | (node_type as u64) << 16
-            | (best_move.word_one() as u64) << 24
-            | (best_move.word_two() as u64) << 32
+            | (best_move.0 as u64) << 24
             | (score as u64) << 40;
         self.write(key, data);
     }
@@ -192,7 +190,7 @@ impl Entry {
             depth: data as u8,
             age: (data >> 8) as u8,
             node_type: NodeType::from_u8((data >> 16) as u8),
-            best_move: Move::from_words((data >> 24) as u8, (data >> 32) as u8),
+            best_move: Move::from_uint16((data >> 24) as u16),
             score: (data >> 40) as i16,
         };
     }
