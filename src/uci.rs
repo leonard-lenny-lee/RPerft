@@ -115,12 +115,12 @@ impl Engine {
         moves: Vec<UciMove>,
     ) -> Result<(), RuntimeError> {
         if startpos {
-            self.cur_pos = Position::new_starting();
+            self.cur_pos = Position::new_starting_pos();
         }
 
         // Attempt to parse and load the fen string into the position
         if let Some(f) = fen {
-            self.cur_pos = Position::from_fen(f.to_string())?
+            self.cur_pos = Position::from_fen(&f.to_string()[..])?
         }
 
         // Sequentially apply the moves specified to the position
@@ -135,7 +135,7 @@ impl Engine {
 
             return Err(RuntimeError::InvalidMoveError {
                 move_algebraic: format!("{ucimove}"),
-                fen_str: self.cur_pos.data.fen(),
+                fen_str: self.cur_pos.to_fen(),
             });
         }
 
@@ -225,7 +225,7 @@ pub enum RuntimeError {
     UciCommError {
         uci_cmd: UciMessage,
     },
-    ParseFenError(String),
+    ParseFenError,
     ParseAlgebraicError(String),
     InvalidMoveError {
         move_algebraic: String,
@@ -242,8 +242,8 @@ impl RuntimeError {
             Self::UciCommError { uci_cmd } => {
                 format!("UCI command {uci_cmd} in wrong iostream")
             }
-            Self::ParseFenError(msg) => {
-                format!("Could not parse FEN: {msg}")
+            Self::ParseFenError => {
+                format!("Could not parse FEN. Check string.")
             }
             Self::ParseAlgebraicError(msg) => {
                 format!("Could not parse move: {msg}")

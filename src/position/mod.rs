@@ -3,69 +3,39 @@
 /// which changes the behavior for when it's wtm or btm.
 use super::*;
 mod analysis;
-mod data;
-mod pieceset;
+mod serialize;
 mod states;
+mod zobrist;
 
-pub use data::Data;
 use uci::RuntimeError;
-use zobrist::ZobristKey;
 
+#[derive(Clone, Copy)]
 pub struct Position {
-    pub data: Data,
-    pub key: ZobristKey,
-    state: Box<dyn states::State + Send + Sync>,
+    pub white: BBSet,
+    pub black: BBSet,
+    pub occupied_squares: BB,
+    pub free_squares: BB,
+    pub castling_rights: BB,
+    pub en_passant_target_square: BB,
+    pub halfmove_clock: u8,
+    pub fullmove_clock: u8,
+    pub key: u64,
+    pub side_to_move: Color,
 }
 
-impl Position {
-    pub fn from_fen(fen: String) -> Result<Self, RuntimeError> {
-        let data = Data::from_fen(fen)?;
-        let mut pos = Position::new(&data);
-        pos.init_state();
-        pos.init_key();
-        pos.check_legality()?;
-        Ok(pos)
-    }
+#[derive(Clone, Copy)]
+pub struct BBSet {
+    pub all: BB,
+    pub pawn: BB,
+    pub rook: BB,
+    pub knight: BB,
+    pub bishop: BB,
+    pub queen: BB,
+    pub king: BB,
+}
 
-    pub fn new_starting() -> Self {
-        return Self::from_fen(STARTING_POSITION.to_string()).unwrap();
-    }
-
-    fn new(data: &Data) -> Self {
-        Self {
-            data: *data,
-            key: ZobristKey(0),
-            state: Box::new(states::White),
-        }
-    }
-
-    fn init_state(&mut self) {
-        self.state = if self.data.white_to_move {
-            Box::new(states::White)
-        } else {
-            Box::new(states::Black)
-        }
-    }
-
-    fn init_key(&mut self) {
-        self.key = ZobristKey::init_key(&self.data)
-    }
-
-    pub fn clone(&self) -> Self {
-        Self {
-            data: self.data,
-            key: self.key,
-            state: self.state.current_state(),
-        }
-    }
-
-    /// Convert the position into a string for display
-    pub fn to_string(&self) -> String {
-        format!(
-            "\n{}\nFen: {}\nKey: {:X}\n",
-            self.data.board(),
-            self.data.fen(),
-            self.key.0
-        )
-    }
+#[derive(Clone, Copy)]
+pub enum Color {
+    White,
+    Black,
 }

@@ -294,13 +294,13 @@ impl Move {
         self.word_one == 0 && self.word_two == 0
     }
 
-    pub fn promotion_piece(&self) -> usize {
+    pub fn promotion_piece(&self) -> Option<Piece> {
         match self.word_two & SPECIAL_X {
-            0 => Piece::Knight.value(),
-            SPECIAL_1 => Piece::Rook.value(),
-            SPECIAL_2 => Piece::Bishop.value(),
-            SPECIAL_X => Piece::Queen.value(),
-            _ => 0,
+            0 => Some(Piece::Knight),
+            SPECIAL_1 => Some(Piece::Rook),
+            SPECIAL_2 => Some(Piece::Bishop),
+            SPECIAL_X => Some(Piece::Queen),
+            _ => None,
         }
     }
 
@@ -310,12 +310,16 @@ impl Move {
             self.src().to_algebraic(),
             self.target().to_algebraic(),
             if self.is_promotion() {
-                match self.promotion_piece() {
-                    2 => "r",
-                    3 => "n",
-                    4 => "b",
-                    5 => "q",
-                    _ => "",
+                if let Some(p) = self.promotion_piece() {
+                    match p {
+                        Piece::Rook => "r",
+                        Piece::Knight => "n",
+                        Piece::Bishop => "b",
+                        Piece::Queen => "q",
+                        _ => "",
+                    }
+                } else {
+                    ""
                 }
             } else {
                 ""

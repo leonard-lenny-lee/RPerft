@@ -123,7 +123,7 @@ pub enum ASCIIBases {
 
 #[derive(Clone, Copy)]
 pub enum Piece {
-    Any,
+    All,
     Pawn,
     Rook,
     Knight,
@@ -137,11 +137,13 @@ impl Piece {
     pub fn value(&self) -> usize {
         *self as usize
     }
-}
 
-pub enum Color {
-    White,
-    Black,
+    /// Returns an iterator that iterates through the pieces only
+    pub fn iterpieces() -> std::slice::Iter<'static, Piece> {
+        use Piece::*;
+        static PIECES: [Piece; 6] = [Pawn, Rook, Knight, Bishop, Queen, King];
+        return PIECES.iter();
+    }
 }
 
 pub enum Axis {

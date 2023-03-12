@@ -58,10 +58,10 @@ pub fn find_captures(pos: &Position) -> MoveList {
     let mut move_list = MoveList::new();
     let their_pieces = pos.their_pieces();
 
-    let unsafe_squares = pos.unsafe_squares() | !their_pieces.any;
+    let unsafe_squares = pos.unsafe_squares() | !their_pieces.all;
     let pinned_pieces = pos.pinned_pieces();
-    let capture_mask = their_pieces.any;
-    let push_mask = their_pieces.any;
+    let capture_mask = their_pieces.all;
+    let push_mask = their_pieces.all;
 
     find_pawn_captures(pos, &mut move_list, capture_mask, pinned_pieces);
     find_knight_moves(pos, &mut move_list, capture_mask, push_mask, pinned_pieces);
@@ -108,10 +108,10 @@ fn find_single_pushes(pos: &Position, move_list: &mut MoveList, push_mask: BB, p
     let our_pieces = pos.our_pieces();
     let free_pawns = our_pieces.pawn & !pinned_pieces;
     let pinned_pawns = our_pieces.pawn & pinned_pieces;
-    let target_filter = pos.data.free & push_mask;
+    let target_filter = pos.free_squares & push_mask;
 
-    let targets = (pos.pawn_sgl_push(free_pawns) & target_filter)
-        | (pos.pawn_sgl_push(pinned_pawns) & target_filter & our_pieces.king.lu_file_mask());
+    let targets = (pos.single_push(free_pawns) & target_filter)
+        | (pos.single_push(pinned_pawns) & target_filter & our_pieces.king.lu_file_mask());
 
     let promotion_rank = pos.target_promotion_rank();
     let promo_targets = targets & promotion_rank;
@@ -132,9 +132,9 @@ fn find_single_pushes(pos: &Position, move_list: &mut MoveList, push_mask: BB, p
 fn find_double_pushes(pos: &Position, move_list: &mut MoveList, push_mask: BB, pinned_pieces: BB) {
     let our_pieces = pos.our_pieces();
 
-    let sgl_push = pos.pawn_sgl_push(our_pieces.pawn & pos.pawn_start_rank()) & pos.data.free;
-    let dbl_push = pos.pawn_sgl_push(sgl_push) & pos.data.free & push_mask;
-    let pinned_targets = pos.pawn_dbl_push(pinned_pieces);
+    let sgl_push = pos.single_push(our_pieces.pawn & pos.pawn_start_rank()) & pos.free_squares;
+    let dbl_push = pos.single_push(sgl_push) & pos.free_squares & push_mask;
+    let pinned_targets = pos.double_push(pinned_pieces);
 
     let targets =
         (dbl_push & !pinned_targets) | (dbl_push & pinned_targets & our_pieces.king.lu_file_mask());
@@ -152,17 +152,15 @@ fn find_pawn_captures(
     pinned_pieces: BB,
 ) {
     let our_pieces = pos.our_pieces();
-    let target_filter = pos.their_pieces().any & capture_mask;
+    let target_filter = pos.their_pieces().all & capture_mask;
 
     let free_pawns = our_pieces.pawn & !pinned_pieces;
     let pinned_pawns = our_pieces.pawn & pinned_pieces;
     let promotion_rank = pos.target_promotion_rank();
 
     // Left captures
-    let left_targets = (pos.pawn_left_capture(free_pawns) & target_filter)
-        | (pos.pawn_left_capture(pinned_pawns)
-            & target_filter
-            & pos.pawn_left_capture_pin_mask(our_pieces.king));
+    let left_targets = (pos.left_capture(free_pawns) & target_filter)
+        | (pos.left_capture(pinned_pawns) & target_filter & pos.pawn_left_capture_pin_mask());
 
     let left_normal_targets = left_targets & !promotion_rank;
     let left_normal_srcs = pos.pawn_lcap_srcs(left_normal_targets);
@@ -176,10 +174,8 @@ fn find_pawn_captures(
     }
 
     // Right captures
-    let right_targets = (pos.pawn_right_capture(free_pawns) & target_filter)
-        | (pos.pawn_right_capture(pinned_pawns)
-            & target_filter
-            & pos.pawn_right_capture_pin_mask(our_pieces.king));
+    let right_targets = (pos.right_capture(free_pawns) & target_filter)
+        | (pos.right_capture(pinned_pawns) & target_filter & pos.pawn_right_capture_pin_mask());
 
     let right_normal_targets = right_targets & !promotion_rank;
     let right_normal_srcs = pos.pawn_rcap_srcs(right_normal_targets);
@@ -205,7 +201,7 @@ fn find_knight_moves(
     let our_pieces = pos.our_pieces();
     // Only allow moves which either capture a checking piece or blocks
     // the check. These masks should be a FILLED_BB when no check.
-    let target_filter = !our_pieces.any & (capture_mask | push_mask);
+    let target_filter = !our_pieces.all & (capture_mask | push_mask);
     // Filter out knights which are pinned - pinned knights have
     // no legal moves
     let srcs = our_pieces.knight & !pinned_pieces;
@@ -222,7 +218,7 @@ fn find_king_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares: BB)
     let src = our_pieces.king;
     // Remove unsafe squares i.e. squares attacked by opponent pieces
     // from the available target sqaures for the king
-    let targets = src.lu_king_attacks() & !our_pieces.any & !unsafe_squares;
+    let targets = src.lu_king_attacks() & !our_pieces.all & !unsafe_squares;
     find_quiet_moves_and_captures(pos, move_list, targets, src)
 }
 
@@ -237,23 +233,24 @@ fn find_sliding_moves(
     let our_pieces = pos.our_pieces();
     let rook_movers = our_pieces.rook | our_pieces.queen;
     let bishop_movers = our_pieces.bishop | our_pieces.queen;
-    let filter = !our_pieces.any & (capture_mask | push_mask);
+    let filter = !our_pieces.all & (capture_mask | push_mask);
 
     for src in rook_movers & !pinned_pieces {
-        let targets = src.lu_rook_attacks(pos.data.occ) & filter;
+        let targets = src.lu_rook_attacks(pos.occupied_squares) & filter;
         find_quiet_moves_and_captures(pos, move_list, targets, src);
     }
     for src in rook_movers & pinned_pieces {
-        let targets = src.lu_rook_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
+        let targets =
+            src.lu_rook_attacks(pos.occupied_squares) & filter & our_pieces.king.common_axis(src);
         find_quiet_moves_and_captures(pos, move_list, targets, src)
     }
     for src in bishop_movers & !pinned_pieces {
-        let targets = src.lu_bishop_attacks(pos.data.occ) & filter;
+        let targets = src.lu_bishop_attacks(pos.occupied_squares) & filter;
         find_quiet_moves_and_captures(pos, move_list, targets, src);
     }
     for src in bishop_movers & pinned_pieces {
         let targets =
-            src.lu_bishop_attacks(pos.data.occ) & filter & our_pieces.king.common_axis(src);
+            src.lu_bishop_attacks(pos.occupied_squares) & filter & our_pieces.king.common_axis(src);
         find_quiet_moves_and_captures(pos, move_list, targets, src)
     }
 }
@@ -269,8 +266,8 @@ fn find_en_passant_moves(
     push_mask: BB,
     pinned_pieces: BB,
 ) {
-    let target = pos.data.en_passant_target_sq;
-    let captured_pawn = pos.pawn_en_passant_cap();
+    let target = pos.en_passant_target_square;
+    let captured_pawn = pos.pawn_en_passant_capture_square();
     if target == EMPTY_BB
         || (captured_pawn & capture_mask == EMPTY_BB && target & push_mask == EMPTY_BB)
     {
@@ -293,7 +290,7 @@ fn find_en_passant_moves(
         // same rank as the pawns involved in the en passant capture where
         // an en passant capture may reveal a discovered check
         if (our_pieces.king & pos.ep_capture_rank()).is_not_empty() {
-            let occ = pos.data.occ & !(src | captured_pawn);
+            let occ = pos.occupied_squares & !(src | captured_pawn);
             if (our_pieces.king.hyp_quint(occ, Axis::Rank)
                 & (their_pieces.rook | their_pieces.queen))
                 .is_not_empty()
@@ -310,15 +307,15 @@ fn find_castling_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares:
     let src = pos.our_pieces().king;
     // Kingside castle
     if pos.our_kingside_castle()
-        && (pos.kingside_castle_mask() & pos.data.occ).is_empty()
+        && (pos.kingside_castle_mask() & pos.occupied_squares).is_empty()
         && (pos.kingside_castle_mask() & unsafe_squares).is_empty()
     {
         move_list.add_short_castle(src.east_two(), src)
     }
     // Queenside castle
     if pos.our_queenside_castle()
-        && (pos.queenside_castle_mask_free() & pos.data.occ).is_empty()
-        && (pos.queenside_castle_mask_safe() & unsafe_squares).is_empty()
+        && (pos.queenside_castle_free_mask() & pos.occupied_squares).is_empty()
+        && (pos.queenside_castle_safety_mask() & unsafe_squares).is_empty()
     {
         move_list.add_long_castle(src.west_two(), src)
     }
@@ -329,8 +326,8 @@ fn find_castling_moves(pos: &Position, move_list: &mut MoveList, unsafe_squares:
 /// indeterminate. Seperates out the capture moves from the quiet moves and
 /// adds them to the move vector
 fn find_quiet_moves_and_captures(pos: &Position, move_list: &mut MoveList, targets: BB, src: BB) {
-    let capture_targets = targets & pos.their_pieces().any;
-    let quiet_targets = targets & pos.data.free;
+    let capture_targets = targets & pos.their_pieces().all;
+    let quiet_targets = targets & pos.free_squares;
     for target in capture_targets {
         move_list.add_capture(target, src);
     }
@@ -357,7 +354,7 @@ mod tests {
     #[test_case(POSITION_2, 4, vec![16, 17, 43, 22]; "position_two")]
     #[test_case(POSITION_3, 3, vec![20, 22, 41]; "position_three")]
     fn test_sgl_push_pawn_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_single_pushes(&pos, &mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -370,7 +367,7 @@ mod tests {
     #[test_case(POSITION_2, 2, vec![24, 30]; "position_two")]
     #[test_case(POSITION_3, 2, vec![28, 30]; "position_three")]
     fn test_dbl_push_pawn_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_double_pushes(&pos, &mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -383,7 +380,7 @@ mod tests {
     #[test_case(POSITION_2, 2, vec![44, 23]; "position_two")]
     #[test_case(POSITION_3, 0, vec![]; "position_three")]
     fn test_pawn_cap_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_pawn_captures(&pos, &mut move_list, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -395,7 +392,7 @@ mod tests {
     #[test_case(POSITION_2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53];
         "position_two")]
     fn test_knight_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_knight_moves(&pos, &mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -407,7 +404,7 @@ mod tests {
     #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
     #[test_case(POSITION_2, 2, vec![3, 5]; "position_two")]
     fn test_king_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_king_moves(&pos, &mut move_list, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -419,7 +416,7 @@ mod tests {
     #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
     #[test_case(POSITION_2, 0, vec![]; "position_two")]
     fn test_en_passant_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_en_passant_moves(&pos, &mut move_list, FILLED_BB, FILLED_BB, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -431,7 +428,7 @@ mod tests {
     #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
     #[test_case(POSITION_2, 2, vec![2, 6]; "position_two")]
     fn test_castling_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
         find_castling_moves(&pos, &mut move_list, EMPTY_BB);
         assert_eq!(expected_nodes, move_list.len() as i32);
@@ -445,7 +442,7 @@ mod tests {
     #[test_case(POSITION_3, 14, 1; "position_three")]
     #[test_case(POSITION_4, 6, 0; "position_four")]
     fn test_move_gen(fen: &str, expected_nodes: i32, expected_captures: i32) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let move_list = find_moves(&pos);
         let mut n_captures = 0;
         for mv in move_list.iter() {
@@ -460,7 +457,7 @@ mod tests {
     #[test_case(POSITION_2, 8; "position_two")]
     #[test_case(POSITION_3, 1; "position_three")]
     fn test_find_captures(fen: &str, expected_captures: i32) {
-        let pos = Position::from_fen(fen.to_string()).unwrap();
+        let pos = Position::from_fen(fen).unwrap();
         let move_list = find_captures(&pos);
         assert_eq!(move_list.len() as i32, expected_captures);
         let mut n_captures = 0;
@@ -474,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_find_check_evasions() {
-        let pos = Position::from_fen("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1".to_string()).unwrap();
+        let pos = Position::from_fen("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1").unwrap();
         let checkers = pos.find_checkers();
         let move_list = find_check_evasions(&pos, checkers);
         assert_eq!(move_list.len(), 11)

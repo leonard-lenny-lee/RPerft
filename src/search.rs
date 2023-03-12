@@ -33,7 +33,7 @@ pub fn do_search(config: &mut Config, pos: &Position, depth: u8, table: &mut Has
     };
 
     // Probe table for the results of the search
-    if let Probe::Read(entry) = table.probe_search(pos.key.0, depth) {
+    if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
         let pv = probe_pv(pos, depth, table);
         let pv_algebraic = pv
             .into_iter()
@@ -50,11 +50,11 @@ pub fn do_search(config: &mut Config, pos: &Position, depth: u8, table: &mut Has
 }
 
 fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
-    let mut pos = pos.clone();
+    let mut pos = *pos;
     let mut depth = depth;
     let mut pv = Vec::new();
     while depth > 0 {
-        if let Probe::Read(entry) = table.probe_search(pos.key.0, depth) {
+        if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
                 pos = make_move(&pos, &entry.best_move);
                 pv.push(entry.best_move);
@@ -71,7 +71,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
 pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
-    let probe_result = table.probe_search(pos.key.0, depth);
+    let probe_result = table.probe_search(pos.key, depth);
     if let Probe::Read(entry) = probe_result {
         return entry.score;
     }
@@ -98,14 +98,14 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
         }
     }
     if let Probe::Write = probe_result {
-        table.write_search(pos.key.0, depth, best_move, max_evaluation, NodeType::PV);
+        table.write_search(pos.key, depth, best_move, max_evaluation, NodeType::PV);
     }
     return max_evaluation;
 }
 
 /// Implementation of alpha-beta pruning to search for the best evaluation
 pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &HashTable) -> i16 {
-    let probe_result = table.probe_search(pos.key.0, depth);
+    let probe_result = table.probe_search(pos.key, depth);
     if let Probe::Read(entry) = probe_result {
         return entry.score;
     }
@@ -128,7 +128,7 @@ pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
             if let Probe::Write = probe_result {
-                table.write_search(pos.key.0, depth, best_move, beta, NodeType::Cut);
+                table.write_search(pos.key, depth, best_move, beta, NodeType::Cut);
             }
             return beta; // Pruning condition
         }
@@ -140,7 +140,7 @@ pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &
     }
     if let Probe::Write = probe_result {
         table.write_search(
-            pos.key.0,
+            pos.key,
             depth,
             best_move,
             alpha,
@@ -160,7 +160,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     }
     let checkers = pos.find_checkers();
     let target_squares = pos.target_squares(); // All squares our pieces are attacking
-    let possible_captures = target_squares & pos.their_pieces().any;
+    let possible_captures = target_squares & pos.their_pieces().all;
     let move_list = if checkers != EMPTY_BB {
         // If in check, the priority is to resolve the check
         let move_list = find_check_evasions(pos, checkers);
@@ -243,7 +243,7 @@ pub mod perft {
 
     fn perft_inner(pos: &Position, depth: u8, table: &Arc<HashTable>) -> u64 {
         let mut nodes = 0;
-        if let Some(nodes) = table.probe_perft(pos.key.0, depth) {
+        if let Some(nodes) = table.probe_perft(pos.key, depth) {
             return nodes;
         }
         let move_list = find_moves(pos);
@@ -254,7 +254,7 @@ pub mod perft {
             let new_pos = make_move(pos, mv);
             nodes += perft_inner(&new_pos, depth - 1, table);
         }
-        table.write_perft(pos.key.0, depth, nodes);
+        table.write_perft(pos.key, depth, nodes);
         return nodes;
     }
 
@@ -270,7 +270,7 @@ pub mod perft {
         let depths = [6, 5, 7, 5, 5, 5];
         let mut results = Vec::new();
         for (i, (pos_fen, depth)) in std::iter::zip(positions, depths).enumerate() {
-            let pos = Position::from_fen(pos_fen.to_string()).unwrap();
+            let pos = Position::from_fen(pos_fen).unwrap();
             let (nodes, duration, nodes_per_second) =
                 perft(&pos, depth, num_threads, table_size, false);
             results.push((i + 1, nodes, duration, nodes_per_second));

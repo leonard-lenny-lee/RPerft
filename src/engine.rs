@@ -17,7 +17,7 @@ pub struct Engine {
 impl Engine {
     pub fn init() -> Self {
         Self {
-            cur_pos: Position::new_starting(),
+            cur_pos: Position::new_starting_pos(),
             hash_table: HashTable::new(DEF_TABLE_SIZE_BYTES),
             num_threads: num_cpus::get(),
             table_size_bytes: DEF_TABLE_SIZE_BYTES,

@@ -6,7 +6,7 @@ use movegen::find_moves;
 use position::Position;
 
 fn setup() -> Position {
-    Position::from_fen(POSITION_2.to_string()).unwrap()
+    Position::from_fen(POSITION_2).unwrap()
 }
 
 pub fn find_moves_benchmark(c: &mut Criterion) {

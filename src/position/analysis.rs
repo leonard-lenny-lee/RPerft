@@ -7,7 +7,7 @@ impl Position {
         let mut unsafe_squares = EMPTY_BB;
         // Remove our king from the occupancy bitboard for sliding piece move
         // generation to prevent the king from blocking other unsafe squares
-        let occ = self.data.occ ^ self.our_pieces().king;
+        let occ = self.occupied_squares ^ self.our_pieces().king;
         let their_pieces = self.their_pieces();
         // Calculate pawn attacks
         unsafe_squares |= self.unsafe_squares_pawn();
@@ -32,10 +32,11 @@ impl Position {
         // Find checking pawns
         checkers |= self.their_checking_pawns();
         // Find checkers along the files and ranks
-        checkers |= king.lu_rook_attacks(self.data.occ) & (their_pieces.rook | their_pieces.queen);
-        // Find checkers along the diagonals
         checkers |=
-            king.lu_bishop_attacks(self.data.occ) & (their_pieces.bishop | their_pieces.queen);
+            king.lu_rook_attacks(self.occupied_squares) & (their_pieces.rook | their_pieces.queen);
+        // Find checkers along the diagonals
+        checkers |= king.lu_bishop_attacks(self.occupied_squares)
+            & (their_pieces.bishop | their_pieces.queen);
         // Find knight checkers
         checkers |= king.lu_knight_attacks() & their_pieces.knight;
         checkers
@@ -46,7 +47,7 @@ impl Position {
         let (king, their_pieces) = (self.our_pieces().king, self.their_pieces());
         let file_rank_pieces = their_pieces.rook | their_pieces.queen;
         let diag_adiag_pieces = their_pieces.bishop | their_pieces.queen;
-        let occ = self.data.occ;
+        let occ = self.occupied_squares;
 
         // Pinned pieces are located where a king's "attack ray" meets an
         // attacking piece's attack ray, cast along the same axis
@@ -64,12 +65,12 @@ impl Position {
         let mut target_squares = EMPTY_BB;
         let our_pieces = self.our_pieces();
         // Pawn attacks
-        target_squares |=
-            self.pawn_left_capture(our_pieces.pawn) | self.pawn_right_capture(our_pieces.pawn);
+        target_squares |= self.left_capture(our_pieces.pawn) | self.right_capture(our_pieces.pawn);
         // Horizontal and vertical attacks
-        target_squares |= (our_pieces.rook | our_pieces.queen).rook_attacks(self.data.occ);
+        target_squares |= (our_pieces.rook | our_pieces.queen).rook_attacks(self.occupied_squares);
         // Diagonal and antidiagonal attacks
-        target_squares |= (our_pieces.bishop | our_pieces.queen).bishop_attacks(self.data.occ);
+        target_squares |=
+            (our_pieces.bishop | our_pieces.queen).bishop_attacks(self.occupied_squares);
         // Knight attacks
         for sq in our_pieces.knight {
             target_squares |= sq.lu_knight_attacks()
@@ -81,12 +82,12 @@ impl Position {
 
     /// Identify which opponent piece is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn their_piece_at(&self, bb: BB) -> usize {
+    pub fn their_piece_at(&self, bb: BB) -> Piece {
         debug_assert!(bb.pop_count() == 1);
         let their_pieces = self.their_pieces();
-        for piece in 1..7 {
-            if (their_pieces[piece] & bb).is_not_empty() {
-                return piece;
+        for piece in Piece::iterpieces() {
+            if (their_pieces[*piece] & bb).is_not_empty() {
+                return *piece;
             }
         }
         panic!(
@@ -97,12 +98,12 @@ impl Position {
 
     /// Identify which of our pieces is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn our_piece_at(&self, bb: BB) -> usize {
+    pub fn our_piece_at(&self, bb: BB) -> Piece {
         debug_assert!(bb.pop_count() == 1);
         let our_pieces = self.our_pieces();
-        for piece in 1..7 {
-            if (our_pieces[piece] & bb).is_not_empty() {
-                return piece;
+        for piece in Piece::iterpieces() {
+            if (our_pieces[*piece] & bb).is_not_empty() {
+                return *piece;
             }
         }
         panic!(
@@ -113,16 +114,17 @@ impl Position {
 
     /// Identify if the piece at the specified square is a sliding piece
     pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
-        matches!(self.their_piece_at(n), 2 | 4 | 5)
+        matches!(
+            self.their_piece_at(n),
+            Piece::Rook | Piece::Bishop | Piece::Queen
+        )
     }
 
     /// Check that in the position, we cannot capture their king. If so, it's
     /// an illegal position
     pub fn check_legality(&self) -> Result<(), RuntimeError> {
         if (self.target_squares() & self.their_pieces().king).is_not_empty() {
-            Err(RuntimeError::ParseFenError(
-                "fen represents an illegal position (king capture possible)".to_string(),
-            ))
+            Err(RuntimeError::ParseFenError)
         } else {
             Ok(())
         }

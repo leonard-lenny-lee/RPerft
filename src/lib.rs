@@ -15,7 +15,6 @@ pub mod position;
 pub mod search;
 pub mod tables;
 pub mod uci;
-pub mod zobrist;
 
 use bitboard::BB;
 use common::*;

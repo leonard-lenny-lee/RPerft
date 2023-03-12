@@ -39,8 +39,8 @@ impl BB {
     }
 
     /// Returns how many bits are set on the bitboard
-    pub fn pop_count(&self) -> u32 {
-        self.0.count_ones()
+    pub fn pop_count(&self) -> i16 {
+        self.0.count_ones() as i16
     }
 
     /// Return the index of the least significant one bit
