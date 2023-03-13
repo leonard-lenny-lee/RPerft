@@ -2,7 +2,7 @@
 /// other parts of the program.
 use super::*;
 
-pub const ENGINE_NAME: &str = "Rustess";
+pub const ENGINE_NAME: &str = "cRusty";
 pub const AUTHOR_NAME: &str = "LeonardL";
 
 // Standard chess positions useful for testing

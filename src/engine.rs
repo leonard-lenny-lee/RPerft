@@ -3,7 +3,7 @@ use super::*;
 use hash::HashTable;
 use position::Position;
 
-const DEF_TABLE_SIZE_BYTES: usize = 32_000_000;
+pub const DEF_TABLE_SIZE_BYTES: usize = 32_000_000;
 
 pub struct Engine {
     pub cur_pos: Position,

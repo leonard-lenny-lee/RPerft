@@ -1,8 +1,6 @@
 use super::*;
-use config::{Config, SearchMethod};
 use evaluate::evaluate;
 use hash::{HashTable, Probe};
-use makemove::make_move;
 use movegen::{find_captures, find_check_evasions, find_moves};
 use movelist::Move;
 use position::Position;
@@ -18,19 +16,10 @@ pub enum NodeType {
     All,
 }
 
-pub fn do_search(config: &mut Config, pos: &Position, depth: u8, table: &mut HashTable) {
+pub fn do_search(pos: &Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
     // Execute search
-    match config.search_method {
-        SearchMethod::Negamax => {
-            log::info!("Executing NegaMax search...");
-            nega_max(pos, depth, table)
-        }
-        SearchMethod::AlphaBeta => {
-            log::info!("Executing AlphaBeta search...");
-            alpha_beta(pos, depth, NEGATIVE_INFINITY, POSITIVE_INFINITY, table)
-        }
-    };
+    alpha_beta(pos, depth, NEGATIVE_INFINITY, POSITIVE_INFINITY, table);
 
     // Probe table for the results of the search
     if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
@@ -56,7 +45,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
     while depth > 0 {
         if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
-                pos = make_move(&pos, &entry.best_move);
+                pos = pos.make_move(&entry.best_move);
                 pv.push(entry.best_move);
             }
         } else {
@@ -90,7 +79,7 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
     let mut best_move = movelist::Move::new_null();
     let mut max_evaluation = NEGATIVE_INFINITY;
     for mv in move_list.iter() {
-        let new_pos = make_move(pos, mv);
+        let new_pos = pos.make_move(mv);
         let evaluation = -nega_max(&new_pos, depth - 1, table);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
@@ -124,7 +113,7 @@ pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &
     let mut best_move = movelist::Move::new_null();
     let mut is_pv = false;
     for mv in move_list.iter() {
-        let new_pos = make_move(pos, mv);
+        let new_pos = pos.make_move(mv);
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
             if let Probe::Write = probe_result {
@@ -177,7 +166,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     };
 
     for mv in move_list.iter() {
-        let new_pos = make_move(pos, mv);
+        let new_pos = pos.make_move(mv);
         let score = -quiesce(&new_pos, -beta, -alpha, ply + 1);
         if score >= beta {
             return beta;
@@ -218,7 +207,7 @@ pub mod perft {
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = moves[i];
-                let new_pos = make_move(pos, &mv);
+                let new_pos = pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
                     let node_count = perft_inner(&new_pos, depth - 1, &table);
@@ -251,7 +240,7 @@ pub mod perft {
             return move_list.len() as u64;
         }
         for mv in move_list.iter() {
-            let new_pos = make_move(pos, mv);
+            let new_pos = pos.make_move(mv);
             nodes += perft_inner(&new_pos, depth - 1, table);
         }
         table.write_perft(pos.key, depth, nodes);

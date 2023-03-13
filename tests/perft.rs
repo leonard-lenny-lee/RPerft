@@ -1,14 +1,9 @@
 /// Tests to guarantee move enumeration fidelity and benchmarking
-use chess::*;
+use chess::{engine::DEF_TABLE_SIZE_BYTES, *};
 use common::*;
-use config::Config;
 use position::Position;
 use search::perft::*;
 use test_case::test_case;
-
-lazy_static::lazy_static! {
-    static ref CONFIG: Config = Config::init();
-}
 
 /// Light perft test suite. Compares the number of nodes generated in these
 /// standard perft positions against the consensus.
@@ -21,7 +16,7 @@ lazy_static::lazy_static! {
 fn light_perft_test(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
     let node = Position::from_fen(fen).unwrap();
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, CONFIG.num_threads, CONFIG.table_size, false).0;
+        let result = perft(&node, dpt, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -45,7 +40,7 @@ fn light_perft_test(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
 fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
     let node = Position::from_fen(fen).unwrap();
     assert_eq!(
-        perft(&node, depth, CONFIG.num_threads, CONFIG.table_size, false).0,
+        perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0,
         expected_nodes
     );
 }
@@ -56,7 +51,7 @@ fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
 fn perft_debug() {
     let fen = "r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1";
     let node = Position::from_fen(fen).unwrap();
-    perft(&node, 4, CONFIG.num_threads, CONFIG.table_size, true);
+    perft(&node, 4, num_cpus::get(), DEF_TABLE_SIZE_BYTES, true);
 }
 
 /// Medium depth perft tests. Extension of the light perft test suite.
@@ -69,7 +64,7 @@ fn perft_debug() {
 fn medium_perft_test(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
     let node = Position::from_fen(fen).unwrap();
     for dpt in 1..depth + 1 {
-        let result = perft(&node, dpt, CONFIG.num_threads, CONFIG.table_size, false).0;
+        let result = perft(&node, dpt, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
         assert_eq!(expected_nodes[dpt as usize - 1], result, "depth {}", dpt)
     }
 }
@@ -84,6 +79,6 @@ fn medium_perft_test(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
 #[test_case(POSITION_6, 6923051137, 6; "position_six")]
 fn deep_perft_test(fen: &str, expected_nodes: u64, depth: u8) {
     let node = Position::from_fen(fen).unwrap();
-    let result = perft(&node, depth, CONFIG.num_threads, CONFIG.table_size, false).0;
+    let result = perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
     assert_eq!(result, expected_nodes)
 }

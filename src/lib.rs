@@ -4,7 +4,6 @@ extern crate vampirc_uci;
 
 pub mod bitboard;
 pub mod common;
-pub mod config;
 pub mod engine;
 pub mod evaluate;
 pub mod hash;
