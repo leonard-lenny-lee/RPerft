@@ -1,5 +1,6 @@
 /// Module containing methods to extract information from a position
 use super::*;
+use types::{Axis, PieceType};
 
 impl Position {
     /// Return a bitboard with all squares the opponent pieces are attacking
@@ -82,10 +83,10 @@ impl Position {
 
     /// Identify which opponent piece is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn their_piece_at(&self, bb: BB) -> Piece {
+    pub fn their_piece_at(&self, bb: BB) -> PieceType {
         debug_assert!(bb.pop_count() == 1);
         let their_pieces = self.their_pieces();
-        for piece in Piece::iterpieces() {
+        for piece in PieceType::iterpieces() {
             if (their_pieces[*piece] & bb).is_not_empty() {
                 return *piece;
             }
@@ -98,10 +99,10 @@ impl Position {
 
     /// Identify which of our pieces is a particular position as the index
     /// of the array representation of the pieceset
-    pub fn our_piece_at(&self, bb: BB) -> Piece {
+    pub fn our_piece_at(&self, bb: BB) -> PieceType {
         debug_assert!(bb.pop_count() == 1);
         let our_pieces = self.our_pieces();
-        for piece in Piece::iterpieces() {
+        for piece in PieceType::iterpieces() {
             if (our_pieces[*piece] & bb).is_not_empty() {
                 return *piece;
             }
@@ -116,7 +117,7 @@ impl Position {
     pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
         matches!(
             self.their_piece_at(n),
-            Piece::Rook | Piece::Bishop | Piece::Queen
+            PieceType::Rook | PieceType::Bishop | PieceType::Queen
         )
     }
 

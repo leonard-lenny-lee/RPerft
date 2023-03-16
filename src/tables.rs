@@ -3,8 +3,5 @@ use super::*;
 
 #[rustfmt::skip]
 mod keys;
-
 mod magics;
 mod tables;
-
-pub use magics::initialize;

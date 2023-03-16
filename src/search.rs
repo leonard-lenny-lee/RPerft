@@ -45,7 +45,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
     while depth > 0 {
         if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
-                pos = pos.make_move(&entry.best_move);
+                pos = pos.do_move(&entry.best_move);
                 pv.push(entry.best_move);
             }
         } else {
@@ -79,7 +79,7 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
     let mut best_move = movelist::Move::new_null();
     let mut max_evaluation = NEGATIVE_INFINITY;
     for mv in move_list.iter() {
-        let new_pos = pos.make_move(mv);
+        let new_pos = pos.do_move(mv);
         let evaluation = -nega_max(&new_pos, depth - 1, table);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
@@ -113,7 +113,7 @@ pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &
     let mut best_move = movelist::Move::new_null();
     let mut is_pv = false;
     for mv in move_list.iter() {
-        let new_pos = pos.make_move(mv);
+        let new_pos = pos.do_move(mv);
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
         if evaluation >= beta {
             if let Probe::Write = probe_result {
@@ -166,7 +166,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     };
 
     for mv in move_list.iter() {
-        let new_pos = pos.make_move(mv);
+        let new_pos = pos.do_move(mv);
         let score = -quiesce(&new_pos, -beta, -alpha, ply + 1);
         if score >= beta {
             return beta;
@@ -207,7 +207,7 @@ pub mod perft {
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = moves[i];
-                let new_pos = pos.make_move(&mv);
+                let new_pos = pos.do_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
                     let node_count = perft_inner(&new_pos, depth - 1, &table);
@@ -240,7 +240,7 @@ pub mod perft {
             return move_list.len() as u64;
         }
         for mv in move_list.iter() {
-            let new_pos = pos.make_move(mv);
+            let new_pos = pos.do_move(mv);
             nodes += perft_inner(&new_pos, depth - 1, table);
         }
         table.write_perft(pos.key, depth, nodes);
@@ -248,14 +248,7 @@ pub mod perft {
     }
 
     pub fn run_perft_suite(num_threads: usize, table_size: usize) {
-        let positions = [
-            STARTING_POSITION,
-            POSITION_2,
-            POSITION_3,
-            POSITION_4,
-            POSITION_5,
-            POSITION_6,
-        ];
+        let positions = [STARTPOS, TPOS2, TPOS3, TPOS4, TPOS5, TPOS6];
         let depths = [6, 5, 7, 5, 5, 5];
         let mut results = Vec::new();
         for (i, (pos_fen, depth)) in std::iter::zip(positions, depths).enumerate() {
@@ -281,5 +274,65 @@ pub mod perft {
             )
         }
         println!("+{}+", "-".repeat(34))
+    }
+}
+
+#[cfg(test)]
+mod perft_tests {
+    use super::*;
+    use engine::DEF_TABLE_SIZE_BYTES;
+    use perft::perft;
+    use test_case::test_case;
+
+    /// Standard test suite
+    #[test_case(STARTPOS, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
+    #[test_case(TPOS2, vec![48, 2039, 97862, 4085603, 193690690], 5; "testpos2")]
+    #[test_case(TPOS3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "testpos3")]
+    #[test_case(TPOS4, vec![6, 264, 9467, 422333, 15833292], 5; "testpos4")]
+    #[test_case(TPOS5, vec![44, 1486, 62379, 2103487, 89941194], 5; "testpos5")]
+    #[test_case(TPOS6, vec![46, 2079, 89890, 3894594, 164075551], 5; "testpos6")]
+    fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
+        let node = Position::from_fen(fen).unwrap();
+        for (exp_node_count, depth) in std::iter::zip(expected_nodes, 1..=depth) {
+            let node_count = perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
+            assert_eq!(exp_node_count, node_count, "depth {}", depth)
+        }
+    }
+
+    /// Test suite for testing a variety of niche rules and mechanics.
+    #[test_case("3k4/3p4/8/K1P4r/8/8/8/8 b - - 0 1", 6, 1134888; "illegal ep move #1")]
+    #[test_case("8/8/4k3/8/2p5/8/B2P2K1/8 w - - 0 1", 6, 1015133; "illegal ep move #2")]
+    #[test_case("8/8/1k6/2b5/2pP4/8/5K2/8 b - d3 0 1", 6, 1440467; "ep capture checks opponent")]
+    #[test_case("5k2/8/8/8/8/8/8/4K2R w K - 0 1", 6, 661072; "short castling gives check")]
+    #[test_case("3k4/8/8/8/8/8/8/R3K3 w Q - 0 1", 6, 803711; "long castling gives check")]
+    #[test_case("r3k2r/1b4bq/8/8/8/8/7B/R3K2R w KQkq - 0 1", 4, 1274206; "castle rights")]
+    #[test_case("r3k2r/8/3Q4/8/8/5q2/8/R3K2R b KQkq - 0 1", 4, 1720476; "castling prevented")]
+    #[test_case("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1", 6, 3821001; "promote out of check")]
+    #[test_case("8/8/1P2K3/8/2n5/1q6/8/5k2 b - - 0 1", 5, 1004658; "discovered check")]
+    #[test_case("4k3/1P6/8/8/8/8/K7/8 w - - 0 1", 6, 217342; "promote to give check")]
+    #[test_case("8/P1k5/K7/8/8/8/8/8 w - - 0 1", 6, 92683; "under promote to give check")]
+    #[test_case("K1k5/8/P7/8/8/8/8/8 w - - 0 1", 6, 2217; "self statemate")]
+    #[test_case("8/k1P5/8/1K6/8/8/8/8 w - - 0 1", 7, 567584; "stalemate & checkmate")]
+    #[test_case("8/8/2k5/5q2/5n2/8/5K2/8 b - - 0 1", 4, 23527; "stalemate & checkmate #2")]
+    fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
+        let node = Position::from_fen(fen).unwrap();
+        assert_eq!(
+            perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0,
+            expected_nodes
+        );
+    }
+
+    /// Intensive perft tests. Keep ignore flag to prevent from being
+    /// run in a normal test suite.
+    #[ignore]
+    #[test_case(STARTPOS, 3195901860, 7; "startpos")]
+    #[test_case(TPOS2, 8031647685, 6; "testpos2")]
+    #[test_case(TPOS3, 3009794393, 8; "testpos3")]
+    #[test_case(TPOS4, 706045033, 6; "testpos4")]
+    #[test_case(TPOS6, 6923051137, 6; "testpos5")]
+    fn deep_perft_suite(fen: &str, expected_nodes: u64, depth: u8) {
+        let node = Position::from_fen(fen).unwrap();
+        let result = perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
+        assert_eq!(result, expected_nodes)
     }
 }

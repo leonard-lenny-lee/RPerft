@@ -129,7 +129,7 @@ impl Engine {
             let mv_algebraic = format!("{ucimove}");
 
             if let Some(mv) = movelist.find(mv_algebraic) {
-                self.cur_pos = self.cur_pos.make_move(&mv);
+                self.cur_pos = self.cur_pos.do_move(&mv);
                 continue;
             }
 

@@ -1,11 +1,11 @@
 use chess::*;
-use common::*;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use movegen::find_moves;
 use position::Position;
 
 fn setup() -> Position {
-    Position::from_fen(POSITION_2).unwrap()
+    const TPOS2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+    Position::from_fen(TPOS2).unwrap()
 }
 
 pub fn find_moves_benchmark(c: &mut Criterion) {
@@ -30,7 +30,7 @@ pub fn apply_move_benchmark(c: &mut Criterion) {
     let pos = setup();
     let move_vec = find_moves(&pos);
 
-    c.bench_function("apply_move", |b| b.iter(|| pos.make_move(&move_vec[0])));
+    c.bench_function("apply_move", |b| b.iter(|| pos.do_move(&move_vec[0])));
 }
 
 criterion_group!(benches, find_moves_benchmark, apply_move_benchmark);

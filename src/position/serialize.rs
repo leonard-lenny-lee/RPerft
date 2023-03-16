@@ -1,6 +1,7 @@
 /// Contains methods for parsing FEN strings into position representation
 /// and serialize the position into other formats.
 use super::*;
+use types::PieceType;
 
 impl Position {
     /// Parse a FEN striing into a position representation
@@ -88,10 +89,10 @@ impl Position {
         let mut castling_rights = EMPTY_BB;
         for c in tokens[2].chars() {
             match c {
-                'K' => castling_rights |= H1,
-                'k' => castling_rights |= H8,
-                'Q' => castling_rights |= A1,
-                'q' => castling_rights |= A8,
+                'K' => castling_rights |= square::H1,
+                'k' => castling_rights |= square::H8,
+                'Q' => castling_rights |= square::A1,
+                'q' => castling_rights |= square::A8,
                 '-' => (),
                 _ => return Err(RuntimeError::ParseFenError),
             }
@@ -140,7 +141,7 @@ impl Position {
 
     /// Initialize a new starting position
     pub fn new_starting_pos() -> Self {
-        return Self::from_fen(STARTING_POSITION).expect("hardcoded starting fen is valid");
+        return Self::from_fen(STARTPOS).expect("hardcoded starting fen is valid");
     }
 
     /// Convert position into a 8 x 8 array of characters
@@ -210,7 +211,10 @@ impl Position {
 
         // Build castling token
         let mut castling_token = String::new();
-        for (target_sq, c) in std::iter::zip([H1, A1, H8, A8], ['K', 'Q', 'k', 'q']) {
+        for (target_sq, c) in std::iter::zip(
+            [square::H1, square::A1, square::H8, square::A8],
+            ['K', 'Q', 'k', 'q'],
+        ) {
             if self.castling_rights & target_sq != EMPTY_BB {
                 castling_token.push(c)
             }
@@ -299,32 +303,32 @@ impl BBSet {
     }
 }
 
-impl std::ops::Index<Piece> for BBSet {
+impl std::ops::Index<PieceType> for BBSet {
     type Output = BB;
 
-    fn index(&self, index: Piece) -> &Self::Output {
+    fn index(&self, index: PieceType) -> &Self::Output {
         match index {
-            Piece::All => &self.all,
-            Piece::Pawn => &self.pawn,
-            Piece::Rook => &self.rook,
-            Piece::Knight => &self.knight,
-            Piece::Bishop => &self.bishop,
-            Piece::Queen => &self.queen,
-            Piece::King => &self.king,
+            PieceType::All => &self.all,
+            PieceType::Pawn => &self.pawn,
+            PieceType::Rook => &self.rook,
+            PieceType::Knight => &self.knight,
+            PieceType::Bishop => &self.bishop,
+            PieceType::Queen => &self.queen,
+            PieceType::King => &self.king,
         }
     }
 }
 
-impl std::ops::IndexMut<Piece> for BBSet {
-    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
+impl std::ops::IndexMut<PieceType> for BBSet {
+    fn index_mut(&mut self, index: PieceType) -> &mut Self::Output {
         match index {
-            Piece::All => &mut self.all,
-            Piece::Pawn => &mut self.pawn,
-            Piece::Rook => &mut self.rook,
-            Piece::Knight => &mut self.knight,
-            Piece::Bishop => &mut self.bishop,
-            Piece::Queen => &mut self.queen,
-            Piece::King => &mut self.king,
+            PieceType::All => &mut self.all,
+            PieceType::Pawn => &mut self.pawn,
+            PieceType::Rook => &mut self.rook,
+            PieceType::Knight => &mut self.knight,
+            PieceType::Bishop => &mut self.bishop,
+            PieceType::Queen => &mut self.queen,
+            PieceType::King => &mut self.king,
         }
     }
 }
@@ -340,20 +344,20 @@ mod tests {
         // White pieces
         assert_eq!(pos.white.all, RANK_1 | RANK_2, "w.any");
         assert_eq!(pos.white.pawn, RANK_2, "w.pawn");
-        assert_eq!(pos.white.rook, A1 | H1, "w.rook");
-        assert_eq!(pos.white.knight, B1 | G1, "w.knight");
-        assert_eq!(pos.white.bishop, C1 | F1, "w.bishop");
-        assert_eq!(pos.white.queen, D1, "w.queen");
-        assert_eq!(pos.white.king, E1, "w.king");
+        assert_eq!(pos.white.rook, square::A1 | square::H1, "w.rook");
+        assert_eq!(pos.white.knight, square::B1 | square::G1, "w.knight");
+        assert_eq!(pos.white.bishop, square::C1 | square::F1, "w.bishop");
+        assert_eq!(pos.white.queen, square::D1, "w.queen");
+        assert_eq!(pos.white.king, square::E1, "w.king");
 
         // Black pieces
         assert_eq!(pos.black.all, RANK_7 | RANK_8, "b.any");
         assert_eq!(pos.black.pawn, RANK_7, "b.pawn");
-        assert_eq!(pos.black.rook, A8 | H8, "b.rook");
-        assert_eq!(pos.black.knight, B8 | G8, "b.knight");
-        assert_eq!(pos.black.bishop, C8 | F8, "b.bishop");
-        assert_eq!(pos.black.queen, D8, "b.queen");
-        assert_eq!(pos.black.king, E8, "b.king");
+        assert_eq!(pos.black.rook, square::A8 | square::H8, "b.rook");
+        assert_eq!(pos.black.knight, square::B8 | square::G8, "b.knight");
+        assert_eq!(pos.black.bishop, square::C8 | square::F8, "b.bishop");
+        assert_eq!(pos.black.queen, square::D8, "b.queen");
+        assert_eq!(pos.black.king, square::E8, "b.king");
 
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
@@ -363,7 +367,10 @@ mod tests {
 
         // Other token parsing
         assert!(matches!(pos.side_to_move, Color::White));
-        assert_eq!(pos.castling_rights, A1 | H1 | A8 | H8);
+        assert_eq!(
+            pos.castling_rights,
+            square::A1 | square::H1 | square::A8 | square::H8
+        );
         assert_eq!(pos.en_passant_target_square, EMPTY_BB);
         assert_eq!(pos.halfmove_clock, 0);
         assert_eq!(pos.fullmove_clock, 1);
@@ -371,15 +378,15 @@ mod tests {
 
     #[test]
     fn test_to_fen() {
-        let pos = Position::from_fen(POSITION_3).unwrap();
-        assert_eq!(pos.to_fen(), POSITION_3)
+        let pos = Position::from_fen(TPOS3).unwrap();
+        assert_eq!(pos.to_fen(), TPOS3)
     }
 
     #[ignore]
     #[test]
     // Run manually and inspect
     fn test_to_board() {
-        let pos = Position::from_fen(STARTING_POSITION).unwrap();
+        let pos = Position::from_fen(STARTPOS).unwrap();
         print!("{}", pos.to_board())
     }
 }

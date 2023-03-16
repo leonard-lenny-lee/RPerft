@@ -1,4 +1,5 @@
 use super::*;
+use types::Axis;
 
 #[derive(Debug, Clone, Copy)]
 pub struct BB(pub u64);
@@ -550,8 +551,8 @@ impl BB {
                 algebraic.to_string(),
             ));
         }
-        let file = chars[0].to_ascii_lowercase() as u8 - ASCIIBases::LowerA as u8;
-        let rank = chars[1] as u8 - ASCIIBases::Zero as u8;
+        let file = chars[0].to_ascii_lowercase() as u8 - ascii::LOWER_A as u8;
+        let rank = chars[1] as u8 - ascii::ZERO as u8;
         if rank <= 8 && file <= 8 {
             Ok(BB(1 << (file + (rank - 1) * 8)))
         } else {
@@ -570,8 +571,8 @@ impl BB {
         let index = self.ils1b();
         let rank_index = (index / 8) as u8;
         let file_index = (index % 8) as u8;
-        let rank = (ASCIIBases::Zero as u8 + rank_index + 1) as char;
-        let file = (ASCIIBases::LowerA as u8 + file_index) as char;
+        let rank = (ascii::ZERO as u8 + rank_index + 1) as char;
+        let file = (ascii::LOWER_A as u8 + file_index) as char;
         format!("{}{}", file, rank)
     }
 
@@ -774,8 +775,8 @@ mod tests {
     #[ignore]
     #[test]
     fn test_print_bb() {
-        let king = E1;
-        let checker = E8;
+        let king = square::E1;
+        let checker = square::E8;
         let out = king.connect_squares(checker).to_string();
         // let conn = king.connect_squares(checker);
         // let out = conn.to_string();

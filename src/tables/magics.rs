@@ -6,12 +6,6 @@ lazy_static! {
     static ref BISHOP_ATTACKS: MagicTable = MagicTable::new(TableType::Bishop);
 }
 
-/// Initialise lazily evaluated static tables at program startup
-pub fn initialize() {
-    ROOK_ATTACKS.lu(BB(1), BB(0));
-    BISHOP_ATTACKS.lu(BB(1), BB(0));
-}
-
 enum TableType {
     Rook,
     Bishop,

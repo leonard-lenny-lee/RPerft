@@ -2,17 +2,18 @@
 extern crate lazy_static;
 extern crate vampirc_uci;
 
-pub mod bitboard;
-pub mod common;
+mod bitboard;
+mod common;
 pub mod engine;
-pub mod evaluate;
-pub mod hash;
-pub mod makemove;
+mod evaluate;
+mod hash;
+mod makemove;
 pub mod movegen;
-pub mod movelist;
+mod movelist;
 pub mod position;
-pub mod search;
-pub mod tables;
+mod search;
+mod tables;
+mod types;
 pub mod uci;
 
 use bitboard::BB;

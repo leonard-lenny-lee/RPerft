@@ -1,5 +1,6 @@
 /// Compile time generated lookup tables.
 use super::*;
+use types::Axis;
 
 const KNIGHT_ATTACKS: [BB; 64] = {
     let mut maps: [BB; 64] = [BB(0); 64];

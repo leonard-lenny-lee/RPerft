@@ -2,6 +2,7 @@ use super::*;
 use movelist::MoveList;
 use position::Position;
 use std::iter::zip;
+use types::Axis;
 
 /// Generate a MoveList of all legal moves
 pub fn find_moves(pos: &Position) -> MoveList {
@@ -350,9 +351,9 @@ mod tests {
         return targets;
     }
 
-    #[test_case(STARTING_POSITION, 8, vec![16, 17, 18, 19, 20, 21, 22, 23]; "starting")]
-    #[test_case(POSITION_2, 4, vec![16, 17, 43, 22]; "position_two")]
-    #[test_case(POSITION_3, 3, vec![20, 22, 41]; "position_three")]
+    #[test_case(STARTPOS, 8, vec![16, 17, 18, 19, 20, 21, 22, 23]; "starting")]
+    #[test_case(TPOS2, 4, vec![16, 17, 43, 22]; "position_two")]
+    #[test_case(TPOS3, 3, vec![20, 22, 41]; "position_three")]
     fn test_sgl_push_pawn_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -363,9 +364,9 @@ mod tests {
         assert_eq!(expected_targets, targets);
     }
 
-    #[test_case(STARTING_POSITION, 8, vec![24, 25, 26, 27, 28, 29, 30, 31]; "starting")]
-    #[test_case(POSITION_2, 2, vec![24, 30]; "position_two")]
-    #[test_case(POSITION_3, 2, vec![28, 30]; "position_three")]
+    #[test_case(STARTPOS, 8, vec![24, 25, 26, 27, 28, 29, 30, 31]; "starting")]
+    #[test_case(TPOS2, 2, vec![24, 30]; "position_two")]
+    #[test_case(TPOS3, 2, vec![28, 30]; "position_three")]
     fn test_dbl_push_pawn_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -376,9 +377,9 @@ mod tests {
         assert_eq!(expected_targets, targets)
     }
 
-    #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 2, vec![44, 23]; "position_two")]
-    #[test_case(POSITION_3, 0, vec![]; "position_three")]
+    #[test_case(STARTPOS, 0, vec![]; "starting")]
+    #[test_case(TPOS2, 2, vec![44, 23]; "position_two")]
+    #[test_case(TPOS3, 0, vec![]; "position_three")]
     fn test_pawn_cap_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -388,8 +389,8 @@ mod tests {
         let expected_targets = BB::from_indices(expected_targets);
         assert_eq!(expected_targets, targets)
     }
-    #[test_case(STARTING_POSITION, 4, vec![16, 18, 21, 23]; "starting")]
-    #[test_case(POSITION_2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53];
+    #[test_case(STARTPOS, 4, vec![16, 18, 21, 23]; "starting")]
+    #[test_case(TPOS2, 11, vec![1, 24, 33, 3, 51, 42, 26, 19, 30, 46, 53];
         "position_two")]
     fn test_knight_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
@@ -401,8 +402,8 @@ mod tests {
         assert_eq!(expected_targets, targets)
     }
 
-    #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 2, vec![3, 5]; "position_two")]
+    #[test_case(STARTPOS, 0, vec![]; "starting")]
+    #[test_case(TPOS2, 2, vec![3, 5]; "position_two")]
     fn test_king_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -413,8 +414,8 @@ mod tests {
         assert_eq!(expected_targets, targets)
     }
 
-    #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 0, vec![]; "position_two")]
+    #[test_case(STARTPOS, 0, vec![]; "starting")]
+    #[test_case(TPOS2, 0, vec![]; "position_two")]
     fn test_en_passant_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -425,8 +426,8 @@ mod tests {
         assert_eq!(expected_targets, targets)
     }
 
-    #[test_case(STARTING_POSITION, 0, vec![]; "starting")]
-    #[test_case(POSITION_2, 2, vec![2, 6]; "position_two")]
+    #[test_case(STARTPOS, 0, vec![]; "starting")]
+    #[test_case(TPOS2, 2, vec![2, 6]; "position_two")]
     fn test_castling_move_gen(fen: &str, expected_nodes: i32, expected_targets: Vec<usize>) {
         let pos = Position::from_fen(fen).unwrap();
         let mut move_list = MoveList::new();
@@ -437,10 +438,10 @@ mod tests {
         assert_eq!(expected_targets, targets)
     }
 
-    #[test_case(STARTING_POSITION, 20, 0; "starting")]
-    #[test_case(POSITION_2, 48, 8; "position_two")]
-    #[test_case(POSITION_3, 14, 1; "position_three")]
-    #[test_case(POSITION_4, 6, 0; "position_four")]
+    #[test_case(STARTPOS, 20, 0; "starting")]
+    #[test_case(TPOS2, 48, 8; "position_two")]
+    #[test_case(TPOS3, 14, 1; "position_three")]
+    #[test_case(TPOS4, 6, 0; "position_four")]
     fn test_move_gen(fen: &str, expected_nodes: i32, expected_captures: i32) {
         let pos = Position::from_fen(fen).unwrap();
         let move_list = find_moves(&pos);
@@ -454,8 +455,8 @@ mod tests {
         assert_eq!(expected_captures, n_captures, "captures")
     }
 
-    #[test_case(POSITION_2, 8; "position_two")]
-    #[test_case(POSITION_3, 1; "position_three")]
+    #[test_case(TPOS2, 8; "position_two")]
+    #[test_case(TPOS3, 1; "position_three")]
     fn test_find_captures(fen: &str, expected_captures: i32) {
         let pos = Position::from_fen(fen).unwrap();
         let move_list = find_captures(&pos);

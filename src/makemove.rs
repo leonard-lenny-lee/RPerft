@@ -2,10 +2,11 @@ use super::*;
 use movelist::Move;
 use movelist::MoveType::{self, *};
 use position::Position;
+use types::PieceType;
 
 impl Position {
     /// Create a new position by applying move data to a position
-    pub fn make_move(&self, mv: &Move) -> Position {
+    pub fn do_move(&self, mv: &Move) -> Position {
         // Create a copy of the current position to modify
         let mut new_pos = *self;
 
@@ -27,14 +28,14 @@ impl Position {
         our_pieces.all ^= move_mask;
 
         // If our king has moved, remove all further rights to castle
-        if matches!(moved_piece, Piece::King) {
+        if matches!(moved_piece, PieceType::King) {
             new_pos.castling_rights &= !new_pos.our_backrank();
         }
         // If the rooks has moved from its starting square, remove rights to castle
         new_pos.castling_rights &= !src;
 
         // Increment half move clock; reset if capture or pawn move
-        if mv.is_capture() || matches!(moved_piece, Piece::Pawn) {
+        if mv.is_capture() || matches!(moved_piece, PieceType::Pawn) {
             new_pos.halfmove_clock = 0
         } else {
             new_pos.halfmove_clock += 1
@@ -54,31 +55,31 @@ impl Position {
             ShortCastle | LongCastle => new_pos.execute_castle(movetype, target),
             Capture => new_pos.execute_capture(target),
             EnPassant => new_pos.execute_en_passant(target),
-            KnightPromo => new_pos.execute_promotions(Piece::Knight, target),
-            BishopPromo => new_pos.execute_promotions(Piece::Bishop, target),
-            RookPromo => new_pos.execute_promotions(Piece::Rook, target),
-            QueenPromo => new_pos.execute_promotions(Piece::Queen, target),
+            KnightPromo => new_pos.execute_promotions(PieceType::Knight, target),
+            BishopPromo => new_pos.execute_promotions(PieceType::Bishop, target),
+            RookPromo => new_pos.execute_promotions(PieceType::Rook, target),
+            QueenPromo => new_pos.execute_promotions(PieceType::Queen, target),
             KnightPromoCapture => {
                 new_pos.execute_capture(target);
-                new_pos.execute_promotions(Piece::Knight, target);
+                new_pos.execute_promotions(PieceType::Knight, target);
             }
             BishopPromoCapture => {
                 new_pos.execute_capture(target);
-                new_pos.execute_promotions(Piece::Bishop, target);
+                new_pos.execute_promotions(PieceType::Bishop, target);
             }
             RookPromoCapture => {
                 new_pos.execute_capture(target);
-                new_pos.execute_promotions(Piece::Rook, target);
+                new_pos.execute_promotions(PieceType::Rook, target);
             }
             QueenPromoCapture => {
                 new_pos.execute_capture(target);
-                new_pos.execute_promotions(Piece::Queen, target);
+                new_pos.execute_promotions(PieceType::Queen, target);
             }
         }
         new_pos.occupied_squares = !new_pos.free_squares;
         // Change the turn and state
         new_pos.change_state();
-        new_pos.update_key(moved_piece.value(), src, target, self);
+        new_pos.update_key(moved_piece, src, target, self);
         return new_pos;
     }
 
@@ -94,18 +95,18 @@ impl Position {
         // starting square. If so, unset their corresponding castling right
         self.castling_rights &= !target;
         // Update Zobrist hash with the capture
-        self.update_square(captured_piece as usize, target, !self.white_to_move())
+        self.update_square(captured_piece, target, !self.white_to_move())
     }
 
     #[inline(always)]
-    fn execute_promotions(&mut self, promotion_piece: Piece, target: BB) {
+    fn execute_promotions(&mut self, promotion_piece: PieceType, target: BB) {
         let our_pieces = self.mut_our_pieces();
         our_pieces[promotion_piece] ^= target;
         // Unset the pawn from our pawn bitboard
-        our_pieces[Piece::Pawn] ^= target;
+        our_pieces[PieceType::Pawn] ^= target;
         // Update the Zobrist hashes
-        self.update_square(Piece::Pawn.value(), target, self.white_to_move());
-        self.update_square(promotion_piece.value(), target, self.white_to_move());
+        self.update_square(PieceType::Pawn, target, self.white_to_move());
+        self.update_square(promotion_piece, target, self.white_to_move());
     }
 
     #[inline(always)]
@@ -123,18 +124,13 @@ impl Position {
             _ => return,
         };
         let castle_mask = rook_src | rook_target;
-        our_pieces[Piece::Rook] ^= castle_mask;
-        our_pieces[Piece::All] ^= castle_mask;
+        our_pieces[PieceType::Rook] ^= castle_mask;
+        our_pieces[PieceType::All] ^= castle_mask;
         // We also need to updated shared bitboards
         self.occupied_squares ^= castle_mask;
         self.free_squares ^= castle_mask;
         // Update the Zobrist hash for the rook movement
-        self.update_moved_piece(
-            Piece::Rook.value(),
-            rook_src,
-            rook_target,
-            self.white_to_move(),
-        )
+        self.update_moved_piece(PieceType::Rook, rook_src, rook_target, self.white_to_move())
     }
 
     #[inline(always)]
@@ -145,13 +141,13 @@ impl Position {
         let ep_capture_sq = self.pawn_sgl_push_srcs(target);
         // Reflect the capture on the opponent bitboards
         let their_pieces = self.mut_their_pieces();
-        their_pieces[Piece::Pawn] ^= ep_capture_sq;
-        their_pieces[Piece::All] ^= ep_capture_sq;
+        their_pieces[PieceType::Pawn] ^= ep_capture_sq;
+        their_pieces[PieceType::All] ^= ep_capture_sq;
         // We also need to update shared bitboards
         self.occupied_squares ^= ep_capture_sq;
         self.free_squares ^= ep_capture_sq;
         // Update Zobrist hash
-        self.update_square(Piece::Pawn.value(), ep_capture_sq, !self.white_to_move())
+        self.update_square(PieceType::Pawn, ep_capture_sq, !self.white_to_move())
     }
 
     #[inline(always)]

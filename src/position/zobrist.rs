@@ -2,6 +2,7 @@
 /// http://hgm.nubati.net/book_format.html
 use super::*;
 use position::Position;
+use types::PieceType;
 
 impl Position {
     /// Generate a Zobrist key, call during position initialization and use
@@ -41,7 +42,9 @@ impl Position {
         }
 
         // Hash castling
-        for (sq, hash_idx) in std::iter::zip([H1, A1, H8, A8], 768..=771) {
+        for (sq, hash_idx) in
+            std::iter::zip([square::H1, square::A1, square::H8, square::A8], 768..=771)
+        {
             if (self.castling_rights & sq).is_not_empty() {
                 key ^= HASH_KEYS[hash_idx]
             }
@@ -96,7 +99,7 @@ impl Position {
     }
 
     /// Common hash update function
-    pub fn update_key(&mut self, moved_piece: usize, src: BB, target: BB, prev: &Position) {
+    pub fn update_key(&mut self, moved_piece: PieceType, src: BB, target: BB, prev: &Position) {
         // Turn has passed so we must xor turn
         self.key ^= HASH_KEYS[780];
         // Update at both source and target squares for the piece
@@ -111,19 +114,19 @@ impl Position {
     /// Update at both source and target squares for the piece
     pub fn update_moved_piece(
         &mut self,
-        moved_piece: usize,
+        moved_piece: PieceType,
         src: BB,
         target: BB,
         white_to_move: bool,
     ) {
-        let piece_idx = PIECE_TO_HASH_INDEX[moved_piece] * 2 + white_to_move as usize;
+        let piece_idx = PIECE_TO_HASH_INDEX[moved_piece as usize] * 2 + white_to_move as usize;
         self.key ^= HASH_KEYS[64 * piece_idx + src.to_index()];
         self.key ^= HASH_KEYS[64 * piece_idx + target.to_index()];
     }
 
     /// Update hash only at one square
-    pub fn update_square(&mut self, piece: usize, sq: BB, white_to_move: bool) {
-        let piece_idx = PIECE_TO_HASH_INDEX[piece] * 2 + white_to_move as usize;
+    pub fn update_square(&mut self, piece: PieceType, sq: BB, white_to_move: bool) {
+        let piece_idx = PIECE_TO_HASH_INDEX[piece as usize] * 2 + white_to_move as usize;
         self.key ^= HASH_KEYS[64 * piece_idx + sq.to_index()];
     }
 
@@ -358,6 +361,7 @@ const HASH_KEYS: [u64; 781] = [
 #[cfg(test)]
 mod test {
     use super::*;
+    use movelist::MoveList;
     use test_case::test_case;
 
     #[test_case("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0x463b96181691fc9c; "1")]
@@ -372,5 +376,112 @@ mod test {
     fn test_zobrist_polyglot_hash(fen: &str, expected_hash: u64) {
         let pos = Position::from_fen(fen).unwrap();
         assert_eq!(pos.key, expected_hash);
+    }
+
+    // Tests for the incremental update of Zobrist keys after a make move operation
+    #[test_case(
+        TPOS2, 21, 30,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P1Q1/2N4p/PPPBBPPP/R3K2R b KQkq - 1 1";
+        "base case")]
+    #[test_case(
+        "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2", 14, 22,
+        "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2QPp/1PPBBP1P/R3K2R b KQkq - 0 2";
+        "loss of en passant")]
+    #[test_case(
+        TPOS2, 4, 5,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
+        "loss of castling")]
+    fn test_hash_update_quiet(
+        starting_pos: &str,
+        src_sq: usize,
+        target_sq: usize,
+        expected_position: &str,
+    ) {
+        let pos = Position::from_fen(starting_pos).unwrap();
+        // Specify move
+        let mut move_list = MoveList::new();
+        move_list.add_quiet_move(BB::from_index(target_sq), BB::from_index(src_sq));
+        let mv = move_list.pop().unwrap();
+        // Apply move
+        let new_pos = pos.do_move(&mv);
+        let expected_pos = Position::from_fen(expected_position).unwrap();
+        assert_eq!(new_pos.key, expected_pos.key)
+    }
+
+    #[test_case(TPOS2, 8, 24,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1";
+        "eps gain")]
+    #[test_case(TPOS2, 14, 30,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P1P1/2N2Q1p/PPPBBP1P/R3K2R b KQkq g3 0 1";
+        "no eps gain")]
+    #[test_case(
+        "r3k2r/p1ppqpb1/bn2Pnp1/4N3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1", 50, 34,
+        "r3k2r/p2pqpb1/bn2Pnp1/2p1N3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq c6 0 2";
+        "no eps gain black")]
+    #[test_case(
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1", 50, 34,
+        "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2";
+        "eps transfer")]
+    fn test_hash_update_double_pawn_push(
+        starting_pos: &str,
+        src_sq: usize,
+        target_sq: usize,
+        expected_position: &str,
+    ) {
+        let pos = Position::from_fen(starting_pos).unwrap();
+        // Specify move
+        let mut move_list = MoveList::new();
+        move_list.add_double_pawn_push(BB::from_index(target_sq), BB::from_index(src_sq));
+        let mv = move_list.pop().unwrap();
+        // Apply move
+        let new_pos = pos.do_move(&mv);
+        let expected_pos = Position::from_fen(expected_position).unwrap();
+        assert_eq!(new_pos.key, expected_pos.key)
+    }
+
+    #[test_case(
+        "r3k2r/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R3K2R w KQkq - 0 3", 4, 6,
+        "r3k2r/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 b kq - 1 3";
+        "white")]
+    #[test_case(
+        "r3k2r/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 b kq - 1 3", 60, 62,
+        "r4rk1/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 w - - 2 4";
+        "black")]
+    fn test_hash_update_castling(
+        starting_pos: &str,
+        src_sq: usize,
+        target_sq: usize,
+        expected_position: &str,
+    ) {
+        let pos = Position::from_fen(starting_pos).unwrap();
+        // Specify move
+        let mut move_list = MoveList::new();
+        move_list.add_short_castle(BB::from_index(target_sq), BB::from_index(src_sq));
+        let mv = move_list.pop().unwrap();
+        // Apply move
+        let new_pos = pos.do_move(&mv);
+        let expected_pos = Position::from_fen(expected_position).unwrap();
+        assert_eq!(new_pos.key, expected_pos.key)
+    }
+
+    #[test_case(
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1", 25, 16,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/p1N2Q1p/1PPBBPPP/R3K2R w KQkq - 0 2";
+        "black")]
+    fn test_hash_update_en_passant(
+        starting_pos: &str,
+        src_sq: usize,
+        target_sq: usize,
+        expected_position: &str,
+    ) {
+        let pos = Position::from_fen(starting_pos).unwrap();
+        // Specify move
+        let mut move_list = MoveList::new();
+        move_list.add_en_passant_capture(BB::from_index(target_sq), BB::from_index(src_sq));
+        let mv = move_list.pop().unwrap();
+        // Apply move
+        let new_pos = pos.do_move(&mv);
+        let expected_pos = Position::from_fen(expected_position).unwrap();
+        assert_eq!(new_pos.key, expected_pos.key)
     }
 }

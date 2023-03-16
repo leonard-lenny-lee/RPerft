@@ -75,32 +75,32 @@ impl Position {
     /// Return the square on which our kingside rook starts
     pub fn our_ks_rook_starting_sq(&self) -> BB {
         match self.side_to_move {
-            Color::White => H1,
-            Color::Black => H8,
+            Color::White => square::H1,
+            Color::Black => square::H8,
         }
     }
 
     /// Return the square on which our queenside rook starts
     pub fn our_qs_rook_starting_sq(&self) -> BB {
         match self.side_to_move {
-            Color::White => A1,
-            Color::Black => A8,
+            Color::White => square::A1,
+            Color::Black => square::A8,
         }
     }
 
     /// Return the square on which their kingside rook starts
     pub fn their_ks_rook_starting_sq(&self) -> BB {
         match self.side_to_move {
-            Color::White => H8,
-            Color::Black => H1,
+            Color::White => square::H8,
+            Color::Black => square::H1,
         }
     }
 
     // Return the square on which their queenside rook starts
     pub fn their_qs_rook_starting_sq(&self) -> BB {
         match self.side_to_move {
-            Color::White => A8,
-            Color::Black => A1,
+            Color::White => square::A8,
+            Color::Black => square::A1,
         }
     }
 
@@ -256,8 +256,8 @@ impl Position {
 
     /// Return the mask of the squares the king must traverse to castle kingside
     pub fn kingside_castle_mask(&self) -> BB {
-        const WHITE: BB = BB(F1.0 | G1.0);
-        const BLACK: BB = BB(F8.0 | G8.0);
+        const WHITE: BB = BB(square::F1.0 | square::G1.0);
+        const BLACK: BB = BB(square::F8.0 | square::G8.0);
         match self.side_to_move {
             Color::White => WHITE,
             Color::Black => BLACK,
@@ -267,8 +267,8 @@ impl Position {
     /// Return the mask of the squares the king must traverse to castle
     /// queenside so must be safe
     pub fn queenside_castle_safety_mask(&self) -> BB {
-        const WHITE: BB = BB(C1.0 | D1.0);
-        const BLACK: BB = BB(C8.0 | D8.0);
+        const WHITE: BB = BB(square::C1.0 | square::D1.0);
+        const BLACK: BB = BB(square::C8.0 | square::D8.0);
         match self.side_to_move {
             Color::White => WHITE,
             Color::Black => BLACK,
@@ -278,8 +278,8 @@ impl Position {
     /// Return the mask of the squares in between the king and the rook which
     /// must be free in order to castle
     pub fn queenside_castle_free_mask(&self) -> BB {
-        const WHITE: BB = BB(B1.0 | C1.0 | D1.0);
-        const BLACK: BB = BB(B8.0 | C8.0 | D8.0);
+        const WHITE: BB = BB(square::B1.0 | square::C1.0 | square::D1.0);
+        const BLACK: BB = BB(square::B8.0 | square::C8.0 | square::D8.0);
         match self.side_to_move {
             Color::White => WHITE,
             Color::Black => BLACK,
@@ -289,16 +289,16 @@ impl Position {
     /// Return our king side castling rights
     pub fn our_kingside_castle(&self) -> bool {
         match self.side_to_move {
-            Color::White => (self.castling_rights & H1).is_not_empty(),
-            Color::Black => (self.castling_rights & H8).is_not_empty(),
+            Color::White => (self.castling_rights & square::H1).is_not_empty(),
+            Color::Black => (self.castling_rights & square::H8).is_not_empty(),
         }
     }
 
     /// Return the queenside castling rights
     pub fn our_queenside_castle(&self) -> bool {
         match self.side_to_move {
-            Color::White => (self.castling_rights & A1).is_not_empty(),
-            Color::Black => (self.castling_rights & A8).is_not_empty(),
+            Color::White => (self.castling_rights & square::A1).is_not_empty(),
+            Color::Black => (self.castling_rights & square::A8).is_not_empty(),
         }
     }
 

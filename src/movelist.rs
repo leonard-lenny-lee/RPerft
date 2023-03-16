@@ -1,4 +1,5 @@
 use super::*;
+use types::PieceType;
 
 pub struct MoveList {
     move_list: Vec<Move>,
@@ -271,12 +272,12 @@ impl Move {
     }
 
     /// What kind of promotion is encoded
-    pub fn promotion_piece(&self) -> Option<Piece> {
+    pub fn promotion_piece(&self) -> Option<PieceType> {
         match self.0 & FLAGS {
-            KNIGHT_PROMO | KNIGHT_PROMO_CAPTURE => Some(Piece::Knight),
-            ROOK_PROMO | ROOK_PROMO_CAPTURE => Some(Piece::Rook),
-            BISHOP_PROMO | BISHOP_PROMO_CAPTURE => Some(Piece::Bishop),
-            QUEEN_PROMO | QUEEN_PROMO_CAPTURE => Some(Piece::Queen),
+            KNIGHT_PROMO | KNIGHT_PROMO_CAPTURE => Some(PieceType::Knight),
+            ROOK_PROMO | ROOK_PROMO_CAPTURE => Some(PieceType::Rook),
+            BISHOP_PROMO | BISHOP_PROMO_CAPTURE => Some(PieceType::Bishop),
+            QUEEN_PROMO | QUEEN_PROMO_CAPTURE => Some(PieceType::Queen),
             _ => None,
         }
     }
@@ -289,10 +290,10 @@ impl Move {
             if self.is_promotion() {
                 if let Some(p) = self.promotion_piece() {
                     match p {
-                        Piece::Rook => "r",
-                        Piece::Knight => "n",
-                        Piece::Bishop => "b",
-                        Piece::Queen => "q",
+                        PieceType::Rook => "r",
+                        PieceType::Knight => "n",
+                        PieceType::Bishop => "b",
+                        PieceType::Queen => "q",
                         _ => "",
                     }
                 } else {
