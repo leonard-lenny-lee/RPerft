@@ -1,5 +1,5 @@
 use super::*;
-use types::PieceType;
+use types::{MoveType, PieceType};
 
 pub struct MoveList {
     move_list: Vec<Move>,
@@ -136,23 +136,6 @@ const SRC: u16 = 0x003f;
 const TARGET: u16 = 0x0fc0;
 const FLAGS: u16 = 0xf000;
 
-pub enum MoveType {
-    Quiet,
-    DoublePawnPush,
-    ShortCastle,
-    LongCastle,
-    Capture,
-    EnPassant,
-    KnightPromo,
-    BishopPromo,
-    RookPromo,
-    QueenPromo,
-    KnightPromoCapture,
-    BishopPromoCapture,
-    RookPromoCapture,
-    QueenPromoCapture,
-}
-
 #[derive(Clone, Copy)]
 pub struct Move(pub u16);
 
@@ -240,18 +223,18 @@ impl Move {
         match self.0 & FLAGS {
             QUIET => MoveType::Quiet,
             DOUBLE_PAWN_PUSH => MoveType::DoublePawnPush,
-            SHORT_CASTLE => MoveType::ShortCastle,
-            LONG_CASTLE => MoveType::LongCastle,
+            SHORT_CASTLE => MoveType::Castle { is_long: false },
+            LONG_CASTLE => MoveType::Castle { is_long: true },
             CAPTURE => MoveType::Capture,
             ENPASSANT => MoveType::EnPassant,
-            KNIGHT_PROMO => MoveType::KnightPromo,
-            BISHOP_PROMO => MoveType::BishopPromo,
-            ROOK_PROMO => MoveType::RookPromo,
-            QUEEN_PROMO => MoveType::QueenPromo,
-            KNIGHT_PROMO_CAPTURE => MoveType::KnightPromoCapture,
-            BISHOP_PROMO_CAPTURE => MoveType::BishopPromoCapture,
-            ROOK_PROMO_CAPTURE => MoveType::RookPromoCapture,
-            QUEEN_PROMO_CAPTURE => MoveType::QueenPromoCapture,
+            KNIGHT_PROMO => MoveType::Promotion(PieceType::Knight),
+            BISHOP_PROMO => MoveType::Promotion(PieceType::Bishop),
+            ROOK_PROMO => MoveType::Promotion(PieceType::Rook),
+            QUEEN_PROMO => MoveType::Promotion(PieceType::Queen),
+            KNIGHT_PROMO_CAPTURE => MoveType::PromotionCapture(PieceType::Knight),
+            BISHOP_PROMO_CAPTURE => MoveType::PromotionCapture(PieceType::Bishop),
+            ROOK_PROMO_CAPTURE => MoveType::PromotionCapture(PieceType::Rook),
+            QUEEN_PROMO_CAPTURE => MoveType::PromotionCapture(PieceType::Queen),
             _ => panic!("Unrecognised move type encoding"),
         }
     }

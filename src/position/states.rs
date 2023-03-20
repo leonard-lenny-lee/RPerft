@@ -5,68 +5,68 @@ use super::*;
 impl Position {
     /// Reverse the side to move
     pub fn change_state(&mut self) {
-        self.side_to_move = match self.side_to_move {
+        self.stm = match self.stm {
             Color::White => Color::Black,
             Color::Black => Color::White,
         }
     }
 
     /// Return the boolean value of whether it's white to move
-    pub fn white_to_move(&self) -> bool {
-        return matches!(self.side_to_move, Color::White);
+    pub fn wtm(&self) -> bool {
+        return matches!(self.stm, Color::White);
     }
 
     /// Return the BBSet of our piece (side to move)
-    pub fn our_pieces(&self) -> &BBSet {
-        match self.side_to_move {
+    pub fn us(&self) -> &BBSet {
+        match self.stm {
             Color::White => &self.white,
             Color::Black => &self.black,
         }
     }
 
     /// Return the BBSet of their pieces (not side to move)
-    pub fn their_pieces(&self) -> &BBSet {
-        match self.side_to_move {
+    pub fn them(&self) -> &BBSet {
+        match self.stm {
             Color::White => &self.black,
             Color::Black => &self.white,
         }
     }
 
     /// Return the rank which pawn promotion occurs
-    pub fn target_promotion_rank(&self) -> BB {
-        match self.side_to_move {
+    pub fn rank_8(&self) -> BB {
+        match self.stm {
             Color::White => RANK_8,
             Color::Black => RANK_1,
         }
     }
 
     /// Return the rank which pawns promoting originate from
-    pub fn src_promotion_rank(&self) -> BB {
-        match self.side_to_move {
+    pub fn rank_7(&self) -> BB {
+        match self.stm {
             Color::White => RANK_7,
             Color::Black => RANK_2,
         }
     }
 
     /// Return the rank which pawns start on
-    pub fn pawn_start_rank(&self) -> BB {
-        match self.side_to_move {
+    pub fn rank_2(&self) -> BB {
+        match self.stm {
             Color::White => RANK_2,
             Color::Black => RANK_7,
         }
     }
 
     /// Return our backrank
-    pub fn our_backrank(&self) -> BB {
-        match self.side_to_move {
+    pub fn rank_1(&self) -> BB {
+        match self.stm {
             Color::White => RANK_1,
             Color::Black => RANK_8,
         }
     }
 
     /// Return the en passant capture rank mask
-    pub fn ep_capture_rank(&self) -> BB {
-        match self.side_to_move {
+    pub fn rank_5(&self) -> BB {
+        match self.stm {
             Color::White => RANK_5,
             Color::Black => RANK_4,
         }
@@ -74,7 +74,7 @@ impl Position {
 
     /// Return the square on which our kingside rook starts
     pub fn our_ks_rook_starting_sq(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => square::H1,
             Color::Black => square::H8,
         }
@@ -82,7 +82,7 @@ impl Position {
 
     /// Return the square on which our queenside rook starts
     pub fn our_qs_rook_starting_sq(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => square::A1,
             Color::Black => square::A8,
         }
@@ -90,7 +90,7 @@ impl Position {
 
     /// Return the square on which their kingside rook starts
     pub fn their_ks_rook_starting_sq(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => square::H8,
             Color::Black => square::H1,
         }
@@ -98,7 +98,7 @@ impl Position {
 
     // Return the square on which their queenside rook starts
     pub fn their_qs_rook_starting_sq(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => square::A8,
             Color::Black => square::A1,
         }
@@ -106,7 +106,7 @@ impl Position {
 
     /// Translate the provided bitboard in the direction of a single pawn push
     pub fn single_push(&self, src: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => src.north_one(),
             Color::Black => src.south_one(),
         }
@@ -114,7 +114,7 @@ impl Position {
 
     /// Translate the provided bitboard in the direction of a double pawn push
     pub fn double_push(&self, src: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => src.north_two(),
             Color::Black => src.south_two(),
         }
@@ -122,7 +122,7 @@ impl Position {
 
     /// Translate the provided bitboard in the direction of a pawn left capture
     pub fn left_capture(&self, src: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => src.nort_west(),
             Color::Black => src.sout_west(),
         }
@@ -130,7 +130,7 @@ impl Position {
 
     /// Translate the provided bitboard in the direction of a pawn right capture
     pub fn right_capture(&self, src: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => src.nort_east(),
             Color::Black => src.sout_east(),
         }
@@ -138,7 +138,7 @@ impl Position {
 
     /// Return the pin mask for pawn left captures
     pub fn pawn_left_capture_pin_mask(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => self.white.king.lu_anti_diagonal_mask(),
             Color::Black => self.black.king.lu_diagonal_mask(),
         }
@@ -146,7 +146,7 @@ impl Position {
 
     /// Return the pin mask for pawn right captures
     pub fn pawn_right_capture_pin_mask(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => self.white.king.lu_diagonal_mask(),
             Color::Black => self.black.king.lu_anti_diagonal_mask(),
         }
@@ -154,29 +154,27 @@ impl Position {
 
     /// Return the single push target squares of our pawns
     pub fn pawn_sgl_push_targets(&self) -> BB {
-        match self.side_to_move {
-            Color::White => self.white.pawn.north_one() & self.free_squares,
-            Color::Black => self.black.pawn.south_one() & self.free_squares,
+        match self.stm {
+            Color::White => self.white.pawn.north_one() & self.free,
+            Color::Black => self.black.pawn.south_one() & self.free,
         }
     }
 
     /// Return the double push target squares of our pawns
     pub fn pawn_dbl_push_targets(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => {
-                ((self.white.pawn & RANK_2).north_one() & self.free_squares).north_one()
-                    & self.free_squares
+                ((self.white.pawn & RANK_2).north_one() & self.free).north_one() & self.free
             }
             Color::Black => {
-                ((self.black.pawn & RANK_7).south_one() & self.free_squares).south_one()
-                    & self.free_squares
+                ((self.black.pawn & RANK_7).south_one() & self.free).south_one() & self.free
             }
         }
     }
 
     /// Return the target rank of double pawn pushes
     pub fn pawn_dbl_push_target_rank(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => RANK_4,
             Color::Black => RANK_5,
         }
@@ -184,7 +182,7 @@ impl Position {
 
     /// Return the left capture target squares of our pawns
     pub fn pawn_lcap_targets(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => self.white.pawn.nort_west() & self.black.all,
             Color::Black => self.black.pawn.sout_west() & self.white.all,
         }
@@ -192,23 +190,23 @@ impl Position {
 
     /// Return the right capture target squares of our pawns
     pub fn pawn_rcap_targets(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => self.white.pawn.nort_east() & self.black.all,
             Color::Black => self.black.pawn.sout_east() & self.white.all,
         }
     }
 
-    /// Return the single push pawn sources from a map of target squares
-    pub fn pawn_sgl_push_srcs(&self, targets: BB) -> BB {
-        match self.side_to_move {
-            Color::White => targets.south_one(),
-            Color::Black => targets.north_one(),
+    /// Return a BB pushed back one square towards backrank
+    pub fn push_back(&self, bb: BB) -> BB {
+        match self.stm {
+            Color::White => bb.south_one(),
+            Color::Black => bb.north_one(),
         }
     }
 
     /// Return the double push pawn sources from a map of target squares
     pub fn pawn_dbl_push_srcs(&self, targets: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => targets.south_two(),
             Color::Black => targets.north_two(),
         }
@@ -216,7 +214,7 @@ impl Position {
 
     /// Return the left capture pawn sources from a map of target squares
     pub fn pawn_lcap_srcs(&self, targets: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => targets.sout_east(),
             Color::Black => targets.nort_east(),
         }
@@ -224,7 +222,7 @@ impl Position {
 
     /// Return the right capture pawn sources from a map of target squares
     pub fn pawn_rcap_srcs(&self, targets: BB) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => targets.sout_west(),
             Color::Black => targets.nort_west(),
         }
@@ -232,25 +230,21 @@ impl Position {
 
     /// Return the en passant source squares of our pieces
     pub fn pawn_en_passant_srcs(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => {
-                (self.en_passant_target_square.sout_east()
-                    | self.en_passant_target_square.sout_west())
-                    & self.white.pawn
+                (self.ep_target_sq.sout_east() | self.ep_target_sq.sout_west()) & self.white.pawn
             }
             Color::Black => {
-                (self.en_passant_target_square.nort_east()
-                    | self.en_passant_target_square.nort_west())
-                    & self.black.pawn
+                (self.ep_target_sq.nort_east() | self.ep_target_sq.nort_west()) & self.black.pawn
             }
         }
     }
 
     /// Return the square of the piece being captured by en passant
     pub fn pawn_en_passant_capture_square(&self) -> BB {
-        match self.side_to_move {
-            Color::White => self.en_passant_target_square.south_one(),
-            Color::Black => self.en_passant_target_square.north_one(),
+        match self.stm {
+            Color::White => self.ep_target_sq.south_one(),
+            Color::Black => self.ep_target_sq.north_one(),
         }
     }
 
@@ -258,7 +252,7 @@ impl Position {
     pub fn kingside_castle_mask(&self) -> BB {
         const WHITE: BB = BB(square::F1.0 | square::G1.0);
         const BLACK: BB = BB(square::F8.0 | square::G8.0);
-        match self.side_to_move {
+        match self.stm {
             Color::White => WHITE,
             Color::Black => BLACK,
         }
@@ -269,7 +263,7 @@ impl Position {
     pub fn queenside_castle_safety_mask(&self) -> BB {
         const WHITE: BB = BB(square::C1.0 | square::D1.0);
         const BLACK: BB = BB(square::C8.0 | square::D8.0);
-        match self.side_to_move {
+        match self.stm {
             Color::White => WHITE,
             Color::Black => BLACK,
         }
@@ -280,23 +274,23 @@ impl Position {
     pub fn queenside_castle_free_mask(&self) -> BB {
         const WHITE: BB = BB(square::B1.0 | square::C1.0 | square::D1.0);
         const BLACK: BB = BB(square::B8.0 | square::C8.0 | square::D8.0);
-        match self.side_to_move {
+        match self.stm {
             Color::White => WHITE,
             Color::Black => BLACK,
         }
     }
 
     /// Return our king side castling rights
-    pub fn our_kingside_castle(&self) -> bool {
-        match self.side_to_move {
+    pub fn can_ksc(&self) -> bool {
+        match self.stm {
             Color::White => (self.castling_rights & square::H1).is_not_empty(),
             Color::Black => (self.castling_rights & square::H8).is_not_empty(),
         }
     }
 
     /// Return the queenside castling rights
-    pub fn our_queenside_castle(&self) -> bool {
-        match self.side_to_move {
+    pub fn can_qsc(&self) -> bool {
+        match self.stm {
             Color::White => (self.castling_rights & square::A1).is_not_empty(),
             Color::Black => (self.castling_rights & square::A8).is_not_empty(),
         }
@@ -304,7 +298,7 @@ impl Position {
 
     /// Return all the squares attacked by their pawns
     pub fn unsafe_squares_pawn(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => self.black.pawn.sout_east() | self.black.pawn.sout_west(),
             Color::Black => self.white.pawn.nort_east() | self.white.pawn.nort_west(),
         }
@@ -312,7 +306,7 @@ impl Position {
 
     /// Locate their pawns checking our king
     pub fn their_checking_pawns(&self) -> BB {
-        match self.side_to_move {
+        match self.stm {
             Color::White => {
                 (self.white.king.nort_west() | self.white.king.nort_east()) & self.black.pawn
             }
@@ -323,16 +317,16 @@ impl Position {
     }
 
     /// Return our piece set as a mutable reference
-    pub fn mut_our_pieces(&mut self) -> &mut BBSet {
-        match self.side_to_move {
+    pub fn mut_us(&mut self) -> &mut BBSet {
+        match self.stm {
             Color::White => &mut self.white,
             Color::Black => &mut self.black,
         }
     }
 
     /// Return their piece set as a mutable reference
-    pub fn mut_their_pieces(&mut self) -> &mut BBSet {
-        match self.side_to_move {
+    pub fn mut_them(&mut self) -> &mut BBSet {
+        match self.stm {
             Color::White => &mut self.black,
             Color::Black => &mut self.white,
         }

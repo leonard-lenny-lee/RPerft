@@ -13,14 +13,14 @@ use uci::RuntimeError;
 pub struct Position {
     pub white: BBSet,
     pub black: BBSet,
-    pub occupied_squares: BB,
-    pub free_squares: BB,
+    pub occupied: BB,
+    pub free: BB,
     pub castling_rights: BB,
-    pub en_passant_target_square: BB,
+    pub ep_target_sq: BB,
     pub halfmove_clock: u8,
     pub fullmove_clock: u8,
     pub key: u64,
-    pub side_to_move: Color,
+    pub stm: Color,
 }
 
 #[derive(Clone, Copy)]

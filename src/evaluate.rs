@@ -7,7 +7,7 @@ pub fn evaluate(pos: &Position) -> i16 {
 
 /// Calculate a game phase value to allow interpolation of middlegame and
 /// endgame phases. Middlegame 24 -> 0 Endgame
-fn game_phase(pos: &Position) -> i16 {
+fn _game_phase(pos: &Position) -> i16 {
     const KNIGHT: i16 = 1;
     const BISHOP: i16 = 1;
     const ROOK: i16 = 2;

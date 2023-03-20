@@ -149,7 +149,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     }
     let checkers = pos.find_checkers();
     let target_squares = pos.target_squares(); // All squares our pieces are attacking
-    let possible_captures = target_squares & pos.their_pieces().all;
+    let possible_captures = target_squares & pos.them().all;
     let move_list = if checkers != EMPTY_BB {
         // If in check, the priority is to resolve the check
         let move_list = find_check_evasions(pos, checkers);

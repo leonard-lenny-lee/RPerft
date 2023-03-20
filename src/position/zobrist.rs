@@ -52,94 +52,79 @@ impl Position {
 
         // Hash ep
         // Find pawns that are able to move to the target square
-        let pawns = match self.side_to_move {
+        let pawns = match self.stm {
             Color::White => {
-                (self.en_passant_target_square.sout_west()
-                    | self.en_passant_target_square.sout_east())
-                    & self.white.pawn
+                (self.ep_target_sq.sout_west() | self.ep_target_sq.sout_east()) & self.white.pawn
             }
             Color::Black => {
-                (self.en_passant_target_square.nort_west()
-                    | self.en_passant_target_square.nort_east())
-                    & self.black.pawn
+                (self.ep_target_sq.nort_west() | self.ep_target_sq.nort_east()) & self.black.pawn
             }
         };
 
         if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.en_passant_target_square.to_index() % 8];
+            key ^= HASH_KEYS[772 + self.ep_target_sq.to_index() % 8];
         }
 
         // Hash turn
-        if matches!(self.side_to_move, Color::White) {
+        if matches!(self.stm, Color::White) {
             key ^= HASH_KEYS[780]
         }
 
         return key;
     }
 
-    fn generate_en_passant_hash(&self) -> u64 {
+    fn ep_hash(&self) -> u64 {
         let mut key = 0;
-        let pawns = match self.side_to_move {
+        let pawns = match self.stm {
             Color::White => {
-                (self.en_passant_target_square.sout_west()
-                    | self.en_passant_target_square.sout_east())
-                    & self.white.pawn
+                (self.ep_target_sq.sout_west() | self.ep_target_sq.sout_east()) & self.white.pawn
             }
             Color::Black => {
-                (self.en_passant_target_square.nort_west()
-                    | self.en_passant_target_square.nort_east())
-                    & self.black.pawn
+                (self.ep_target_sq.nort_west() | self.ep_target_sq.nort_east()) & self.black.pawn
             }
         };
 
         if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.en_passant_target_square.to_index() % 8];
+            key ^= HASH_KEYS[772 + self.ep_target_sq.to_index() % 8];
         }
         return key;
     }
 
     /// Common hash update function
-    pub fn update_key(&mut self, moved_piece: PieceType, src: BB, target: BB, prev: &Position) {
+    pub fn update_key(&mut self, moved_pt: PieceType, src: BB, target: BB, prev: &Position) {
         // Turn has passed so we must xor turn
         self.key ^= HASH_KEYS[780];
         // Update at both source and target squares for the piece
-        let white_to_move = matches!(prev.side_to_move, Color::White);
-        self.update_moved_piece(moved_piece, src, target, white_to_move);
+        self.move_key_update(moved_pt, src, target, prev.wtm());
         // Update en passant hash
-        self.update_en_passant_target(prev);
+        self.ep_key_update(prev);
         // Update castle hashing
-        self.update_castling_rights(prev);
+        self.castle_key_update(prev);
     }
 
     /// Update at both source and target squares for the piece
-    pub fn update_moved_piece(
-        &mut self,
-        moved_piece: PieceType,
-        src: BB,
-        target: BB,
-        white_to_move: bool,
-    ) {
-        let piece_idx = PIECE_TO_HASH_INDEX[moved_piece as usize] * 2 + white_to_move as usize;
-        self.key ^= HASH_KEYS[64 * piece_idx + src.to_index()];
-        self.key ^= HASH_KEYS[64 * piece_idx + target.to_index()];
+    pub fn move_key_update(&mut self, moved_pt: PieceType, src: BB, target: BB, wtm: bool) {
+        let idx = PT_KEY_IDX_MAP[moved_pt as usize] * 2 + wtm as usize;
+        self.key ^= HASH_KEYS[64 * idx + src.to_index()];
+        self.key ^= HASH_KEYS[64 * idx + target.to_index()];
     }
 
-    /// Update hash only at one square
-    pub fn update_square(&mut self, piece: PieceType, sq: BB, white_to_move: bool) {
-        let piece_idx = PIECE_TO_HASH_INDEX[piece as usize] * 2 + white_to_move as usize;
-        self.key ^= HASH_KEYS[64 * piece_idx + sq.to_index()];
+    /// Update hash for a single bitflip
+    pub fn sq_key_update(&mut self, pt: PieceType, sq: BB, wtm: bool) {
+        let idx = PT_KEY_IDX_MAP[pt as usize] * 2 + wtm as usize;
+        self.key ^= HASH_KEYS[64 * idx + sq.to_index()];
     }
 
-    /// Generate the update hash for an en passant square update
-    fn update_en_passant_target(&mut self, prev: &Position) {
-        self.key ^= self.generate_en_passant_hash() ^ prev.generate_en_passant_hash();
+    /// Update hash for an en passant square update
+    fn ep_key_update(&mut self, prev: &Position) {
+        self.key ^= self.ep_hash() ^ prev.ep_hash();
     }
 
-    /// Generate the update hash for an update to castling rights
-    fn update_castling_rights(&mut self, prev: &Position) {
-        let mut castling_right_diff = self.castling_rights ^ prev.castling_rights;
-        while castling_right_diff.is_not_empty() {
-            match castling_right_diff.pop_ils1b() {
+    /// Update hash for an update to castling rights
+    fn castle_key_update(&mut self, prev: &Position) {
+        let mut diff = self.castling_rights ^ prev.castling_rights;
+        while diff.is_not_empty() {
+            match diff.pop_ils1b() {
                 7 => self.key ^= HASH_KEYS[768],  // White kingside
                 0 => self.key ^= HASH_KEYS[769],  // White queenside
                 63 => self.key ^= HASH_KEYS[770], // Black kingside
@@ -152,7 +137,7 @@ impl Position {
 
 // Converts the internal enum discriminant of a piece into the appropriate
 // index used by the Polyglot hash table
-const PIECE_TO_HASH_INDEX: [usize; 7] = [0, 0, 3, 1, 2, 4, 5];
+const PT_KEY_IDX_MAP: [usize; 7] = [0, 0, 3, 1, 2, 4, 5];
 
 // The pseudo-random hash keys used by the Polyglot program. We can use these
 // to test that our hashing algorithm is working correctly or use these for all

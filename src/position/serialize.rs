@@ -123,14 +123,14 @@ impl Position {
         let mut pos = Self {
             white,
             black,
-            occupied_squares,
-            free_squares,
+            occupied: occupied_squares,
+            free: free_squares,
             castling_rights,
-            en_passant_target_square,
+            ep_target_sq: en_passant_target_square,
             halfmove_clock,
             fullmove_clock,
             key: 0,
-            side_to_move,
+            stm: side_to_move,
         };
 
         // Initialize Zobrist key
@@ -204,7 +204,7 @@ impl Position {
         tokens.push(board_token);
 
         // Parse side to move
-        match self.side_to_move {
+        match self.stm {
             Color::White => tokens.push("w".to_string()),
             Color::Black => tokens.push("b".to_string()),
         }
@@ -225,8 +225,8 @@ impl Position {
         tokens.push(castling_token);
 
         // Push en passant token
-        if self.en_passant_target_square != EMPTY_BB {
-            tokens.push(self.en_passant_target_square.to_algebraic());
+        if self.ep_target_sq != EMPTY_BB {
+            tokens.push(self.ep_target_sq.to_algebraic());
         } else {
             tokens.push("-".to_string())
         }
@@ -362,16 +362,16 @@ mod tests {
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
         let expected_free = !expected_occ;
-        assert_eq!(pos.occupied_squares, expected_occ, "occ");
-        assert_eq!(pos.free_squares, expected_free, "free");
+        assert_eq!(pos.occupied, expected_occ, "occ");
+        assert_eq!(pos.free, expected_free, "free");
 
         // Other token parsing
-        assert!(matches!(pos.side_to_move, Color::White));
+        assert!(matches!(pos.stm, Color::White));
         assert_eq!(
             pos.castling_rights,
             square::A1 | square::H1 | square::A8 | square::H8
         );
-        assert_eq!(pos.en_passant_target_square, EMPTY_BB);
+        assert_eq!(pos.ep_target_sq, EMPTY_BB);
         assert_eq!(pos.halfmove_clock, 0);
         assert_eq!(pos.fullmove_clock, 1);
     }

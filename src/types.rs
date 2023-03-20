@@ -16,6 +16,20 @@ impl PieceType {
         static PIECES: [PieceType; 6] = [Pawn, Rook, Knight, Bishop, Queen, King];
         return PIECES.iter();
     }
+
+    pub fn is_slider(&self) -> bool {
+        return matches!(self, Self::Bishop | Self::Rook | Self::Queen);
+    }
+}
+
+pub enum MoveType {
+    Quiet,
+    DoublePawnPush,
+    Castle { is_long: bool },
+    Capture,
+    EnPassant,
+    Promotion(PieceType),
+    PromotionCapture(PieceType),
 }
 
 pub enum Axis {

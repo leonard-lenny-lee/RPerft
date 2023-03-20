@@ -19,16 +19,6 @@ impl BB {
         BB(result)
     }
 
-    /// Create an empty bitboard
-    pub fn empty() -> BB {
-        BB(0)
-    }
-
-    /// Create a filled bitboard
-    pub fn filled() -> BB {
-        BB(0xffffffffffffffff)
-    }
-
     /// Returns whether the bitboard is empty
     pub fn is_empty(&self) -> bool {
         self.0 == 0
@@ -593,7 +583,8 @@ impl BB {
                 out.push_str("|   ")
             }
         }
-        out.push_str("|\n   --- --- --- --- --- --- --- --- \n    a   b   c   d   e   f   g   h ");
+        out.push_str("|\n   --- --- --- --- --- --- --- ---");
+        out.push_str(" \n    a   b   c   d   e   f   g   h ");
         return out;
     }
 }
