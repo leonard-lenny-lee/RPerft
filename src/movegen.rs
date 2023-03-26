@@ -76,27 +76,18 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     let pawns = us.pawn ^ (pinned & us.king.rank());
 
     let push_only = pinned & us.king.file();
-    let lcap_only;
-    let rcap_only;
+    let lcap_only = pinned & pos.lcap_axis(us.king);
+    let rcap_only = pinned & pos.rcap_axis(us.king);
 
-    match pos.stm {
-        position::Color::White => {
-            lcap_only = pinned & us.king.adiag();
-            rcap_only = pinned & us.king.diag();
-        }
-        position::Color::Black => {
-            lcap_only = pinned & us.king.diag();
-            rcap_only = pinned & us.king.adiag();
-        }
-    };
-
-    let capt_only = lcap_only | rcap_only;
+    let no_push = lcap_only | rcap_only;
+    let no_lcap = rcap_only | push_only;
+    let no_rcap = lcap_only | push_only;
 
     let pawns_on_7 = pawns & pos.rank_7();
     let pawns_not_on_7 = pawns ^ pawns_on_7;
 
     // Single and double pushes
-    let mut bb_1 = pos.push(pawns_not_on_7 & !capt_only) & pos.free;
+    let mut bb_1 = pos.push(pawns_not_on_7 & !no_push) & pos.free;
     let mut bb_2 = pos.push(bb_1 & pos.rank_3()) & pos.free;
 
     bb_1 &= targets;
@@ -110,9 +101,9 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     }
 
     // Promotions
-    let bb_1 = pos.push(pawns_on_7 & !capt_only) & pos.free & targets;
-    let bb_2 = pos.lcap(pawns_on_7 & !(push_only | rcap_only)) & pos.occ & targets;
-    let bb_3 = pos.rcap(pawns_on_7 & !(push_only | lcap_only)) & pos.occ & targets;
+    let bb_1 = pos.push(pawns_on_7 & !no_push) & pos.free & targets;
+    let bb_2 = pos.lcap(pawns_on_7 & !no_lcap) & pos.occ & targets;
+    let bb_3 = pos.rcap(pawns_on_7 & !no_rcap) & pos.occ & targets;
 
     for (from, to) in std::iter::zip(pos.push_back(bb_1), bb_1) {
         movelist.add_promotions(from, to);
@@ -125,8 +116,8 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     }
 
     // Captures
-    let bb_1 = pos.lcap(pawns_not_on_7 & !(push_only | rcap_only)) & pos.occ & targets;
-    let bb_2 = pos.rcap(pawns_not_on_7 & !(push_only | lcap_only)) & pos.occ & targets;
+    let bb_1 = pos.lcap(pawns_not_on_7 & !no_lcap) & pos.occ & targets;
+    let bb_2 = pos.rcap(pawns_not_on_7 & !no_rcap) & pos.occ & targets;
 
     for (from, to) in std::iter::zip(pos.lcap_back(bb_1), bb_1) {
         movelist.add_capture(from, to)
@@ -140,18 +131,19 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
         return;
     };
 
-    let ep_captured_pawn = pos.push_back(pos.ep_sq);
+    let ep_cap_sq = pos.push_back(pos.ep_sq);
 
-    if ((ep_captured_pawn | pos.ep_sq) & targets).is_empty() {
+    if ((ep_cap_sq | pos.ep_sq) & targets).is_empty() {
         return;
     };
 
-    let s_1 = pos.lcap_back(pos.ep_sq) & (pawns ^ push_only ^ rcap_only);
-    let s_2 = pos.rcap_back(pos.ep_sq) & (pawns ^ push_only ^ lcap_only);
+    let s_1 = pos.lcap_back(pos.ep_sq) & (pawns & !no_lcap);
+    let s_2 = pos.rcap_back(pos.ep_sq) & (pawns & !no_rcap);
 
     for from in s_1 | s_2 {
+        // Check rare case where an ep can reveal a discovered check
         if (us.king & pos.rank_5()).is_not_empty() {
-            let occ = pos.occ & !(from | ep_captured_pawn);
+            let occ = pos.occ & !(from | ep_cap_sq);
             if (us.king.hyp_quint(occ, Axis::Rank) & (them.rook | them.queen)).is_not_empty() {
                 continue;
             }
@@ -209,7 +201,7 @@ fn generate_castles<T: MoveList>(pos: &Position, movelist: &mut T) {
 
     if pos.can_qsc()
         && (pos.qsc_free_mask() & pos.occ).is_empty()
-        && (pos.qsc_mask() & unsafe_squares).is_empty()
+        && (pos.qsc_safe_mask() & unsafe_squares).is_empty()
     {
         movelist.add_long_castle(from, from.west_two());
     }

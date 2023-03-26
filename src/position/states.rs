@@ -158,6 +158,22 @@ impl Position {
         }
     }
 
+    /// Return the axis on which left capture pins occur
+    pub fn lcap_axis(&self, bb: BB) -> BB {
+        match self.stm {
+            Color::White => bb.adiag(),
+            Color::Black => bb.diag(),
+        }
+    }
+
+    /// Return the axis on which right capture pins occur
+    pub fn rcap_axis(&self, bb: BB) -> BB {
+        match self.stm {
+            Color::White => bb.diag(),
+            Color::Black => bb.adiag(),
+        }
+    }
+
     /// Return the mask of the squares the king must traverse to castle kingside
     pub fn ksc_mask(&self) -> BB {
         const WHITE: BB = BB(square::F1.0 | square::G1.0);
@@ -170,7 +186,7 @@ impl Position {
 
     /// Return the mask of the squares the king must traverse to castle
     /// queenside so must be safe
-    pub fn qsc_mask(&self) -> BB {
+    pub fn qsc_safe_mask(&self) -> BB {
         const WHITE: BB = BB(square::C1.0 | square::D1.0);
         const BLACK: BB = BB(square::C8.0 | square::D8.0);
         match self.stm {
