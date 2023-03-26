@@ -12,7 +12,7 @@ impl Position {
 
         let mut unsafe_sqs = EMPTY_BB;
 
-        unsafe_sqs |= self.pawn_attacks();
+        unsafe_sqs |= self.lcap_back(them.pawn) | self.rcap_back(them.pawn);
         unsafe_sqs |= (them.rook | them.queen).rook_attacks(occ);
         unsafe_sqs |= (them.bishop | them.queen).bishop_attacks(occ);
         unsafe_sqs |= them.knight.knight_attacks();
@@ -23,15 +23,14 @@ impl Position {
 
     /// Return a bitboard of opponent pieces giving check
     pub fn checkers(&self) -> BB {
-        let king = self.us().king;
-        let them = self.them();
+        let (us, them) = self.us_them();
 
         let mut checkers = EMPTY_BB;
 
-        checkers |= self.pawn_checkers();
-        checkers |= king.rook_lu(self.occ) & (them.rook | them.queen);
-        checkers |= king.bishop_lu(self.occ) & (them.bishop | them.queen);
-        checkers |= king.knight_lu() & them.knight;
+        checkers |= (self.lcap(us.king) | self.rcap(us.king)) & them.pawn;
+        checkers |= us.king.rook_lu(self.occ) & (them.rook | them.queen);
+        checkers |= us.king.bishop_lu(self.occ) & (them.bishop | them.queen);
+        checkers |= us.king.knight_lu() & them.knight;
 
         return checkers;
     }
@@ -56,68 +55,23 @@ impl Position {
     }
 
     /// Return a bitboard with all the squares our pieces are attacking
-    pub fn target_squares(&self) -> BB {
-        let mut target_squares = EMPTY_BB;
-        let our_pieces = self.us();
-        // Pawn attacks
-        target_squares |= self.lcap(our_pieces.pawn) | self.rcap(our_pieces.pawn);
-        // Horizontal and vertical attacks
-        target_squares |= (our_pieces.rook | our_pieces.queen).rook_attacks(self.occ);
-        // Diagonal and antidiagonal attacks
-        target_squares |= (our_pieces.bishop | our_pieces.queen).bishop_attacks(self.occ);
-        // Knight attacks
-        for sq in our_pieces.knight {
-            target_squares |= sq.knight_lu()
-        }
-        // King attacks
-        target_squares |= our_pieces.king.king_lu();
-        return target_squares;
-    }
-
-    /// Identify which opponent piece is a particular position as the index
-    /// of the array representation of the pieceset
-    pub fn their_piece_at(&self, bb: BB) -> PieceType {
-        debug_assert!(bb.pop_count() == 1);
-        let them = self.them();
-        for pt in PieceType::iterpieces() {
-            if (them[*pt] & bb).is_not_empty() {
-                return *pt;
-            }
-        }
-        panic!(
-            "their_piece_at could not locate the requested bit {}",
-            bb.to_sq()
-        );
-    }
-
-    /// Identify which of our pieces is a particular position as the index
-    /// of the array representation of the pieceset
-    pub fn our_piece_at(&self, bb: BB) -> PieceType {
-        debug_assert!(bb.pop_count() == 1);
+    pub fn attack_sq(&self) -> BB {
+        let mut targets = EMPTY_BB;
         let us = self.us();
-        for pt in PieceType::iterpieces() {
-            if (us[*pt] & bb).is_not_empty() {
-                return *pt;
-            }
-        }
-        panic!(
-            "their_piece_at could not locate the requested bit {}",
-            bb.to_sq()
-        );
-    }
 
-    /// Identify if the piece at the specified square is a sliding piece
-    pub fn their_piece_at_is_slider(&self, n: BB) -> bool {
-        matches!(
-            self.their_piece_at(n),
-            PieceType::Rook | PieceType::Bishop | PieceType::Queen
-        )
+        targets |= self.lcap(us.pawn) | self.rcap(us.pawn);
+        targets |= (us.rook | us.queen).rook_attacks(self.occ);
+        targets |= (us.bishop | us.queen).bishop_attacks(self.occ);
+        targets |= us.king.king_lu();
+        targets |= us.knight.knight_attacks();
+
+        return targets;
     }
 
     /// Check that in the position, we cannot capture their king. If so, it's
     /// an illegal position
     pub fn check_legal(&self) -> Result<(), RuntimeError> {
-        if (self.target_squares() & self.them().king).is_not_empty() {
+        if (self.attack_sq() & self.them().king).is_not_empty() {
             Err(RuntimeError::ParseFenError)
         } else {
             Ok(())

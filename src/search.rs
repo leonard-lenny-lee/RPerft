@@ -168,7 +168,7 @@ fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
 
     let mut movelist = OrderedList::new();
     let checkers = pos.checkers();
-    let our_attacks = pos.target_squares(); // All squares our pieces are attacking
+    let our_attacks = pos.attack_sq(); // All squares our pieces are attacking
     let captures = our_attacks & pos.them().all;
 
     // If in check, the priority is to resolve the check

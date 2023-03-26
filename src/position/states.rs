@@ -16,6 +16,13 @@ impl Position {
         return matches!(self.stm, Color::White);
     }
 
+    pub fn us_them(&self) -> (&BBSet, &BBSet) {
+        match self.stm {
+            Color::White => (&self.white, &self.black),
+            Color::Black => (&self.black, &self.white),
+        }
+    }
+
     /// Return the BBSet of our piece (side to move)
     pub fn us(&self) -> &BBSet {
         match self.stm {
@@ -80,7 +87,7 @@ impl Position {
     }
 
     /// Return the square on which our kingside rook starts
-    pub fn our_ks_rook_starting_sq(&self) -> BB {
+    pub fn our_ksr_start(&self) -> BB {
         match self.stm {
             Color::White => square::H1,
             Color::Black => square::H8,
@@ -88,26 +95,10 @@ impl Position {
     }
 
     /// Return the square on which our queenside rook starts
-    pub fn our_qs_rook_starting_sq(&self) -> BB {
+    pub fn our_qsr_start(&self) -> BB {
         match self.stm {
             Color::White => square::A1,
             Color::Black => square::A8,
-        }
-    }
-
-    /// Return the square on which their kingside rook starts
-    pub fn their_ks_rook_starting_sq(&self) -> BB {
-        match self.stm {
-            Color::White => square::H8,
-            Color::Black => square::H1,
-        }
-    }
-
-    // Return the square on which their queenside rook starts
-    pub fn their_qs_rook_starting_sq(&self) -> BB {
-        match self.stm {
-            Color::White => square::A8,
-            Color::Black => square::A1,
         }
     }
 
@@ -116,14 +107,6 @@ impl Position {
         match self.stm {
             Color::White => bb.north_one(),
             Color::Black => bb.south_one(),
-        }
-    }
-
-    /// Translate the provided bitboard in the direction of a double pawn push
-    pub fn double_push(&self, bb: BB) -> BB {
-        match self.stm {
-            Color::White => bb.north_two(),
-            Color::Black => bb.south_two(),
         }
     }
 
@@ -140,50 +123,6 @@ impl Position {
         match self.stm {
             Color::White => bb.nort_east(),
             Color::Black => bb.sout_east(),
-        }
-    }
-
-    /// Return the single push target squares of our pawns
-    pub fn pawn_sgl_push_targets(&self) -> BB {
-        match self.stm {
-            Color::White => self.white.pawn.north_one() & self.free,
-            Color::Black => self.black.pawn.south_one() & self.free,
-        }
-    }
-
-    /// Return the double push target squares of our pawns
-    pub fn pawn_dbl_push_targets(&self) -> BB {
-        match self.stm {
-            Color::White => {
-                ((self.white.pawn & RANK_2).north_one() & self.free).north_one() & self.free
-            }
-            Color::Black => {
-                ((self.black.pawn & RANK_7).south_one() & self.free).south_one() & self.free
-            }
-        }
-    }
-
-    /// Return the target rank of double pawn pushes
-    pub fn pawn_dbl_push_target_rank(&self) -> BB {
-        match self.stm {
-            Color::White => RANK_4,
-            Color::Black => RANK_5,
-        }
-    }
-
-    /// Return the left capture target squares of our pawns
-    pub fn pawn_lcap_targets(&self) -> BB {
-        match self.stm {
-            Color::White => self.white.pawn.nort_west() & self.black.all,
-            Color::Black => self.black.pawn.sout_west() & self.white.all,
-        }
-    }
-
-    /// Return the right capture target squares of our pawns
-    pub fn pawn_rcap_targets(&self) -> BB {
-        match self.stm {
-            Color::White => self.white.pawn.nort_east() & self.black.all,
-            Color::Black => self.black.pawn.sout_east() & self.white.all,
         }
     }
 
@@ -219,24 +158,8 @@ impl Position {
         }
     }
 
-    /// Return the en passant source squares of our pieces
-    pub fn pawn_en_passant_srcs(&self) -> BB {
-        match self.stm {
-            Color::White => (self.ep_sq.sout_east() | self.ep_sq.sout_west()) & self.white.pawn,
-            Color::Black => (self.ep_sq.nort_east() | self.ep_sq.nort_west()) & self.black.pawn,
-        }
-    }
-
-    /// Return the square of the piece being captured by en passant
-    pub fn pawn_en_passant_capture_square(&self) -> BB {
-        match self.stm {
-            Color::White => self.ep_sq.south_one(),
-            Color::Black => self.ep_sq.north_one(),
-        }
-    }
-
     /// Return the mask of the squares the king must traverse to castle kingside
-    pub fn kingside_castle_mask(&self) -> BB {
+    pub fn ksc_mask(&self) -> BB {
         const WHITE: BB = BB(square::F1.0 | square::G1.0);
         const BLACK: BB = BB(square::F8.0 | square::G8.0);
         match self.stm {
@@ -247,7 +170,7 @@ impl Position {
 
     /// Return the mask of the squares the king must traverse to castle
     /// queenside so must be safe
-    pub fn queenside_castle_safety_mask(&self) -> BB {
+    pub fn qsc_mask(&self) -> BB {
         const WHITE: BB = BB(square::C1.0 | square::D1.0);
         const BLACK: BB = BB(square::C8.0 | square::D8.0);
         match self.stm {
@@ -258,7 +181,7 @@ impl Position {
 
     /// Return the mask of the squares in between the king and the rook which
     /// must be free in order to castle
-    pub fn queenside_castle_free_mask(&self) -> BB {
+    pub fn qsc_free_mask(&self) -> BB {
         const WHITE: BB = BB(square::B1.0 | square::C1.0 | square::D1.0);
         const BLACK: BB = BB(square::B8.0 | square::C8.0 | square::D8.0);
         match self.stm {
@@ -280,26 +203,6 @@ impl Position {
         match self.stm {
             Color::White => (self.castling_rights & square::A1).is_not_empty(),
             Color::Black => (self.castling_rights & square::A8).is_not_empty(),
-        }
-    }
-
-    /// Return all the squares attacked by their pawns
-    pub fn pawn_attacks(&self) -> BB {
-        match self.stm {
-            Color::White => self.black.pawn.sout_east() | self.black.pawn.sout_west(),
-            Color::Black => self.white.pawn.nort_east() | self.white.pawn.nort_west(),
-        }
-    }
-
-    /// Locate their pawns checking our king
-    pub fn pawn_checkers(&self) -> BB {
-        match self.stm {
-            Color::White => {
-                (self.white.king.nort_west() | self.white.king.nort_east()) & self.black.pawn
-            }
-            Color::Black => {
-                (self.black.king.sout_west() | self.black.king.sout_east()) & self.white.pawn
-            }
         }
     }
 

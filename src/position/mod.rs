@@ -3,7 +3,7 @@
 /// which changes the behavior for when it's wtm or btm.
 use super::*;
 mod analysis;
-mod serialize;
+mod parse;
 mod states;
 mod zobrist;
 

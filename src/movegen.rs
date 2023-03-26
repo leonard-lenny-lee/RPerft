@@ -201,15 +201,15 @@ fn generate_castles<T: MoveList>(pos: &Position, movelist: &mut T) {
     let unsafe_squares = pos.unsafe_sq();
 
     if pos.can_ksc()
-        && (pos.kingside_castle_mask() & pos.occ).is_empty()
-        && (pos.kingside_castle_mask() & unsafe_squares).is_empty()
+        && (pos.ksc_mask() & pos.occ).is_empty()
+        && (pos.ksc_mask() & unsafe_squares).is_empty()
     {
         movelist.add_short_castle(from, from.east_two());
     }
-    // Queenside castle
+
     if pos.can_qsc()
-        && (pos.queenside_castle_free_mask() & pos.occ).is_empty()
-        && (pos.queenside_castle_safety_mask() & unsafe_squares).is_empty()
+        && (pos.qsc_free_mask() & pos.occ).is_empty()
+        && (pos.qsc_mask() & unsafe_squares).is_empty()
     {
         movelist.add_long_castle(from, from.west_two());
     }
