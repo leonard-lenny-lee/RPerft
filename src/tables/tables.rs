@@ -6,7 +6,7 @@ const KNIGHT_ATTACKS: [BB; 64] = {
     let mut maps: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
-        maps[i] = BB(1 << i).knight_attack_squares();
+        maps[i] = BB(1 << i).knight_attacks();
         i += 1;
     }
     maps
@@ -16,7 +16,7 @@ const KING_ATTACKS: [BB; 64] = {
     let mut maps: [BB; 64] = [BB(0); 64];
     let mut i = 0;
     while i < 64 {
-        maps[i] = BB(1 << i).king_attack_squares();
+        maps[i] = BB(1 << i).king_attacks();
         i += 1;
     }
     maps
@@ -67,44 +67,61 @@ const ADIAG_TABLE: [BB; 64] = {
 impl BB {
     #[inline(always)]
     /// Return the attack squares of a single knight by lookup
-    pub fn lu_knight_attacks(&self) -> BB {
+    pub fn knight_lu(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return KNIGHT_ATTACKS[self.to_index()];
+        return KNIGHT_ATTACKS[self.to_sq()];
+    }
+
+    pub fn knight_lu_(&self, _occ: BB) -> BB {
+        debug_assert!(self.pop_count() == 1);
+        return KNIGHT_ATTACKS[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the attack squares of a king by lookup
-    pub fn lu_king_attacks(&self) -> BB {
+    pub fn king_lu(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return KING_ATTACKS[self.to_index()];
+        return KING_ATTACKS[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the diagonal mask
-    pub fn lu_diagonal_mask(&self) -> BB {
+    pub fn diag(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return DIAG_TABLE[self.to_index()];
+        return DIAG_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the anti-diagonal mask
-    pub fn lu_anti_diagonal_mask(&self) -> BB {
+    pub fn adiag(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return ADIAG_TABLE[self.to_index()];
+        return ADIAG_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the file mask
-    pub fn lu_file_mask(&self) -> BB {
+    pub fn file(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return FILE_TABLE[self.to_index()];
+        return FILE_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the rank mask
-    pub fn lu_rank_mask(&self) -> BB {
+    pub fn rank(&self) -> BB {
         debug_assert!(self.pop_count() == 1);
-        return RANK_TABLE[self.to_index()];
+        return RANK_TABLE[self.to_sq()];
+    }
+
+    #[inline(always)]
+    pub fn axes_lu(&self) -> [BB; 4] {
+        debug_assert!(self.pop_count() == 1);
+        let sq = self.to_sq();
+        return [
+            FILE_TABLE[sq],
+            RANK_TABLE[sq],
+            DIAG_TABLE[sq],
+            ADIAG_TABLE[sq],
+        ];
     }
 
     /// Use the o-2s trick to find valid squares for sliding pieces, taking
@@ -112,10 +129,10 @@ impl BB {
     pub fn hyp_quint(&self, occ: BB, axis: Axis) -> BB {
         debug_assert!(self.pop_count() == 1);
         let mask = match axis {
-            Axis::File => FILE_TABLE[self.to_index()],
-            Axis::Rank => RANK_TABLE[self.to_index()],
-            Axis::Diagonal => DIAG_TABLE[self.to_index()],
-            Axis::AntiDiagonal => ADIAG_TABLE[self.to_index()],
+            Axis::File => FILE_TABLE[self.to_sq()],
+            Axis::Rank => RANK_TABLE[self.to_sq()],
+            Axis::Diagonal => DIAG_TABLE[self.to_sq()],
+            Axis::AntiDiagonal => ADIAG_TABLE[self.to_sq()],
         };
         let mut forward = occ & mask;
         let mut reverse = forward.reverse_bits();

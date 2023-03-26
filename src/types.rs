@@ -1,3 +1,5 @@
+use super::*;
+
 #[derive(Clone, Copy)]
 pub enum PieceType {
     All,
@@ -17,6 +19,12 @@ impl PieceType {
         return PIECES.iter();
     }
 
+    pub fn promopieces() -> std::slice::Iter<'static, Self> {
+        use PieceType::*;
+        static PIECES: [PieceType; 4] = [Queen, Knight, Rook, Bishop];
+        return PIECES.iter();
+    }
+
     pub fn is_slider(&self) -> bool {
         return matches!(self, Self::Bishop | Self::Rook | Self::Queen);
     }
@@ -25,11 +33,22 @@ impl PieceType {
 pub enum MoveType {
     Quiet,
     DoublePawnPush,
-    Castle { is_long: bool },
+    Castle(CastleType),
     Capture,
     EnPassant,
     Promotion(PieceType),
     PromotionCapture(PieceType),
+}
+
+pub enum CastleType {
+    Short,
+    Long,
+}
+
+pub enum GenType {
+    Captures,     // Captures and queen promotions
+    Evasions(BB), // Check evasions when stm is in check
+    NonEvasions,  // All captures and non captures
 }
 
 pub enum Axis {
@@ -37,4 +56,15 @@ pub enum Axis {
     File,
     Diagonal,
     AntiDiagonal,
+}
+
+pub enum Direction {
+    North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+    NorthWest,
 }

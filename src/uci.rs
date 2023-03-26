@@ -114,6 +114,8 @@ impl Engine {
         fen: Option<UciFen>,
         moves: Vec<UciMove>,
     ) -> Result<(), RuntimeError> {
+        use movelist::MoveList;
+
         if startpos {
             self.cur_pos = Position::new_starting_pos();
         }
@@ -125,11 +127,12 @@ impl Engine {
 
         // Sequentially apply the moves specified to the position
         for ucimove in moves {
-            let movelist = movegen::find_moves(&self.cur_pos);
+            let mut movelist = movelist::UnorderedList::new();
+            movegen::generate_all(&self.cur_pos, &mut movelist);
             let mv_algebraic = format!("{ucimove}");
 
             if let Some(mv) = movelist.find(mv_algebraic) {
-                self.cur_pos = self.cur_pos.do_move(&mv);
+                self.cur_pos = self.cur_pos.make_move(&mv);
                 continue;
             }
 

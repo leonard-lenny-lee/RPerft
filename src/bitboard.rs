@@ -5,15 +5,15 @@ use types::Axis;
 pub struct BB(pub u64);
 
 impl BB {
-    /// Create a one set bit bitboard at an index
-    pub fn from_index(index: usize) -> BB {
-        BB(1 << index)
+    /// Create a one set bit bitboard at a square index
+    pub fn from_sq(sq: usize) -> BB {
+        BB(1 << sq)
     }
 
-    /// Create a bitboard from a vector of bitboard indices
-    pub fn from_indices(indices: Vec<usize>) -> BB {
+    /// Create a bitboard from a vector of square indices
+    pub fn from_sqs(sqs: Vec<usize>) -> BB {
         let mut result = 0;
-        for index in indices.iter() {
+        for index in sqs.iter() {
             result |= 1 << index
         }
         BB(result)
@@ -39,14 +39,14 @@ impl BB {
         self.0.trailing_zeros() as usize
     }
 
-    /// Returns the index of a single bit bitboard
-    pub fn to_index(&self) -> usize {
+    /// Returns the square index of a single bit bitboard
+    pub fn to_sq(&self) -> usize {
         debug_assert!(self.pop_count() == 1);
         self.0.trailing_zeros() as usize
     }
 
     /// Return the index of a single bitboard as a u16
-    pub fn to_index_uint16(&self) -> u16 {
+    pub fn to_uint16_sq(&self) -> u16 {
         debug_assert!(self.pop_count() == 1);
         self.0.trailing_zeros() as u16
     }
@@ -193,7 +193,7 @@ impl BB {
     /// Return the attack squares of the knight
     /// * Uses bitwise shifting for compile time generation of lookup tables.
     /// * Use lookup_knight_attacks for run time.
-    pub const fn knight_attack_squares(&self) -> BB {
+    pub const fn knight_attacks(&self) -> BB {
         BB(self.no_no_ea().0
             | self.no_ea_ea().0
             | self.so_ea_ea().0
@@ -207,7 +207,7 @@ impl BB {
     /// Return the attack squares of the king
     /// * Uses bitwise shifting for compile time generation of lookup tables.
     /// * Use lookup_king_attacks for run time.
-    pub const fn king_attack_squares(&self) -> BB {
+    pub const fn king_attacks(&self) -> BB {
         BB(self.north_one().0
             | self.nort_east().0
             | self.east_one().0
@@ -484,48 +484,20 @@ impl BB {
         self.hyp_quint(occ, Axis::Diagonal) | self.hyp_quint(occ, Axis::AntiDiagonal)
     }
 
-    /// Return a bitboard with the intervening bits between this single bit
-    /// bitboard and another single bit bitboard filled
-    pub fn connect_squares(&self, other: BB) -> BB {
-        debug_assert_eq!(self.0.count_ones(), 1);
-        debug_assert_eq!(other.0.count_ones(), 1);
-        debug_assert_ne!(*self, other);
-        // Calculate if the bitboards are connected via a file/rank or
-        // a diagonal/antidiagonal
-        let (this_sq, other_sq) = (self.to_index(), other.to_index());
-        if this_sq / 8 == other_sq / 8 || this_sq % 8 == other_sq % 8 {
-            self.lu_rook_attacks(other) & other.lu_rook_attacks(*self)
-        } else {
-            self.lu_bishop_attacks(other) & other.lu_bishop_attacks(*self)
-        }
-    }
-
     /// Return a bitboard of the common axis shared between this single bit
     /// bitboard and another single bit bitboard
-    pub fn common_axis(&self, other: BB) -> BB {
-        debug_assert_eq!(self.0.count_ones(), 1);
-        debug_assert_eq!(other.0.count_ones(), 1);
-        debug_assert_ne!(*self, other);
-        let (this_sq, other_sq) = (self.to_index(), other.to_index());
-        let translation = (this_sq as i32 - other_sq as i32).abs();
-        if translation % 9 == 0 {
-            // Diagonal translation
-            self.lu_diagonal_mask()
-        } else if translation % 8 == 0 {
-            // Vertical translation
-            self.lu_file_mask()
-        } else if translation % 7 == 0 && this_sq / 8 != other_sq / 8 {
-            // Anti-diagonal translation
-            self.lu_anti_diagonal_mask()
-        } else if translation < 8 {
-            // Horizontal translation
-            self.lu_rank_mask()
-        } else {
-            panic!(
-                "Squares {} and {} cannot be connected by a common axis",
-                this_sq, other_sq
-            )
+    pub fn through_bb(&self, bb_2: BB) -> BB {
+        debug_assert_eq!(self.pop_count(), 1);
+        debug_assert_eq!(bb_2.pop_count(), 1);
+        debug_assert_ne!(*self, bb_2);
+
+        for ax in self.axes_lu() {
+            if (ax & bb_2).is_not_empty() {
+                return ax;
+            }
         }
+
+        panic!("no axis between {} and {}", self.to_sq(), bb_2.to_sq())
     }
 
     /// Convert from algebraic notation e.g. a5 to a one bit bitboard
@@ -709,7 +681,7 @@ mod tests {
     #[test]
     fn test_bitmask_to_algebraic() {
         let expected = "f8";
-        let input = BB::from_index(61);
+        let input = BB::from_sq(61);
         let result = &input.to_algebraic()[..];
         assert_eq!(expected, result)
     }
@@ -717,20 +689,20 @@ mod tests {
     #[test]
     fn test_squares_to_bitboard() {
         let squares = vec![0, 1, 2, 3, 4, 5, 6, 7];
-        let bitboard = BB::from_indices(squares);
+        let bitboard = BB::from_sqs(squares);
         assert_eq!(bitboard, RANK_1);
     }
 
     #[test]
     fn test_get_ls1b() {
-        let bb = BB::from_indices(vec![19, 30]);
+        let bb = BB::from_sqs(vec![19, 30]);
         let lsb = bb.ls1b();
-        assert_eq!(BB::from_index(19), lsb);
+        assert_eq!(BB::from_sq(19), lsb);
     }
 
     #[test]
     fn test_get_ilsb() {
-        let bitboard = BB::from_indices(vec![41, 55]);
+        let bitboard = BB::from_sqs(vec![41, 55]);
         let ilsb = bitboard.ils1b();
         assert_eq!(ilsb, 41);
     }
@@ -739,14 +711,14 @@ mod tests {
     fn test_forward_scan() {
         let scan_result = FILE_E.forward_scan();
         let expected = vec![
-            BB::from_index(4),
-            BB::from_index(12),
-            BB::from_index(20),
-            BB::from_index(28),
-            BB::from_index(36),
-            BB::from_index(44),
-            BB::from_index(52),
-            BB::from_index(60),
+            BB::from_sq(4),
+            BB::from_sq(12),
+            BB::from_sq(20),
+            BB::from_sq(28),
+            BB::from_sq(36),
+            BB::from_sq(44),
+            BB::from_sq(52),
+            BB::from_sq(60),
         ];
         assert_eq!(scan_result, expected);
     }
@@ -756,10 +728,10 @@ mod tests {
     #[test_case(Axis::Diagonal, vec![27, 54, 18], 27, vec![18, 36, 45, 54];"DIAG")]
     #[test_case(Axis::AntiDiagonal, vec![6, 13, 34, 41, 43], 34, vec![41, 27, 20, 13];"ADIAG")]
     fn test_hyp_quint(axis: Axis, occ: Vec<usize>, slider: usize, expected: Vec<usize>) {
-        let occ = BB::from_indices(occ);
-        let slider = BB::from_index(slider);
+        let occ = BB::from_sqs(occ);
+        let slider = BB::from_sq(slider);
         let result = slider.hyp_quint(occ, axis);
-        let expected = BB::from_indices(expected);
+        let expected = BB::from_sqs(expected);
         assert_eq!(result, expected);
     }
 
@@ -768,7 +740,7 @@ mod tests {
     fn test_print_bb() {
         let king = square::E1;
         let checker = square::E8;
-        let out = king.connect_squares(checker).to_string();
+        let out = king.between_bb(checker).to_string();
         // let conn = king.connect_squares(checker);
         // let out = conn.to_string();
         print!("{}", out)

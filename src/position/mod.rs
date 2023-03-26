@@ -13,10 +13,10 @@ use uci::RuntimeError;
 pub struct Position {
     pub white: BBSet,
     pub black: BBSet,
-    pub occupied: BB,
+    pub occ: BB,
     pub free: BB,
     pub castling_rights: BB,
-    pub ep_target_sq: BB,
+    pub ep_sq: BB,
     pub halfmove_clock: u8,
     pub fullmove_clock: u8,
     pub key: u64,

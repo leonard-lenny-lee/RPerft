@@ -56,6 +56,13 @@ impl Position {
         }
     }
 
+    pub fn rank_3(&self) -> BB {
+        match self.stm {
+            Color::White => RANK_3,
+            Color::Black => RANK_6,
+        }
+    }
+
     /// Return our backrank
     pub fn rank_1(&self) -> BB {
         match self.stm {
@@ -105,50 +112,34 @@ impl Position {
     }
 
     /// Translate the provided bitboard in the direction of a single pawn push
-    pub fn single_push(&self, src: BB) -> BB {
+    pub fn push(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => src.north_one(),
-            Color::Black => src.south_one(),
+            Color::White => bb.north_one(),
+            Color::Black => bb.south_one(),
         }
     }
 
     /// Translate the provided bitboard in the direction of a double pawn push
-    pub fn double_push(&self, src: BB) -> BB {
+    pub fn double_push(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => src.north_two(),
-            Color::Black => src.south_two(),
+            Color::White => bb.north_two(),
+            Color::Black => bb.south_two(),
         }
     }
 
     /// Translate the provided bitboard in the direction of a pawn left capture
-    pub fn left_capture(&self, src: BB) -> BB {
+    pub fn lcap(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => src.nort_west(),
-            Color::Black => src.sout_west(),
+            Color::White => bb.nort_west(),
+            Color::Black => bb.sout_west(),
         }
     }
 
     /// Translate the provided bitboard in the direction of a pawn right capture
-    pub fn right_capture(&self, src: BB) -> BB {
+    pub fn rcap(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => src.nort_east(),
-            Color::Black => src.sout_east(),
-        }
-    }
-
-    /// Return the pin mask for pawn left captures
-    pub fn pawn_left_capture_pin_mask(&self) -> BB {
-        match self.stm {
-            Color::White => self.white.king.lu_anti_diagonal_mask(),
-            Color::Black => self.black.king.lu_diagonal_mask(),
-        }
-    }
-
-    /// Return the pin mask for pawn right captures
-    pub fn pawn_right_capture_pin_mask(&self) -> BB {
-        match self.stm {
-            Color::White => self.white.king.lu_diagonal_mask(),
-            Color::Black => self.black.king.lu_anti_diagonal_mask(),
+            Color::White => bb.nort_east(),
+            Color::Black => bb.sout_east(),
         }
     }
 
@@ -204,47 +195,43 @@ impl Position {
         }
     }
 
-    /// Return the double push pawn sources from a map of target squares
-    pub fn pawn_dbl_push_srcs(&self, targets: BB) -> BB {
+    /// Return a BB pushed back two squares towards the backrank
+    pub fn push_back_two(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => targets.south_two(),
-            Color::Black => targets.north_two(),
+            Color::White => bb.south_two(),
+            Color::Black => bb.north_two(),
         }
     }
 
-    /// Return the left capture pawn sources from a map of target squares
-    pub fn pawn_lcap_srcs(&self, targets: BB) -> BB {
+    /// Return a BB pushed back one square opposite the left capture direction
+    pub fn lcap_back(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => targets.sout_east(),
-            Color::Black => targets.nort_east(),
+            Color::White => bb.sout_east(),
+            Color::Black => bb.nort_east(),
         }
     }
 
     /// Return the right capture pawn sources from a map of target squares
-    pub fn pawn_rcap_srcs(&self, targets: BB) -> BB {
+    pub fn rcap_back(&self, bb: BB) -> BB {
         match self.stm {
-            Color::White => targets.sout_west(),
-            Color::Black => targets.nort_west(),
+            Color::White => bb.sout_west(),
+            Color::Black => bb.nort_west(),
         }
     }
 
     /// Return the en passant source squares of our pieces
     pub fn pawn_en_passant_srcs(&self) -> BB {
         match self.stm {
-            Color::White => {
-                (self.ep_target_sq.sout_east() | self.ep_target_sq.sout_west()) & self.white.pawn
-            }
-            Color::Black => {
-                (self.ep_target_sq.nort_east() | self.ep_target_sq.nort_west()) & self.black.pawn
-            }
+            Color::White => (self.ep_sq.sout_east() | self.ep_sq.sout_west()) & self.white.pawn,
+            Color::Black => (self.ep_sq.nort_east() | self.ep_sq.nort_west()) & self.black.pawn,
         }
     }
 
     /// Return the square of the piece being captured by en passant
     pub fn pawn_en_passant_capture_square(&self) -> BB {
         match self.stm {
-            Color::White => self.ep_target_sq.south_one(),
-            Color::Black => self.ep_target_sq.north_one(),
+            Color::White => self.ep_sq.south_one(),
+            Color::Black => self.ep_sq.north_one(),
         }
     }
 
@@ -297,7 +284,7 @@ impl Position {
     }
 
     /// Return all the squares attacked by their pawns
-    pub fn unsafe_squares_pawn(&self) -> BB {
+    pub fn pawn_attacks(&self) -> BB {
         match self.stm {
             Color::White => self.black.pawn.sout_east() | self.black.pawn.sout_west(),
             Color::Black => self.white.pawn.nort_east() | self.white.pawn.nort_west(),
@@ -305,7 +292,7 @@ impl Position {
     }
 
     /// Locate their pawns checking our king
-    pub fn their_checking_pawns(&self) -> BB {
+    pub fn pawn_checkers(&self) -> BB {
         match self.stm {
             Color::White => {
                 (self.white.king.nort_west() | self.white.king.nort_east()) & self.black.pawn

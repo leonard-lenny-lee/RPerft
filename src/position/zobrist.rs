@@ -33,7 +33,7 @@ impl Position {
         for color in pieces.iter().enumerate() {
             for piece in color.1.iter().enumerate() {
                 for sq in piece.1.forward_scan() {
-                    let idx = sq.to_index();
+                    let idx = sq.to_sq();
                     let piece_id = piece.0 * 2 + color.0;
                     let hash_idx = 64 * piece_id + idx;
                     key ^= HASH_KEYS[hash_idx]
@@ -53,16 +53,12 @@ impl Position {
         // Hash ep
         // Find pawns that are able to move to the target square
         let pawns = match self.stm {
-            Color::White => {
-                (self.ep_target_sq.sout_west() | self.ep_target_sq.sout_east()) & self.white.pawn
-            }
-            Color::Black => {
-                (self.ep_target_sq.nort_west() | self.ep_target_sq.nort_east()) & self.black.pawn
-            }
+            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & self.white.pawn,
+            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & self.black.pawn,
         };
 
         if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.ep_target_sq.to_index() % 8];
+            key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
         }
 
         // Hash turn
@@ -76,16 +72,12 @@ impl Position {
     fn ep_hash(&self) -> u64 {
         let mut key = 0;
         let pawns = match self.stm {
-            Color::White => {
-                (self.ep_target_sq.sout_west() | self.ep_target_sq.sout_east()) & self.white.pawn
-            }
-            Color::Black => {
-                (self.ep_target_sq.nort_west() | self.ep_target_sq.nort_east()) & self.black.pawn
-            }
+            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & self.white.pawn,
+            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & self.black.pawn,
         };
 
         if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.ep_target_sq.to_index() % 8];
+            key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
         }
         return key;
     }
@@ -105,14 +97,14 @@ impl Position {
     /// Update at both source and target squares for the piece
     pub fn move_key_update(&mut self, moved_pt: PieceType, src: BB, target: BB, wtm: bool) {
         let idx = PT_KEY_IDX_MAP[moved_pt as usize] * 2 + wtm as usize;
-        self.key ^= HASH_KEYS[64 * idx + src.to_index()];
-        self.key ^= HASH_KEYS[64 * idx + target.to_index()];
+        self.key ^= HASH_KEYS[64 * idx + src.to_sq()];
+        self.key ^= HASH_KEYS[64 * idx + target.to_sq()];
     }
 
     /// Update hash for a single bitflip
     pub fn sq_key_update(&mut self, pt: PieceType, sq: BB, wtm: bool) {
         let idx = PT_KEY_IDX_MAP[pt as usize] * 2 + wtm as usize;
-        self.key ^= HASH_KEYS[64 * idx + sq.to_index()];
+        self.key ^= HASH_KEYS[64 * idx + sq.to_sq()];
     }
 
     /// Update hash for an en passant square update
@@ -346,7 +338,7 @@ const HASH_KEYS: [u64; 781] = [
 #[cfg(test)]
 mod test {
     use super::*;
-    use movelist::MoveList;
+    use movelist::{MoveList, UnorderedList};
     use test_case::test_case;
 
     #[test_case("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0x463b96181691fc9c; "1")]
@@ -376,20 +368,15 @@ mod test {
         TPOS2, 4, 5,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
         "loss of castling")]
-    fn test_hash_update_quiet(
-        starting_pos: &str,
-        src_sq: usize,
-        target_sq: usize,
-        expected_position: &str,
-    ) {
-        let pos = Position::from_fen(starting_pos).unwrap();
+    fn test_hash_update_quiet(startpos: &str, from: usize, to: usize, expected: &str) {
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut move_list = MoveList::new();
-        move_list.add_quiet_move(BB::from_index(target_sq), BB::from_index(src_sq));
-        let mv = move_list.pop().unwrap();
+        let mut movelist = UnorderedList::new();
+        movelist.add_quiet(BB::from_sq(from), BB::from_sq(to));
+        let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.do_move(&mv);
-        let expected_pos = Position::from_fen(expected_position).unwrap();
+        let new_pos = pos.make_move(&mv);
+        let expected_pos = Position::from_fen(expected).unwrap();
         assert_eq!(new_pos.key, expected_pos.key)
     }
 
@@ -407,20 +394,15 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1", 50, 34,
         "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2";
         "eps transfer")]
-    fn test_hash_update_double_pawn_push(
-        starting_pos: &str,
-        src_sq: usize,
-        target_sq: usize,
-        expected_position: &str,
-    ) {
-        let pos = Position::from_fen(starting_pos).unwrap();
+    fn test_hash_update_double_pawn_push(startpos: &str, from: usize, to: usize, expected: &str) {
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut move_list = MoveList::new();
-        move_list.add_double_pawn_push(BB::from_index(target_sq), BB::from_index(src_sq));
-        let mv = move_list.pop().unwrap();
+        let mut movelist = UnorderedList::new();
+        movelist.add_double_pawn_push(BB::from_sq(from), BB::from_sq(to));
+        let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.do_move(&mv);
-        let expected_pos = Position::from_fen(expected_position).unwrap();
+        let new_pos = pos.make_move(&mv);
+        let expected_pos = Position::from_fen(expected).unwrap();
         assert_eq!(new_pos.key, expected_pos.key)
     }
 
@@ -432,20 +414,15 @@ mod test {
         "r3k2r/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 b kq - 1 3", 60, 62,
         "r4rk1/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 w - - 2 4";
         "black")]
-    fn test_hash_update_castling(
-        starting_pos: &str,
-        src_sq: usize,
-        target_sq: usize,
-        expected_position: &str,
-    ) {
-        let pos = Position::from_fen(starting_pos).unwrap();
+    fn test_hash_update_castling(startpos: &str, from: usize, to: usize, expected: &str) {
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut move_list = MoveList::new();
-        move_list.add_short_castle(BB::from_index(target_sq), BB::from_index(src_sq));
-        let mv = move_list.pop().unwrap();
+        let mut movelist = UnorderedList::new();
+        movelist.add_short_castle(BB::from_sq(from), BB::from_sq(to));
+        let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.do_move(&mv);
-        let expected_pos = Position::from_fen(expected_position).unwrap();
+        let new_pos = pos.make_move(&mv);
+        let expected_pos = Position::from_fen(expected).unwrap();
         assert_eq!(new_pos.key, expected_pos.key)
     }
 
@@ -453,20 +430,15 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1", 25, 16,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/p1N2Q1p/1PPBBPPP/R3K2R w KQkq - 0 2";
         "black")]
-    fn test_hash_update_en_passant(
-        starting_pos: &str,
-        src_sq: usize,
-        target_sq: usize,
-        expected_position: &str,
-    ) {
-        let pos = Position::from_fen(starting_pos).unwrap();
+    fn test_hash_update_en_passant(startpos: &str, from: usize, to: usize, expected: &str) {
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut move_list = MoveList::new();
-        move_list.add_en_passant_capture(BB::from_index(target_sq), BB::from_index(src_sq));
-        let mv = move_list.pop().unwrap();
+        let mut movelist = UnorderedList::new();
+        movelist.add_ep(BB::from_sq(from), BB::from_sq(to));
+        let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.do_move(&mv);
-        let expected_pos = Position::from_fen(expected_position).unwrap();
+        let new_pos = pos.make_move(&mv);
+        let expected_pos = Position::from_fen(expected).unwrap();
         assert_eq!(new_pos.key, expected_pos.key)
     }
 }

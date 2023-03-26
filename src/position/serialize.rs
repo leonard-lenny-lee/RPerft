@@ -38,7 +38,7 @@ impl Position {
             if sq >= 64 {
                 return Err(RuntimeError::ParseFenError);
             }
-            let mask = BB::from_index(sq);
+            let mask = BB::from_sq(sq);
 
             // Alphabetic characters represent a piece of the square
             if c.is_alphabetic() {
@@ -123,10 +123,10 @@ impl Position {
         let mut pos = Self {
             white,
             black,
-            occupied: occupied_squares,
+            occ: occupied_squares,
             free: free_squares,
             castling_rights,
-            ep_target_sq: en_passant_target_square,
+            ep_sq: en_passant_target_square,
             halfmove_clock,
             fullmove_clock,
             key: 0,
@@ -135,7 +135,7 @@ impl Position {
 
         // Initialize Zobrist key
         pos.key = pos.generate_key();
-        pos.check_legality()?;
+        pos.check_legal()?;
         return Ok(pos);
     }
 
@@ -157,13 +157,13 @@ impl Position {
 
         for i in 1..7 {
             for sq in b_array[i].forward_scan() {
-                let index = sq.to_index();
+                let index = sq.to_sq();
                 let (x, y) = (index / 8, index % 8);
                 array[x][y] = b_charset[i];
             }
 
             for sq in w_array[i].forward_scan() {
-                let index = sq.to_index();
+                let index = sq.to_sq();
                 let (x, y) = (index / 8, index % 8);
                 array[x][y] = w_charset[i];
             }
@@ -225,8 +225,8 @@ impl Position {
         tokens.push(castling_token);
 
         // Push en passant token
-        if self.ep_target_sq != EMPTY_BB {
-            tokens.push(self.ep_target_sq.to_algebraic());
+        if self.ep_sq != EMPTY_BB {
+            tokens.push(self.ep_sq.to_algebraic());
         } else {
             tokens.push("-".to_string())
         }
@@ -362,7 +362,7 @@ mod tests {
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
         let expected_free = !expected_occ;
-        assert_eq!(pos.occupied, expected_occ, "occ");
+        assert_eq!(pos.occ, expected_occ, "occ");
         assert_eq!(pos.free, expected_free, "free");
 
         // Other token parsing
@@ -371,7 +371,7 @@ mod tests {
             pos.castling_rights,
             square::A1 | square::H1 | square::A8 | square::H8
         );
-        assert_eq!(pos.ep_target_sq, EMPTY_BB);
+        assert_eq!(pos.ep_sq, EMPTY_BB);
         assert_eq!(pos.halfmove_clock, 0);
         assert_eq!(pos.fullmove_clock, 1);
     }
@@ -386,7 +386,7 @@ mod tests {
     #[test]
     // Run manually and inspect
     fn test_to_board() {
-        let pos = Position::from_fen(STARTPOS).unwrap();
+        let pos = Position::from_fen(TPOS3).unwrap();
         print!("{}", pos.to_board())
     }
 }

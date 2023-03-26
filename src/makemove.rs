@@ -2,17 +2,17 @@
 use super::*;
 use movelist::Move;
 use position::Position;
-use types::{MoveType::*, PieceType};
+use types::{CastleType, MoveType::*, PieceType};
 
 impl Position {
     /// Create a new position by applying move data to a position
-    pub fn do_move(&self, mv: &Move) -> Position {
+    pub fn make_move(&self, mv: &Move) -> Position {
         // Create a copy of the current position to modify
         let mut new_pos = *self;
 
         // Unpack move data
-        let target = mv.target();
-        let src = mv.src();
+        let target = mv.to();
+        let src = mv.from();
         let movetype = mv.movetype();
 
         // Source squares must be free and target squares must be occupied
@@ -21,7 +21,7 @@ impl Position {
 
         // Our bitboards must be flipped at the target and source
         let us = new_pos.mut_us();
-        let moved_pt = us.pt_at(src);
+        let moved_pt = us.pt_at(src).expect("from must be occ");
         let move_mask = src | target;
         us[moved_pt] ^= move_mask;
         us.all ^= move_mask;
@@ -45,16 +45,16 @@ impl Position {
         new_pos.fullmove_clock += !new_pos.wtm() as u8;
 
         // Set ep target to empty, set if dbl pawn push
-        new_pos.ep_target_sq = EMPTY_BB;
+        new_pos.ep_sq = EMPTY_BB;
 
         // Execute special actions
         match movetype {
             Quiet => (),
             DoublePawnPush => {
                 // Ep target is one square behind dbl push target
-                new_pos.ep_target_sq = new_pos.push_back(target);
+                new_pos.ep_sq = new_pos.push_back(target);
             }
-            Castle { is_long } => new_pos.exec_castle(is_long, target),
+            Castle(ct) => new_pos.exec_castle(ct, target),
             Capture => new_pos.exec_capture(target),
             EnPassant => new_pos.exec_ep(target),
             Promotion(pt) => new_pos.exec_promo(pt, target),
@@ -64,7 +64,7 @@ impl Position {
             }
         }
 
-        new_pos.occupied = !new_pos.free;
+        new_pos.occ = !new_pos.free;
         // Change the turn and state
         new_pos.change_state();
         new_pos.update_key(moved_pt, src, target, self);
@@ -74,7 +74,7 @@ impl Position {
     #[inline(always)]
     fn exec_capture(&mut self, target: BB) {
         let them = self.mut_them();
-        let captured_pt = them.pt_at(target);
+        let captured_pt = them.pt_at(target).unwrap();
         them[captured_pt] ^= target;
         them.all ^= target;
         self.castling_rights &= !target;
@@ -91,11 +91,10 @@ impl Position {
     }
 
     #[inline(always)]
-    fn exec_castle(&mut self, is_long: bool, target: BB) {
-        let (rook_src, rook_target) = if is_long {
-            (target.west_two(), target.east_one())
-        } else {
-            (target.east_one(), target.west_one())
+    fn exec_castle(&mut self, ct: CastleType, target: BB) {
+        let (rook_src, rook_target) = match ct {
+            CastleType::Short => (target.east_one(), target.west_one()),
+            CastleType::Long => (target.west_two(), target.east_one()),
         };
         let us = self.mut_us();
         let mask = rook_src | rook_target;

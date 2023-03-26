@@ -1,8 +1,8 @@
 use super::*;
 use evaluate::evaluate;
 use hash::{HashTable, Probe};
-use movegen::{find_captures, find_check_evasions, find_moves};
-use movelist::Move;
+use movegen::{generate, generate_all};
+use movelist::{Move, MoveList, OrderedList, UnorderedList};
 use position::Position;
 
 const NEGATIVE_INFINITY: i16 = -30001;
@@ -45,7 +45,7 @@ fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
     while depth > 0 {
         if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
-                pos = pos.do_move(&entry.best_move);
+                pos = pos.make_move(&entry.best_move);
                 pv.push(entry.best_move);
             }
         } else {
@@ -61,15 +61,20 @@ fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
 /// to ensure the same results are reached by alpha beta pruning
 pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
     let probe_result = table.probe_search(pos.key, depth);
+
     if let Probe::Read(entry) = probe_result {
         return entry.score;
     }
+
     if depth == 0 {
         return evaluate(pos);
     }
-    let move_list = find_moves(pos);
-    if move_list.len() == 0 {
-        let n_checkers = pos.find_checkers().pop_count();
+
+    let mut movelist = UnorderedList::new();
+    generate_all(pos, &mut movelist);
+
+    if movelist.len() == 0 {
+        let n_checkers = pos.checkers().pop_count();
         if n_checkers > 0 {
             return CHECKMATE; // Checkmate
         } else {
@@ -78,8 +83,8 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
     }
     let mut best_move = movelist::Move::new_null();
     let mut max_evaluation = NEGATIVE_INFINITY;
-    for mv in move_list.iter() {
-        let new_pos = pos.do_move(mv);
+    for mv in movelist.iter() {
+        let new_pos = pos.make_move(mv);
         let evaluation = -nega_max(&new_pos, depth - 1, table);
         if evaluation > max_evaluation {
             max_evaluation = evaluation;
@@ -95,38 +100,48 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
 /// Implementation of alpha-beta pruning to search for the best evaluation
 pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &HashTable) -> i16 {
     let probe_result = table.probe_search(pos.key, depth);
+
     if let Probe::Read(entry) = probe_result {
         return entry.score;
     }
+
     if depth == 0 {
         return quiesce(pos, alpha, beta, 0);
     }
-    let move_list = find_moves(pos);
-    if move_list.len() == 0 {
-        let n_checkers = pos.find_checkers().pop_count();
+
+    let mut movelist = OrderedList::new();
+    generate_all(pos, &mut movelist);
+
+    if movelist.len() == 0 {
+        let n_checkers = pos.checkers().pop_count();
         if n_checkers > 0 {
             return CHECKMATE; // Checkmate
         } else {
             return 0; // Stalemate
         }
     }
+
     let mut best_move = movelist::Move::new_null();
     let mut is_pv = false;
-    for mv in move_list.iter() {
-        let new_pos = pos.do_move(mv);
+
+    for mv in movelist.iter() {
+        let new_pos = pos.make_move(mv);
         let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
+
         if evaluation >= beta {
             if let Probe::Write = probe_result {
                 table.write_search(pos.key, depth, best_move, beta, NodeType::Cut);
             }
             return beta; // Pruning condition
         }
+
         if evaluation > alpha {
             alpha = evaluation;
             is_pv = true;
             best_move = *mv;
         }
     }
+
     if let Probe::Write = probe_result {
         table.write_search(
             pos.key,
@@ -136,37 +151,44 @@ pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &
             if is_pv { NodeType::PV } else { NodeType::All },
         );
     }
+
     return alpha;
 }
 
 fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
     let stand_pat = evaluate(pos);
+
     if stand_pat >= beta {
         return beta;
     }
+
     if alpha < stand_pat {
         alpha = stand_pat;
     }
-    let checkers = pos.find_checkers();
-    let target_squares = pos.target_squares(); // All squares our pieces are attacking
-    let possible_captures = target_squares & pos.them().all;
-    let move_list = if checkers != EMPTY_BB {
-        // If in check, the priority is to resolve the check
-        let move_list = find_check_evasions(pos, checkers);
-        if move_list.len() == 0 {
+
+    let mut movelist = OrderedList::new();
+    let checkers = pos.checkers();
+    let our_attacks = pos.target_squares(); // All squares our pieces are attacking
+    let captures = our_attacks & pos.them().all;
+
+    // If in check, the priority is to resolve the check
+    if checkers.is_not_empty() {
+        generate(types::GenType::Evasions(checkers), pos, &mut movelist);
+        if movelist.len() == 0 {
             return CHECKMATE;
         }
-        move_list
-    } else if possible_captures != EMPTY_BB {
-        // Enumerate the through the captures only
-        find_captures(pos)
-    } else {
-        // No captures and not in check
+    }
+    // Enumerate the through the captures only
+    else if captures != EMPTY_BB {
+        generate(types::GenType::Captures, pos, &mut movelist);
+    }
+    // No captures and not in check so stop quiescing
+    else {
         return alpha;
     };
 
-    for mv in move_list.iter() {
-        let new_pos = pos.do_move(mv);
+    for mv in movelist.iter() {
+        let new_pos = pos.make_move(mv);
         let score = -quiesce(&new_pos, -beta, -alpha, ply + 1);
         if score >= beta {
             return beta;
@@ -192,22 +214,25 @@ pub mod perft {
         table_size: usize,
         verbose: bool,
     ) -> (u64, f64, f64) {
-        let nodes;
         let start = std::time::Instant::now();
-        let moves = find_moves(pos);
-        if depth == 0 {
-            nodes = 1
+
+        let mut movelist = UnorderedList::new();
+        generate_all(&pos, &mut movelist);
+
+        let nodes = if depth == 0 {
+            1
         } else if depth == 1 {
-            nodes = moves.len() as u64
+            movelist.len() as u64
         } else {
-            let n_jobs = moves.len();
+            let n_jobs = movelist.len();
             let pool = ThreadPool::new(num_threads);
             let (tx, rx) = channel();
             let table = Arc::new(HashTable::new(table_size));
+
             for i in 0..n_jobs {
                 let tx = tx.clone();
-                let mv = moves[i];
-                let new_pos = pos.do_move(&mv);
+                let mv = movelist[i];
+                let new_pos = pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
                     let node_count = perft_inner(&new_pos, depth - 1, &table);
@@ -217,32 +242,41 @@ pub mod perft {
                     }
                 })
             }
-            nodes = rx.iter().take(n_jobs).fold(0, |a, b| a + b);
-        }
+            rx.iter().take(n_jobs).fold(0, |a, b| a + b)
+        };
+
         let duration = start.elapsed().as_secs_f64();
         let nodes_per_second = nodes as f64 / (duration * 1_000_000.0);
+
         if verbose {
             println!(
                 "Nodes searched: {}\nTime elapsed: {:.2} s ({:.1} M/s)",
                 nodes, duration, nodes_per_second
             );
         }
+
         return (nodes, duration, nodes_per_second);
     }
 
     fn perft_inner(pos: &Position, depth: u8, table: &Arc<HashTable>) -> u64 {
         let mut nodes = 0;
+
         if let Some(nodes) = table.probe_perft(pos.key, depth) {
             return nodes;
         }
-        let move_list = find_moves(pos);
+
+        let mut movelist = UnorderedList::new();
+        generate_all(&pos, &mut movelist);
+
         if depth == 1 {
-            return move_list.len() as u64;
+            return movelist.len() as u64;
         }
-        for mv in move_list.iter() {
-            let new_pos = pos.do_move(mv);
+
+        for mv in movelist.iter() {
+            let new_pos = pos.make_move(mv);
             nodes += perft_inner(&new_pos, depth - 1, table);
         }
+
         table.write_perft(pos.key, depth, nodes);
         return nodes;
     }
