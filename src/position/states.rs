@@ -8,7 +8,8 @@ impl Position {
         self.stm = match self.stm {
             Color::White => Color::Black,
             Color::Black => Color::White,
-        }
+        };
+        std::mem::swap(&mut self.us, &mut self.them)
     }
 
     /// Return the boolean value of whether it's white to move
@@ -16,34 +17,10 @@ impl Position {
         return matches!(self.stm, Color::White);
     }
 
-    pub fn us_them(&self) -> (&BBSet, &BBSet) {
+    pub fn white_black(&self) -> (&BBSet, &BBSet) {
         match self.stm {
-            Color::White => (&self.white, &self.black),
-            Color::Black => (&self.black, &self.white),
-        }
-    }
-
-    /// Return the BBSet of our piece (side to move)
-    pub fn us(&self) -> &BBSet {
-        match self.stm {
-            Color::White => &self.white,
-            Color::Black => &self.black,
-        }
-    }
-
-    /// Return the BBSet of their pieces (not side to move)
-    pub fn them(&self) -> &BBSet {
-        match self.stm {
-            Color::White => &self.black,
-            Color::Black => &self.white,
-        }
-    }
-
-    /// Return the rank which pawn promotion occurs
-    pub fn rank_8(&self) -> BB {
-        match self.stm {
-            Color::White => RANK_8,
-            Color::Black => RANK_1,
+            Color::White => (&self.us, &self.them),
+            Color::Black => (&self.them, &self.us),
         }
     }
 
@@ -87,7 +64,7 @@ impl Position {
     }
 
     /// Return the square on which our kingside rook starts
-    pub fn our_ksr_start(&self) -> BB {
+    pub fn ksr_start(&self) -> BB {
         match self.stm {
             Color::White => square::H1,
             Color::Black => square::H8,
@@ -95,7 +72,7 @@ impl Position {
     }
 
     /// Return the square on which our queenside rook starts
-    pub fn our_qsr_start(&self) -> BB {
+    pub fn qsr_start(&self) -> BB {
         match self.stm {
             Color::White => square::A1,
             Color::Black => square::A8,
@@ -203,38 +180,6 @@ impl Position {
         match self.stm {
             Color::White => WHITE,
             Color::Black => BLACK,
-        }
-    }
-
-    /// Return our king side castling rights
-    pub fn can_ksc(&self) -> bool {
-        match self.stm {
-            Color::White => (self.castling_rights & square::H1).is_not_empty(),
-            Color::Black => (self.castling_rights & square::H8).is_not_empty(),
-        }
-    }
-
-    /// Return the queenside castling rights
-    pub fn can_qsc(&self) -> bool {
-        match self.stm {
-            Color::White => (self.castling_rights & square::A1).is_not_empty(),
-            Color::Black => (self.castling_rights & square::A8).is_not_empty(),
-        }
-    }
-
-    /// Return our piece set as a mutable reference
-    pub fn mut_us(&mut self) -> &mut BBSet {
-        match self.stm {
-            Color::White => &mut self.white,
-            Color::Black => &mut self.black,
-        }
-    }
-
-    /// Return their piece set as a mutable reference
-    pub fn mut_them(&mut self) -> &mut BBSet {
-        match self.stm {
-            Color::White => &mut self.black,
-            Color::Black => &mut self.white,
         }
     }
 }

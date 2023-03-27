@@ -20,11 +20,10 @@ impl Position {
         new_pos.free &= !target;
 
         // Our bitboards must be flipped at the target and source
-        let us = new_pos.mut_us();
-        let moved_pt = us.pt_at(src).expect("from must be occ");
+        let moved_pt = new_pos.us.pt_at(src).expect("from must be occ");
         let move_mask = src | target;
-        us[moved_pt] ^= move_mask;
-        us.all ^= move_mask;
+        new_pos.us[moved_pt] ^= move_mask;
+        new_pos.us.all ^= move_mask;
 
         // If our king has moved, remove all further rights to castle
         if matches!(moved_pt, PieceType::King) {
@@ -73,19 +72,17 @@ impl Position {
 
     #[inline(always)]
     fn exec_capture(&mut self, target: BB) {
-        let them = self.mut_them();
-        let captured_pt = them.pt_at(target).unwrap();
-        them[captured_pt] ^= target;
-        them.all ^= target;
+        let captured_pt = self.them.pt_at(target).unwrap();
+        self.them[captured_pt] ^= target;
+        self.them.all ^= target;
         self.castling_rights &= !target;
         self.sq_key_update(captured_pt, target, !self.wtm())
     }
 
     #[inline(always)]
     fn exec_promo(&mut self, promo_pt: PieceType, target: BB) {
-        let us = self.mut_us();
-        us[promo_pt] ^= target;
-        us.pawn ^= target;
+        self.us[promo_pt] ^= target;
+        self.us.pawn ^= target;
         self.sq_key_update(PieceType::Pawn, target, self.wtm());
         self.sq_key_update(promo_pt, target, self.wtm());
     }
@@ -96,10 +93,9 @@ impl Position {
             CastleType::Short => (target.east_one(), target.west_one()),
             CastleType::Long => (target.west_two(), target.east_one()),
         };
-        let us = self.mut_us();
         let mask = rook_src | rook_target;
-        us.rook ^= mask;
-        us.all ^= mask;
+        self.us.rook ^= mask;
+        self.us.all ^= mask;
         self.free ^= mask;
         self.move_key_update(PieceType::Rook, rook_src, rook_target, self.wtm())
     }
@@ -107,9 +103,8 @@ impl Position {
     #[inline(always)]
     fn exec_ep(&mut self, target: BB) {
         let ep_capture_sq = self.push_back(target);
-        let them = self.mut_them();
-        them.pawn ^= ep_capture_sq;
-        them.all ^= ep_capture_sq;
+        self.them.pawn ^= ep_capture_sq;
+        self.them.all ^= ep_capture_sq;
         self.free ^= ep_capture_sq;
         self.sq_key_update(PieceType::Pawn, ep_capture_sq, !self.wtm())
     }

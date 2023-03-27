@@ -14,10 +14,10 @@ fn _game_phase(pos: &Position) -> i16 {
     const QUEEN: i16 = 4;
     const TOTAL: i16 = 24;
 
-    let phase = KNIGHT * (pos.white.knight.pop_count() + pos.black.knight.pop_count())
-        + BISHOP * (pos.white.bishop.pop_count() + pos.black.bishop.pop_count())
-        + ROOK * (pos.white.rook.pop_count() + pos.black.rook.pop_count())
-        + QUEEN * (pos.white.queen.pop_count() + pos.black.queen.pop_count());
+    let phase = KNIGHT * (pos.us.knight.pop_count() + pos.them.knight.pop_count())
+        + BISHOP * (pos.us.bishop.pop_count() + pos.them.bishop.pop_count())
+        + ROOK * (pos.us.rook.pop_count() + pos.them.rook.pop_count())
+        + QUEEN * (pos.us.queen.pop_count() + pos.them.queen.pop_count());
 
     // If phase is > 24, due to promotion, return phase at maximum value of 24
     return std::cmp::min(phase, TOTAL);
@@ -30,9 +30,11 @@ fn material(pos: &Position) -> i16 {
     const KNIGHT: i16 = 350;
     const PAWN: i16 = 100;
 
-    KNIGHT * (pos.white.knight.pop_count() - pos.black.knight.pop_count())
-        + BISHOP * (pos.white.bishop.pop_count() - pos.black.bishop.pop_count())
-        + ROOK * (pos.white.rook.pop_count() - pos.black.rook.pop_count())
-        + QUEEN * (pos.white.queen.pop_count() - pos.black.queen.pop_count())
-        + PAWN * (pos.white.pawn.pop_count() - pos.black.pawn.pop_count())
+    let (w, b) = pos.white_black();
+
+    KNIGHT * (w.knight.pop_count() - b.knight.pop_count())
+        + BISHOP * (w.bishop.pop_count() - b.bishop.pop_count())
+        + ROOK * (w.rook.pop_count() - b.rook.pop_count())
+        + QUEEN * (w.queen.pop_count() - b.queen.pop_count())
+        + PAWN * (w.pawn.pop_count() - b.pawn.pop_count())
 }

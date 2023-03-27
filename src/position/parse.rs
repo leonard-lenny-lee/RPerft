@@ -21,8 +21,8 @@ impl Position {
         }
 
         // Fill BBSet for white and black
-        let mut white = BBSet::new_empty();
-        let mut black = BBSet::new_empty();
+        let mut us = BBSet::new_empty();
+        let mut them = BBSet::new_empty();
         let mut board_tokens: Vec<&str> = tokens[0].split("/").collect();
 
         if board_tokens.len() != 8 {
@@ -42,11 +42,7 @@ impl Position {
 
             // Alphabetic characters represent a piece of the square
             if c.is_alphabetic() {
-                let bbset = if c.is_uppercase() {
-                    &mut white
-                } else {
-                    &mut black
-                };
+                let bbset = if c.is_uppercase() { &mut us } else { &mut them };
                 bbset.all |= mask;
                 match c {
                     'p' | 'P' => bbset.pawn |= mask,
@@ -75,11 +71,11 @@ impl Position {
             return Err(RuntimeError::ParseFenError);
         }
 
-        let occupied_squares = white.all | black.all;
-        let free_squares = !occupied_squares;
+        let occ = us.all | them.all;
+        let free = !occ;
 
         // Set side to move
-        let side_to_move = match tokens[1] {
+        let stm = match tokens[1] {
             "w" => Color::White,
             "b" => Color::Black,
             _ => return Err(RuntimeError::ParseFenError),
@@ -99,7 +95,7 @@ impl Position {
         }
 
         // Set en passant target square
-        let en_passant_target_square = if tokens[3] == "-" {
+        let ep_sq = if tokens[3] == "-" {
             EMPTY_BB
         } else {
             match BB::from_algebraic(tokens[3]) {
@@ -120,17 +116,22 @@ impl Position {
             Err(_) => return Err(RuntimeError::ParseFenError),
         };
 
+        // Swap us/them pointers if black to move
+        if let Color::Black = stm {
+            std::mem::swap(&mut us, &mut them)
+        }
+
         let mut pos = Self {
-            white,
-            black,
-            occ: occupied_squares,
-            free: free_squares,
+            us,
+            them,
+            occ,
+            free,
             castling_rights,
-            ep_sq: en_passant_target_square,
+            ep_sq,
             halfmove_clock,
             fullmove_clock,
             key: 0,
-            stm: side_to_move,
+            stm,
         };
 
         // Initialize Zobrist key
@@ -147,8 +148,9 @@ impl Position {
     /// Convert position into a 8 x 8 array of characters
     fn to_array(&self) -> [[char; 8]; 8] {
         let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
-        let w_array = self.white.as_array();
-        let b_array = self.black.as_array();
+        let (white, black) = self.white_black();
+        let w_array = white.as_array();
+        let b_array = black.as_array();
 
         let (w_charset, b_charset) = (
             [' ', 'P', 'R', 'N', 'B', 'Q', 'K'],
@@ -342,22 +344,22 @@ mod tests {
         let pos = Position::new_starting_pos();
 
         // White pieces
-        assert_eq!(pos.white.all, RANK_1 | RANK_2, "w.any");
-        assert_eq!(pos.white.pawn, RANK_2, "w.pawn");
-        assert_eq!(pos.white.rook, square::A1 | square::H1, "w.rook");
-        assert_eq!(pos.white.knight, square::B1 | square::G1, "w.knight");
-        assert_eq!(pos.white.bishop, square::C1 | square::F1, "w.bishop");
-        assert_eq!(pos.white.queen, square::D1, "w.queen");
-        assert_eq!(pos.white.king, square::E1, "w.king");
+        assert_eq!(pos.us.all, RANK_1 | RANK_2, "w.any");
+        assert_eq!(pos.us.pawn, RANK_2, "w.pawn");
+        assert_eq!(pos.us.rook, square::A1 | square::H1, "w.rook");
+        assert_eq!(pos.us.knight, square::B1 | square::G1, "w.knight");
+        assert_eq!(pos.us.bishop, square::C1 | square::F1, "w.bishop");
+        assert_eq!(pos.us.queen, square::D1, "w.queen");
+        assert_eq!(pos.us.king, square::E1, "w.king");
 
         // Black pieces
-        assert_eq!(pos.black.all, RANK_7 | RANK_8, "b.any");
-        assert_eq!(pos.black.pawn, RANK_7, "b.pawn");
-        assert_eq!(pos.black.rook, square::A8 | square::H8, "b.rook");
-        assert_eq!(pos.black.knight, square::B8 | square::G8, "b.knight");
-        assert_eq!(pos.black.bishop, square::C8 | square::F8, "b.bishop");
-        assert_eq!(pos.black.queen, square::D8, "b.queen");
-        assert_eq!(pos.black.king, square::E8, "b.king");
+        assert_eq!(pos.them.all, RANK_7 | RANK_8, "b.any");
+        assert_eq!(pos.them.pawn, RANK_7, "b.pawn");
+        assert_eq!(pos.them.rook, square::A8 | square::H8, "b.rook");
+        assert_eq!(pos.them.knight, square::B8 | square::G8, "b.knight");
+        assert_eq!(pos.them.bishop, square::C8 | square::F8, "b.bishop");
+        assert_eq!(pos.them.queen, square::D8, "b.queen");
+        assert_eq!(pos.them.king, square::E8, "b.king");
 
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;

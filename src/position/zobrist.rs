@@ -11,22 +11,9 @@ impl Position {
         let mut key = 0;
 
         // Organize BBs into arrays to allow convenient access of hash array
-        let white = [
-            self.white.pawn,
-            self.white.knight,
-            self.white.bishop,
-            self.white.rook,
-            self.white.queen,
-            self.white.king,
-        ];
-        let black = [
-            self.black.pawn,
-            self.black.knight,
-            self.black.bishop,
-            self.black.rook,
-            self.black.queen,
-            self.black.king,
-        ];
+        let (w, b) = self.white_black();
+        let white = [w.pawn, w.knight, w.bishop, w.rook, w.queen, w.king];
+        let black = [b.pawn, b.knight, b.bishop, b.rook, b.queen, b.king];
         let pieces = [black, white];
 
         // Hash all the pieces into the key
@@ -53,8 +40,8 @@ impl Position {
         // Hash ep
         // Find pawns that are able to move to the target square
         let pawns = match self.stm {
-            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & self.white.pawn,
-            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & self.black.pawn,
+            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & w.pawn,
+            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & b.pawn,
         };
 
         if pawns.is_not_empty() {
@@ -71,9 +58,10 @@ impl Position {
 
     fn ep_hash(&self) -> u64 {
         let mut key = 0;
+        let (white, black) = self.white_black();
         let pawns = match self.stm {
-            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & self.white.pawn,
-            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & self.black.pawn,
+            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & white.pawn,
+            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & black.pawn,
         };
 
         if pawns.is_not_empty() {

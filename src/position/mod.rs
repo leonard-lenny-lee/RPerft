@@ -11,8 +11,8 @@ use uci::RuntimeError;
 
 #[derive(Clone, Copy)]
 pub struct Position {
-    pub white: BBSet,
-    pub black: BBSet,
+    pub us: BBSet,
+    pub them: BBSet,
     pub occ: BB,
     pub free: BB,
     pub castling_rights: BB,

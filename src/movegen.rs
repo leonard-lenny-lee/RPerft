@@ -15,13 +15,11 @@ pub fn generate_all<T: MoveList>(pos: &Position, movelist: &mut T) {
 }
 
 pub fn generate<T: MoveList>(gt: GenType, pos: &Position, movelist: &mut T) {
-    let us = pos.us();
-
     let targets = match gt {
         GenType::NonEvasions => {
             // Castling is only allowed when not in check
             generate_castles(pos, movelist);
-            !us.all
+            !pos.us.all
         }
         GenType::Evasions(checker) => {
             debug_assert_ne!(checker.pop_count(), 0);
@@ -30,9 +28,9 @@ pub fn generate<T: MoveList>(gt: GenType, pos: &Position, movelist: &mut T) {
                 generate_king_moves(pos, movelist, gt);
                 return;
             }
-            !us.all & us.king.between_bb(checker)
+            !pos.us.all & pos.us.king.between_bb(checker)
         }
-        GenType::Captures => pos.them().all,
+        GenType::Captures => pos.them.all,
     };
 
     let pinned = pos.pinned();
@@ -46,13 +44,13 @@ pub fn generate<T: MoveList>(gt: GenType, pos: &Position, movelist: &mut T) {
     generate_king_moves(pos, movelist, gt);
 }
 
+#[inline(always)]
 fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T, gt: GenType) {
-    let us = pos.us();
-    let from = us.king;
-    let mut targets = from.king_lu() & !us.all & !pos.unsafe_sq();
+    let from = pos.us.king;
+    let mut targets = from.king_lu() & !pos.us.all & !pos.unsafe_sq();
 
     if let GenType::Captures = gt {
-        targets &= pos.them().all;
+        targets &= pos.them.all;
     }
 
     let quiet = targets & pos.free;
@@ -66,18 +64,16 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T, gt: GenTyp
     }
 }
 
+#[inline(always)]
 fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB, targets: BB) {
-    let us = pos.us();
-    let them = pos.them();
-
     // Filter pawns
-    let pinned = us.pawn & pinned;
+    let pinned = pos.us.pawn & pinned;
     // Pawns pinned along a rank cannot move
-    let pawns = us.pawn ^ (pinned & us.king.rank());
+    let pawns = pos.us.pawn ^ (pinned & pos.us.king.rank());
 
-    let push_only = pinned & us.king.file();
-    let lcap_only = pinned & pos.lcap_axis(us.king);
-    let rcap_only = pinned & pos.rcap_axis(us.king);
+    let push_only = pinned & pos.us.king.file();
+    let lcap_only = pinned & pos.lcap_axis(pos.us.king);
+    let rcap_only = pinned & pos.rcap_axis(pos.us.king);
 
     let no_push = lcap_only | rcap_only;
     let no_lcap = rcap_only | push_only;
@@ -142,9 +138,11 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
 
     for from in s_1 | s_2 {
         // Check rare case where an ep can reveal a discovered check
-        if (us.king & pos.rank_5()).is_not_empty() {
+        if (pos.us.king & pos.rank_5()).is_not_empty() {
             let occ = pos.occ & !(from | ep_cap_sq);
-            if (us.king.hyp_quint(occ, Axis::Rank) & (them.rook | them.queen)).is_not_empty() {
+            if (pos.us.king.hyp_quint(occ, Axis::Rank) & (pos.them.rook | pos.them.queen))
+                .is_not_empty()
+            {
                 continue;
             }
         }
@@ -152,6 +150,12 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     }
 }
 
+type AttackGenerator = fn(&BB, BB) -> BB;
+
+const ATTACK_GENERATOR: [AttackGenerator; 4] =
+    [BB::rook_lu, BB::knight_lu_, BB::bishop_lu, BB::queen_lu];
+
+#[inline(always)]
 fn generate_moves<T: MoveList>(
     pt: PieceType,
     pos: &Position,
@@ -159,22 +163,20 @@ fn generate_moves<T: MoveList>(
     pinned: BB,
     targets: BB,
 ) {
-    let us = pos.us();
-    let bb = us[pt];
+    debug_assert!(
+        pt as usize >= 2 && pt as usize <= 5,
+        "invalid PieceType for attacks"
+    );
 
-    let attack_gen = match pt {
-        PieceType::Knight => BB::knight_lu_,
-        PieceType::Bishop => BB::bishop_lu,
-        PieceType::Rook => BB::rook_lu,
-        PieceType::Queen => BB::queen_lu,
-        _ => panic!("invalid PieceType for attacks"),
-    };
+    let bb = pos.us[pt];
+
+    let attack_generator = ATTACK_GENERATOR[pt as usize - 2];
 
     for from in bb {
-        let mut targets = attack_gen(&from, pos.occ) & targets;
+        let mut targets = attack_generator(&from, pos.occ) & targets;
         // Pinned pieces, allow only moves towards or away from king
         if (from & pinned).is_not_empty() {
-            targets &= us.king.through_bb(from)
+            targets &= pos.us.king.through_bb(from)
         }
         // Add quiet moves
         let quiet = targets & pos.free;
@@ -188,18 +190,19 @@ fn generate_moves<T: MoveList>(
     }
 }
 
+#[inline(always)]
 fn generate_castles<T: MoveList>(pos: &Position, movelist: &mut T) {
-    let from = pos.us().king;
+    let from = pos.us.king;
     let unsafe_squares = pos.unsafe_sq();
 
-    if pos.can_ksc()
+    if (pos.castling_rights & pos.ksr_start()).is_not_empty()
         && (pos.ksc_mask() & pos.occ).is_empty()
         && (pos.ksc_mask() & unsafe_squares).is_empty()
     {
         movelist.add_short_castle(from, from.east_two());
     }
 
-    if pos.can_qsc()
+    if (pos.castling_rights & pos.qsr_start()).is_not_empty()
         && (pos.qsc_free_mask() & pos.occ).is_empty()
         && (pos.qsc_safe_mask() & unsafe_squares).is_empty()
     {
@@ -225,7 +228,7 @@ mod tests {
         generate_all(&pos, &mut movelist);
         let pawnmoves: Vec<_> = movelist
             .iter()
-            .filter(|mv| matches!(pos.us().pt_at(mv.from()), Some(PieceType::Pawn)))
+            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(PieceType::Pawn)))
             .collect();
         assert_eq!(expected_nodes, pawnmoves.len());
     }
@@ -237,7 +240,7 @@ mod tests {
         generate_all(&pos, &mut movelist);
         let knightmoves: Vec<_> = movelist
             .iter()
-            .filter(|mv| matches!(pos.us().pt_at(mv.from()), Some(PieceType::Knight)))
+            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(PieceType::Knight)))
             .collect();
         assert_eq!(expected_nodes, knightmoves.len());
     }
