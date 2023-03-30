@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
-extern crate vampirc_uci;
+extern crate vampirc_uci as v_uci;
 
 pub mod bitboard;
 pub mod common;

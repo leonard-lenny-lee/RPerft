@@ -1,8 +1,8 @@
-/// UCI protocol interface using the vampirc_uci crate.
+/// UCI protocol interface using the v_uci crate.
 use super::*;
 
 use regex::Regex;
-use vampirc_uci::{
+use v_uci::{
     parse_one, CommunicationDirection, Serializable, UciFen, UciMessage, UciMove, UciOptionConfig,
     UciSearchControl, UciTimeControl,
 };
@@ -88,16 +88,15 @@ impl Engine {
                 min: Some(16),
                 max: None,
             })
-            .serialize()
         );
 
-        println!("{}", UciMessage::UciOk.serialize());
+        println!("{}", UciMessage::UciOk);
         return Ok(());
     }
 
     fn exec_isready(&self) -> Result<(), RuntimeError> {
         // Respond with "readyok"
-        println!("{}", UciMessage::ReadyOk.serialize());
+        println!("{}", UciMessage::ReadyOk);
         return Ok(());
     }
 
@@ -161,7 +160,7 @@ impl Engine {
 
         if let Some(sc) = search_control {
             if let Some(depth) = sc.depth {
-                search::do_search(&self.cur_pos, depth, &mut self.hash_table)
+                search::search(&self.cur_pos, depth, &mut self.hash_table)
             }
         }
 

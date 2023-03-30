@@ -281,4 +281,22 @@ impl Move {
             }
         )
     }
+
+    /// Convert move into UciMove struct of the v_uci crate
+    pub fn to_uci(&self) -> v_uci::UciMove {
+        let from = self.from().to_uci();
+        let to = self.to().to_uci();
+
+        let promotion = if self.is_promotion() {
+            Some(self.promo_pt().expect(".is_promotion check").to_uci())
+        } else {
+            None
+        };
+
+        return v_uci::UciMove {
+            from,
+            to,
+            promotion,
+        };
+    }
 }

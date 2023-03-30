@@ -28,6 +28,20 @@ impl PieceType {
     pub fn is_slider(&self) -> bool {
         return matches!(self, Self::Bishop | Self::Rook | Self::Queen);
     }
+
+    pub fn to_uci(&self) -> v_uci::UciPiece {
+        use v_uci::UciPiece;
+
+        match self {
+            PieceType::Pawn => UciPiece::Pawn,
+            PieceType::Rook => UciPiece::Rook,
+            PieceType::Knight => UciPiece::Knight,
+            PieceType::Bishop => UciPiece::Bishop,
+            PieceType::Queen => UciPiece::Queen,
+            PieceType::King => UciPiece::King,
+            _ => panic!("invalid pt for to_uci"),
+        }
+    }
 }
 
 // Bitflags as discriminants
