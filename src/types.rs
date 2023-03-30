@@ -30,19 +30,37 @@ impl PieceType {
     }
 }
 
+// Bitflags as discriminants
+#[derive(Clone, Copy)]
 pub enum MoveType {
-    Quiet,
-    DoublePawnPush,
-    Castle(CastleType),
-    Capture,
-    EnPassant,
-    Promotion(PieceType),
-    PromotionCapture(PieceType),
+    Quiet = 0x0000,
+    DoublePawnPush = 0x1000,
+    ShortCastle = 0x2000,
+    LongCastle = 0x3000,
+    Capture = 0x4000,
+    EnPassant = 0x5000,
+    NPromotion = 0x8000,
+    BPromotion = 0x9000,
+    RPromotion = 0xa000,
+    QPromotion = 0xb000,
+    NPromoCapture = 0xc000,
+    BPromoCapture = 0xd000,
+    RPromoCapture = 0xe000,
+    QPromoCapture = 0xf000,
 }
 
-pub enum CastleType {
-    Short,
-    Long,
+impl MoveType {
+    pub fn iter_promos() -> std::slice::Iter<'static, Self> {
+        use MoveType::*;
+        static TYPES: [MoveType; 4] = [NPromotion, BPromotion, RPromotion, QPromotion];
+        return TYPES.iter();
+    }
+
+    pub fn iter_promo_captures() -> std::slice::Iter<'static, Self> {
+        use MoveType::*;
+        static TYPES: [MoveType; 4] = [NPromoCapture, BPromoCapture, RPromoCapture, QPromoCapture];
+        return TYPES.iter();
+    }
 }
 
 pub enum GenType {

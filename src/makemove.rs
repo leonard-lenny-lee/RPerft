@@ -2,7 +2,10 @@
 use super::*;
 use movelist::Move;
 use position::Position;
-use types::{CastleType, MoveType::*, PieceType};
+use types::{
+    MoveType::{self, *},
+    PieceType,
+};
 
 impl Position {
     /// Create a new position by applying move data to a position
@@ -14,7 +17,7 @@ impl Position {
         // Unpack move data
         let target = mv.to();
         let src = mv.from();
-        let movetype = mv.movetype();
+        let mt = mv.movetype();
 
         // Source squares must be free and target squares must be occupied
         new_pos.free |= src;
@@ -48,18 +51,22 @@ impl Position {
         new_pos.ep_sq = EMPTY_BB;
 
         // Execute special actions
-        match movetype {
+        match mt {
             Quiet => (),
             DoublePawnPush => {
                 // Ep target is one square behind dbl push target
                 new_pos.ep_sq = new_pos.push_back(target);
             }
-            Castle(ct) => new_pos.exec_castle(ct, target),
+            ShortCastle | LongCastle => new_pos.exec_castle(mt, target),
             Capture => new_pos.exec_capture(target),
             EnPassant => new_pos.exec_ep(target),
-            Promotion(pt) => new_pos.exec_promo(pt, target),
-            PromotionCapture(pt) => {
-                new_pos.exec_promo(pt, target);
+            NPromotion | BPromotion | RPromotion | QPromotion => {
+                let promo_pt = mv.promo_pt().expect("must encode pt");
+                new_pos.exec_promo(promo_pt, target)
+            }
+            NPromoCapture | BPromoCapture | RPromoCapture | QPromoCapture => {
+                let promo_pt = mv.promo_pt().expect("must encode pt");
+                new_pos.exec_promo(promo_pt, target);
                 new_pos.exec_capture(target)
             }
         }
@@ -89,10 +96,11 @@ impl Position {
     }
 
     #[inline(always)]
-    fn exec_castle(&mut self, ct: CastleType, target: BB) {
-        let (rook_src, rook_target) = match ct {
-            CastleType::Short => (target.east_one(), target.west_one()),
-            CastleType::Long => (target.west_two(), target.east_one()),
+    fn exec_castle(&mut self, mt: MoveType, target: BB) {
+        let (rook_src, rook_target) = match mt {
+            MoveType::ShortCastle => (target.east_one(), target.west_one()),
+            MoveType::LongCastle => (target.west_two(), target.east_one()),
+            _ => return,
         };
         let mask = rook_src | rook_target;
         self.us.rook ^= mask;

@@ -328,6 +328,7 @@ mod test {
     use super::*;
     use movelist::{MoveList, UnorderedList};
     use test_case::test_case;
+    use types::MoveType;
 
     #[test_case("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0x463b96181691fc9c; "1")]
     #[test_case("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", 0x823c9b50fd114196; "2")]
@@ -360,7 +361,7 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
-        movelist.add_quiet(BB::from_sq(from), BB::from_sq(to));
+        movelist.add(BB::from_sq(from), BB::from_sq(to), MoveType::Quiet, &pos);
         let mv = movelist.pop().unwrap();
         // Apply move
         let new_pos = pos.make_move(&mv);
@@ -386,7 +387,12 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
-        movelist.add_double_pawn_push(BB::from_sq(from), BB::from_sq(to));
+        movelist.add(
+            BB::from_sq(from),
+            BB::from_sq(to),
+            MoveType::DoublePawnPush,
+            &pos,
+        );
         let mv = movelist.pop().unwrap();
         // Apply move
         let new_pos = pos.make_move(&mv);
@@ -406,7 +412,12 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
-        movelist.add_short_castle(BB::from_sq(from), BB::from_sq(to));
+        movelist.add(
+            BB::from_sq(from),
+            BB::from_sq(to),
+            MoveType::ShortCastle,
+            &pos,
+        );
         let mv = movelist.pop().unwrap();
         // Apply move
         let new_pos = pos.make_move(&mv);
@@ -422,7 +433,12 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
-        movelist.add_ep(BB::from_sq(from), BB::from_sq(to));
+        movelist.add(
+            BB::from_sq(from),
+            BB::from_sq(to),
+            MoveType::EnPassant,
+            &pos,
+        );
         let mv = movelist.pop().unwrap();
         // Apply move
         let new_pos = pos.make_move(&mv);
