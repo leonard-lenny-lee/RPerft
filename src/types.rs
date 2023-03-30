@@ -68,3 +68,10 @@ pub enum Direction {
     West,
     NorthWest,
 }
+
+#[derive(Clone, Copy)]
+pub enum NodeType {
+    PV,  // Score is Exact
+    Cut, // Score is Lower Bound
+    All, // Score is Upper Bound
+}

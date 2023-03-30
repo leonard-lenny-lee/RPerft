@@ -9,6 +9,7 @@ impl Position {
     pub fn make_move(&self, mv: &Move) -> Position {
         // Create a copy of the current position to modify
         let mut new_pos = *self;
+        new_pos.ply += 1;
 
         // Unpack move data
         let target = mv.to();

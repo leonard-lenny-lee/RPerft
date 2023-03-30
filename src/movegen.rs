@@ -60,7 +60,7 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T, gt: GenTyp
     }
     // Add captures
     for to in targets ^ quiet {
-        movelist.add_capture(from, to);
+        movelist.add_capture(from, to, pos);
     }
 }
 
@@ -105,10 +105,10 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
         movelist.add_promotions(from, to);
     }
     for (from, to) in std::iter::zip(pos.lcap_back(bb_2), bb_2) {
-        movelist.add_promo_captures(from, to)
+        movelist.add_promo_captures(from, to, pos)
     }
     for (from, to) in std::iter::zip(pos.rcap_back(bb_3), bb_3) {
-        movelist.add_promo_captures(from, to)
+        movelist.add_promo_captures(from, to, pos)
     }
 
     // Captures
@@ -116,10 +116,10 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     let bb_2 = pos.rcap(pawns_not_on_7 & !no_rcap) & pos.occ & targets;
 
     for (from, to) in std::iter::zip(pos.lcap_back(bb_1), bb_1) {
-        movelist.add_capture(from, to)
+        movelist.add_capture(from, to, pos)
     }
     for (from, to) in std::iter::zip(pos.rcap_back(bb_2), bb_2) {
-        movelist.add_capture(from, to)
+        movelist.add_capture(from, to, pos)
     }
 
     // Enpassant
@@ -185,7 +185,7 @@ fn generate_moves<T: MoveList>(
         }
         // Add captures
         for to in targets ^ quiet {
-            movelist.add_capture(from, to)
+            movelist.add_capture(from, to, pos)
         }
     }
 }

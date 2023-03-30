@@ -114,8 +114,6 @@ impl Engine {
         fen: Option<UciFen>,
         moves: Vec<UciMove>,
     ) -> Result<(), RuntimeError> {
-        use movelist::MoveList;
-
         if startpos {
             self.cur_pos = Position::new_starting_pos();
         }
@@ -147,7 +145,7 @@ impl Engine {
 
     // Execute search and calculation commands
     fn exec_go(
-        &self,
+        &mut self,
         time_control: Option<UciTimeControl>,
         search_control: Option<UciSearchControl>,
     ) -> Result<(), RuntimeError> {
@@ -161,8 +159,10 @@ impl Engine {
             }
         }
 
-        if let Some(_sc) = search_control {
-            // TODO Implement search
+        if let Some(sc) = search_control {
+            if let Some(depth) = sc.depth {
+                search::do_search(&self.cur_pos, depth, &mut self.hash_table)
+            }
         }
 
         return Ok(());
