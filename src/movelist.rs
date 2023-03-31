@@ -75,15 +75,29 @@ impl MoveList for OrderedList {
 
 impl OrderedList {
     /// Increase the score of hash and killer moves
-    pub fn score(&mut self, tt_move: Move, killers: [Move; 2]) {
-        // TODO Add History Heuristic
+    pub fn score(
+        &mut self,
+        tt_move: Move,
+        killers: [Move; 2],
+        history_table: &search::HistoryTable,
+    ) {
         for (mv, score) in self.0.iter_mut() {
             if tt_move.0 == mv.0 {
-                *score += 1000; // Order hash moves first
-            } else if killers[0].0 == mv.0 {
-                *score += 50; // Primary killer
-            } else if killers[1].0 == mv.0 {
-                *score += 45 // Secondary killer
+                // Always order hash moves first
+                *score += 1000;
+                continue;
+            }
+            if !mv.is_capture() {
+                if killers[0].0 == mv.0 {
+                    // Primary killer
+                    *score += 50;
+                } else if killers[1].0 == mv.0 {
+                    // Secondary killer
+                    *score += 45
+                } else {
+                    // History heuristic
+                    *score += history_table.get(mv.from(), mv.to()) as i16
+                }
             }
         }
     }
@@ -260,26 +274,22 @@ impl Move {
     }
 
     pub fn to_algebraic(&self) -> String {
-        format!(
-            "{}{}{}",
-            self.from().to_algebraic(),
-            self.to().to_algebraic(),
-            if self.is_promotion() {
-                if let Some(p) = self.promo_pt() {
-                    match p {
-                        PieceType::Rook => "r",
-                        PieceType::Knight => "n",
-                        PieceType::Bishop => "b",
-                        PieceType::Queen => "q",
-                        _ => "",
-                    }
-                } else {
-                    ""
-                }
-            } else {
-                ""
+        let from = self.from().to_algebraic();
+        let to = self.to().to_algebraic();
+
+        let promo_pt = if self.is_promotion() {
+            match self.promo_pt().expect("is_promotion check") {
+                PieceType::Rook => "r",
+                PieceType::Knight => "n",
+                PieceType::Bishop => "b",
+                PieceType::Queen => "q",
+                _ => "",
             }
-        )
+        } else {
+            ""
+        };
+
+        return format!("{from}{to}{promo_pt}");
     }
 
     /// Convert move into UciMove struct of the v_uci crate

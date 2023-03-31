@@ -9,25 +9,31 @@ use types::NodeType;
 const INFINITE: i16 = 30000;
 const MAX_DEPTH: u8 = 30;
 
-pub struct SearchInfo {
-    nodes: u64,
-    killers: KillerMoves,
-}
-
-impl SearchInfo {
-    fn new() -> Self {
-        Self {
-            nodes: 0,
-            killers: KillerMoves::new(),
-        }
-    }
-}
-
 pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
 
-    let mut info = SearchInfo::new();
+    // Use iterative deepening framework
+    for depth in 1..=depth {
+        search_iteration(pos, depth, table)
+    }
 
+    // Best move
+    if let Probe::Read(e) = table.probe_search(pos.key, depth) {
+        println!(
+            "{}",
+            v_uci::UciMessage::BestMove {
+                best_move: e.best_move.to_uci(),
+                ponder: None
+            }
+        );
+    }
+}
+
+/// Execute a search iteration within the iterative deepening framework
+fn search_iteration(pos: &Position, depth: u8, table: &HashTable) {
+    use v_uci::UciInfoAttribute;
+
+    let mut info = SearchInfo::new();
     // Execute search
     alpha_beta(pos, depth, -INFINITE, INFINITE, table, &mut info);
 
@@ -35,19 +41,10 @@ pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
     let mut uci_info = Vec::new();
 
     if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
-        // Best move
-        println!(
-            "{}",
-            v_uci::UciMessage::BestMove {
-                best_move: entry.best_move.to_uci(),
-                ponder: None
-            }
-        );
-
         // PV
         let pv = find_pv(pos, depth, table);
         let mut pv_len = pv.len() as i8;
-        uci_info.push(v_uci::UciInfoAttribute::Pv(pv));
+        uci_info.push(UciInfoAttribute::Pv(pv));
 
         // Score
         let mate = if entry.score.abs() >= INFINITE - MAX_DEPTH as i16 {
@@ -59,19 +56,26 @@ pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
             None
         };
 
-        uci_info.push(v_uci::UciInfoAttribute::Score {
+        uci_info.push(UciInfoAttribute::Score {
             cp: Some(entry.score as i32),
             mate,
             lower_bound: None,
             upper_bound: None,
         });
 
-        uci_info.push(v_uci::UciInfoAttribute::Nodes(info.nodes))
-    };
+        // Nodes and time
+        uci_info.push(UciInfoAttribute::Nodes(info.nodes));
 
+        uci_info.push(UciInfoAttribute::Time(v_uci::Duration::nanoseconds(
+            info.duration_ns(),
+        )));
+
+        uci_info.push(UciInfoAttribute::Nps(info.nps()));
+    };
     println!("{}", v_uci::UciMessage::Info(uci_info))
 }
 
+/// Probe the transposition table for the principal variation line
 fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> {
     let mut pos = *pos;
     let mut pv = Vec::new();
@@ -95,10 +99,10 @@ fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> 
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
-    let probe_result = table.probe_search(pos.key, depth);
+fn _nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
+    let probe = table.probe_search(pos.key, depth);
 
-    if let Probe::Read(entry) = probe_result {
+    if let Probe::Read(entry) = probe {
         return entry.score;
     }
 
@@ -106,10 +110,10 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
         return evaluate(pos);
     }
 
-    let mut movelist = UnorderedList::new();
-    generate_all(pos, &mut movelist);
+    let mut moves = UnorderedList::new();
+    generate_all(pos, &mut moves);
 
-    if movelist.len() == 0 {
+    if moves.len() == 0 {
         let n_checkers = pos.checkers().pop_count();
         if n_checkers > 0 {
             return -INFINITE; // Checkmate
@@ -117,20 +121,24 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
             return 0; // Stalemate
         }
     }
-    let mut best_move = movelist::Move::null();
-    let mut max_evaluation = -INFINITE;
-    for mv in movelist.iter() {
+
+    let mut best_move = Move::null();
+    let mut best_score = -INFINITE;
+
+    for mv in moves.iter() {
         let new_pos = pos.make_move(mv);
-        let evaluation = -nega_max(&new_pos, depth - 1, table);
-        if evaluation > max_evaluation {
-            max_evaluation = evaluation;
+        let evaluation = -_nega_max(&new_pos, depth - 1, table);
+        if evaluation > best_score {
+            best_score = evaluation;
             best_move = *mv;
         }
     }
-    if let Probe::Write = probe_result {
-        table.write_search(pos.key, depth, best_move, max_evaluation, NodeType::PV);
+
+    if let Probe::Write = probe {
+        table.write_search(pos.key, depth, best_move, best_score, NodeType::PV);
     }
-    return max_evaluation;
+
+    return best_score;
 }
 
 /// Implementation of alpha-beta pruning to search for the best score
@@ -177,7 +185,7 @@ pub fn alpha_beta(
     }
 
     // Complete move ordering
-    moves.score(tt_move, info.killers.get(pos.ply));
+    moves.score(tt_move, info.killer_table.get(pos.ply), &info.history_table);
     moves.sort();
 
     let mut best_score = -INFINITE;
@@ -201,9 +209,13 @@ pub fn alpha_beta(
                     // Record "killer" moves for move ordering
                     // These are quiet moves which trigger a beta cutoff
                     if !mv.is_capture() {
-                        info.killers.set(pos.ply, mv)
+                        info.killer_table.set(pos.ply, mv)
                     }
                     return beta;
+                }
+                // Record the history heuristic for quiet moves
+                if !mv.is_capture() {
+                    info.history_table.set(mv.from(), mv.to(), depth);
                 }
                 alpha = score;
             }
@@ -279,9 +291,35 @@ fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) 
     return alpha;
 }
 
-struct KillerMoves([[Move; 2]; MAX_DEPTH as usize]);
+pub struct SearchInfo {
+    nodes: u64,
+    killer_table: KillerTable,
+    history_table: HistoryTable,
+    start: std::time::Instant,
+}
 
-impl KillerMoves {
+impl SearchInfo {
+    fn new() -> Self {
+        Self {
+            nodes: 0,
+            killer_table: KillerTable::new(),
+            history_table: HistoryTable::new(),
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn duration_ns(&self) -> i64 {
+        std::cmp::max(self.start.elapsed().as_nanos() as i64, 1)
+    }
+
+    fn nps(&self) -> u64 {
+        ((self.nodes as f64 / self.duration_ns() as f64) * 1_000_000_000.0).round() as u64
+    }
+}
+
+struct KillerTable([[Move; 2]; MAX_DEPTH as usize]);
+
+impl KillerTable {
     fn new() -> Self {
         Self([[Move::null(); 2]; MAX_DEPTH as usize])
     }
@@ -293,6 +331,22 @@ impl KillerMoves {
     fn set(&mut self, ply: u8, mv: &Move) {
         let moves = &mut self.0[ply as usize];
         (moves[0], moves[1]) = (*mv, moves[0])
+    }
+}
+
+pub struct HistoryTable([[u16; 64]; 64]);
+
+impl HistoryTable {
+    fn new() -> Self {
+        Self([[0; 64]; 64])
+    }
+
+    pub fn get(&self, from: BB, to: BB) -> u16 {
+        self.0[from.to_sq()][to.to_sq()]
+    }
+
+    fn set(&mut self, from: BB, to: BB, depth: u8) {
+        self.0[from.to_sq()][to.to_sq()] += depth as u16;
     }
 }
 
@@ -403,6 +457,33 @@ pub mod perft {
             )
         }
         println!("+{}+", "-".repeat(34))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::DEF_TABLE_SIZE_BYTES;
+    use test_case::test_case;
+
+    // Test the equivalency of search result from negamax and alpha beta
+    #[ignore]
+    #[test_case(STARTPOS, 2; "startpos")]
+    #[test_case(TPOS2, 2; "testpos2")]
+    #[test_case(TPOS3, 2; "testpos3")]
+    #[test_case(TPOS4, 2; "testpos4")]
+    #[test_case(TPOS5, 2; "testpos5")]
+    #[test_case(TPOS6, 2; "testpos6")]
+    fn test_alpha_beta(fen: &str, depth: u8) {
+        let pos = Position::from_fen(fen).unwrap();
+        let mut table = HashTable::new(DEF_TABLE_SIZE_BYTES);
+        let mut info = SearchInfo::new();
+
+        let alpha_beta = alpha_beta(&pos, depth, -INFINITE, INFINITE, &table, &mut info);
+        table.clear();
+
+        let negamax = _nega_max(&pos, depth, &table);
+        assert_eq!(alpha_beta, negamax)
     }
 }
 
