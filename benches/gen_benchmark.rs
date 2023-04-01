@@ -1,6 +1,6 @@
 use chess::{movegen::generate_all, *};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use movelist::{MoveList, UnorderedList};
+use movelist::UnorderedList;
 use position::Position;
 
 fn setup() -> (Position, UnorderedList) {

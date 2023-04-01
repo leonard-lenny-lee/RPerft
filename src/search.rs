@@ -4,65 +4,105 @@ use hash::{HashTable, Probe};
 use movegen::{generate, generate_all};
 use movelist::{Move, MoveList, OrderedList, UnorderedList};
 use position::Position;
+use types::NodeType;
 
-const NEGATIVE_INFINITY: i16 = -30001;
-const CHECKMATE: i16 = -30000;
-const POSITIVE_INFINITY: i16 = 30000;
+const INFINITE: i16 = 30000;
+const MAX_DEPTH: u8 = 30;
 
-#[derive(Clone, Copy)]
-pub enum NodeType {
-    PV,
-    Cut,
-    All,
-}
-
-pub fn do_search(pos: &Position, depth: u8, table: &mut HashTable) {
+pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
-    // Execute search
-    alpha_beta(pos, depth, NEGATIVE_INFINITY, POSITIVE_INFINITY, table);
 
-    // Probe table for the results of the search
-    if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
-        let pv = probe_pv(pos, depth, table);
-        let pv_algebraic = pv
-            .into_iter()
-            .map(|m| m.to_algebraic())
-            .collect::<Vec<String>>()
-            .join(" ");
+    // Use iterative deepening framework
+    for depth in 1..=depth {
+        search_iteration(pos, depth, table)
+    }
+
+    // Best move
+    if let Probe::Read(e) = table.probe_search(pos.key, depth) {
         println!(
-            "bestmove {} {} pv {}",
-            entry.best_move.to_algebraic(),
-            entry.score,
-            pv_algebraic,
+            "{}",
+            v_uci::UciMessage::BestMove {
+                best_move: e.best_move.to_uci(),
+                ponder: None
+            }
         );
-    };
+    }
 }
 
-fn probe_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<Move> {
+/// Execute a search iteration within the iterative deepening framework
+fn search_iteration(pos: &Position, depth: u8, table: &HashTable) {
+    use v_uci::UciInfoAttribute;
+
+    let mut info = SearchInfo::new();
+    // Execute search
+    alpha_beta(pos, depth, -INFINITE, INFINITE, table, &mut info);
+
+    // Report search results
+    let mut uci_info = Vec::new();
+
+    if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
+        // PV
+        let pv = find_pv(pos, depth, table);
+        let mut pv_len = pv.len() as i8;
+        uci_info.push(UciInfoAttribute::Pv(pv));
+
+        // Score
+        let mate = if entry.score.abs() >= INFINITE - MAX_DEPTH as i16 {
+            if entry.score < 0 {
+                pv_len *= -1
+            }
+            Some(pv_len)
+        } else {
+            None
+        };
+
+        uci_info.push(UciInfoAttribute::Score {
+            cp: Some(entry.score as i32),
+            mate,
+            lower_bound: None,
+            upper_bound: None,
+        });
+
+        // Nodes and time
+        uci_info.push(UciInfoAttribute::Nodes(info.nodes));
+
+        uci_info.push(UciInfoAttribute::Time(v_uci::Duration::nanoseconds(
+            info.duration_ns(),
+        )));
+
+        uci_info.push(UciInfoAttribute::Nps(info.nps()));
+    };
+    println!("{}", v_uci::UciMessage::Info(uci_info))
+}
+
+/// Probe the transposition table for the principal variation line
+fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> {
     let mut pos = *pos;
-    let mut depth = depth;
     let mut pv = Vec::new();
-    while depth > 0 {
+
+    for depth in (1..=depth).rev() {
         if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
                 pos = pos.make_move(&entry.best_move);
-                pv.push(entry.best_move);
+                pv.push(entry.best_move.to_uci());
+            } else {
+                break;
             }
         } else {
             break;
         }
-        depth -= 1;
     }
+
     return pv;
 }
 
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
-    let probe_result = table.probe_search(pos.key, depth);
+fn _nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
+    let probe = table.probe_search(pos.key, depth);
 
-    if let Probe::Read(entry) = probe_result {
+    if let Probe::Read(entry) = probe {
         return entry.score;
     }
 
@@ -70,135 +110,254 @@ pub fn nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
         return evaluate(pos);
     }
 
-    let mut movelist = UnorderedList::new();
-    generate_all(pos, &mut movelist);
+    let mut moves = UnorderedList::new();
+    generate_all(pos, &mut moves);
 
-    if movelist.len() == 0 {
+    if moves.len() == 0 {
         let n_checkers = pos.checkers().pop_count();
         if n_checkers > 0 {
-            return CHECKMATE; // Checkmate
+            return -INFINITE; // Checkmate
         } else {
             return 0; // Stalemate
         }
     }
-    let mut best_move = movelist::Move::new_null();
-    let mut max_evaluation = NEGATIVE_INFINITY;
-    for mv in movelist.iter() {
+
+    let mut best_move = Move::null();
+    let mut best_score = -INFINITE;
+
+    for mv in moves.iter() {
         let new_pos = pos.make_move(mv);
-        let evaluation = -nega_max(&new_pos, depth - 1, table);
-        if evaluation > max_evaluation {
-            max_evaluation = evaluation;
+        let evaluation = -_nega_max(&new_pos, depth - 1, table);
+        if evaluation > best_score {
+            best_score = evaluation;
             best_move = *mv;
         }
     }
-    if let Probe::Write = probe_result {
-        table.write_search(pos.key, depth, best_move, max_evaluation, NodeType::PV);
+
+    if let Probe::Write = probe {
+        table.write_search(pos.key, depth, best_move, best_score, NodeType::PV);
     }
-    return max_evaluation;
+
+    return best_score;
 }
 
-/// Implementation of alpha-beta pruning to search for the best evaluation
-pub fn alpha_beta(pos: &Position, depth: u8, mut alpha: i16, beta: i16, table: &HashTable) -> i16 {
-    let probe_result = table.probe_search(pos.key, depth);
-
-    if let Probe::Read(entry) = probe_result {
-        return entry.score;
-    }
+/// Implementation of alpha-beta pruning to search for the best score
+pub fn alpha_beta(
+    pos: &Position,
+    depth: u8,
+    mut alpha: i16,
+    beta: i16,
+    table: &HashTable,
+    info: &mut SearchInfo,
+) -> i16 {
+    debug_assert!(beta > alpha);
 
     if depth == 0 {
-        return quiesce(pos, alpha, beta, 0);
+        return quiescence(pos, alpha, beta, info);
     }
 
-    let mut movelist = OrderedList::new();
-    generate_all(pos, &mut movelist);
+    info.nodes += 1;
 
-    if movelist.len() == 0 {
+    if pos.ply >= MAX_DEPTH {
+        return evaluate(pos);
+    }
+
+    let probe = table.probe_search(pos.key, depth);
+
+    let tt_move = match probe {
+        Probe::Read(e) => return e.score,
+        Probe::ReadWrite(ref e) => e.best_move,
+        _ => Move::null(),
+    };
+
+    let killer_moves = info.killer_table.get(pos.ply);
+
+    let write = matches!(probe, Probe::Write | Probe::ReadWrite(_));
+
+    let mut moves = OrderedList::new(
+        tt_move,
+        killer_moves,
+        &info.history_table as *const HistoryTable,
+    );
+    generate_all(pos, &mut moves);
+
+    if moves.len() == 0 {
         let n_checkers = pos.checkers().pop_count();
         if n_checkers > 0 {
-            return CHECKMATE; // Checkmate
+            return -INFINITE + pos.ply as i16; // Checkmate
         } else {
             return 0; // Stalemate
         }
     }
 
-    let mut best_move = movelist::Move::new_null();
-    let mut is_pv = false;
+    // Order
+    moves.sort();
 
-    for mv in movelist.iter() {
+    let mut best_score = -INFINITE;
+    let mut best_move = Move::null();
+    let old_alpha = alpha;
+
+    for (mv, _) in moves.moves.iter() {
         let new_pos = pos.make_move(mv);
-        let evaluation = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table);
+        let score = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table, info);
 
-        if evaluation >= beta {
-            if let Probe::Write = probe_result {
-                table.write_search(pos.key, depth, best_move, beta, NodeType::Cut);
-            }
-            return beta; // Pruning condition
-        }
-
-        if evaluation > alpha {
-            alpha = evaluation;
-            is_pv = true;
+        if score > best_score {
+            best_score = score;
             best_move = *mv;
+
+            if score > alpha {
+                if score >= beta {
+                    // Beta cutoff; "cut" node
+                    if write {
+                        table.write_search(pos.key, depth, best_move, beta, NodeType::Cut);
+                    }
+                    // Record "killer" moves for move ordering
+                    // These are quiet moves which trigger a beta cutoff
+                    if !mv.is_capture() {
+                        info.killer_table.set(pos.ply, mv)
+                    }
+                    return beta;
+                }
+                // Record the history heuristic for quiet moves
+                if !mv.is_capture() {
+                    info.history_table.set(mv.from(), mv.to(), depth);
+                }
+                alpha = score;
+            }
         }
     }
 
-    if let Probe::Write = probe_result {
-        table.write_search(
-            pos.key,
-            depth,
-            best_move,
-            alpha,
-            if is_pv { NodeType::PV } else { NodeType::All },
-        );
+    debug_assert!(alpha >= old_alpha);
+
+    if write {
+        if alpha != old_alpha {
+            table.write_search(pos.key, depth, best_move, best_score, NodeType::All)
+        } else {
+            table.write_search(pos.key, depth, best_move, alpha, NodeType::PV);
+        }
     }
 
     return alpha;
 }
 
-fn quiesce(pos: &Position, mut alpha: i16, beta: i16, ply: i8) -> i16 {
-    let stand_pat = evaluate(pos);
+fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) -> i16 {
+    info.nodes += 1;
 
-    if stand_pat >= beta {
+    if pos.ply > MAX_DEPTH as u8 {
+        return evaluate(pos);
+    }
+
+    // "Stand pat" decision
+    let score = evaluate(pos);
+
+    if score >= beta {
         return beta;
     }
 
-    if alpha < stand_pat {
-        alpha = stand_pat;
+    if score > alpha {
+        alpha = score;
     }
 
-    let mut movelist = OrderedList::new();
+    let mut moves = OrderedList::new(
+        Move::null(),
+        [Move::null(); 2],
+        &info.history_table as *const HistoryTable,
+    );
+
     let checkers = pos.checkers();
     let our_attacks = pos.attack_sq(); // All squares our pieces are attacking
     let captures = our_attacks & pos.them.all;
 
     // If in check, the priority is to resolve the check
     if checkers.is_not_empty() {
-        generate(types::GenType::Evasions(checkers), pos, &mut movelist);
-        if movelist.len() == 0 {
-            return CHECKMATE;
+        generate(types::GenType::Evasions(checkers), pos, &mut moves);
+
+        if moves.len() == 0 {
+            return -INFINITE;
         }
     }
     // Enumerate the through the captures only
     else if captures != EMPTY_BB {
-        generate(types::GenType::Captures, pos, &mut movelist);
+        generate(types::GenType::Captures, pos, &mut moves);
+        moves.sort();
     }
     // No captures and not in check so stop quiescing
     else {
         return alpha;
     };
 
-    for mv in movelist.iter() {
+    for (mv, _) in moves.moves.iter() {
         let new_pos = pos.make_move(mv);
-        let score = -quiesce(&new_pos, -beta, -alpha, ply + 1);
-        if score >= beta {
-            return beta;
-        }
+        let score = -quiescence(&new_pos, -beta, -alpha, info);
+
         if score > alpha {
+            if score >= beta {
+                return beta;
+            }
             alpha = score
         }
     }
 
     return alpha;
+}
+
+pub struct SearchInfo {
+    nodes: u64,
+    killer_table: KillerTable,
+    history_table: HistoryTable,
+    start: std::time::Instant,
+}
+
+impl SearchInfo {
+    fn new() -> Self {
+        Self {
+            nodes: 0,
+            killer_table: KillerTable::new(),
+            history_table: HistoryTable::new(),
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn duration_ns(&self) -> i64 {
+        std::cmp::max(self.start.elapsed().as_nanos() as i64, 1)
+    }
+
+    fn nps(&self) -> u64 {
+        ((self.nodes as f64 / self.duration_ns() as f64) * 1_000_000_000.0).round() as u64
+    }
+}
+
+struct KillerTable([[Move; 2]; MAX_DEPTH as usize]);
+
+impl KillerTable {
+    fn new() -> Self {
+        Self([[Move::null(); 2]; MAX_DEPTH as usize])
+    }
+
+    fn get(&self, ply: u8) -> [Move; 2] {
+        return self.0[ply as usize];
+    }
+
+    fn set(&mut self, ply: u8, mv: &Move) {
+        let moves = &mut self.0[ply as usize];
+        (moves[0], moves[1]) = (*mv, moves[0])
+    }
+}
+
+pub struct HistoryTable([[u16; 64]; 64]);
+
+impl HistoryTable {
+    fn new() -> Self {
+        Self([[0; 64]; 64])
+    }
+
+    pub fn get(&self, from: BB, to: BB) -> u16 {
+        self.0[from.to_sq()][to.to_sq()]
+    }
+
+    fn set(&mut self, from: BB, to: BB, depth: u8) {
+        self.0[from.to_sq()][to.to_sq()] += depth as u16;
+    }
 }
 
 pub mod perft {
@@ -308,6 +467,33 @@ pub mod perft {
             )
         }
         println!("+{}+", "-".repeat(34))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::DEF_TABLE_SIZE_BYTES;
+    use test_case::test_case;
+
+    // Test the equivalency of search result from negamax and alpha beta
+    #[ignore]
+    #[test_case(STARTPOS, 2; "startpos")]
+    #[test_case(TPOS2, 2; "testpos2")]
+    #[test_case(TPOS3, 2; "testpos3")]
+    #[test_case(TPOS4, 2; "testpos4")]
+    #[test_case(TPOS5, 2; "testpos5")]
+    #[test_case(TPOS6, 2; "testpos6")]
+    fn test_alpha_beta(fen: &str, depth: u8) {
+        let pos = Position::from_fen(fen).unwrap();
+        let mut table = HashTable::new(DEF_TABLE_SIZE_BYTES);
+        let mut info = SearchInfo::new();
+
+        let alpha_beta = alpha_beta(&pos, depth, -INFINITE, INFINITE, &table, &mut info);
+        table.clear();
+
+        let negamax = _nega_max(&pos, depth, &table);
+        assert_eq!(alpha_beta, negamax)
     }
 }
 

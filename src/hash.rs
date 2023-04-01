@@ -1,11 +1,12 @@
 /// Hash Table implementation for transpositions
 use super::*;
 use movelist::Move;
-use search::NodeType;
 use std::sync::atomic::{AtomicU64, Ordering};
+use types::NodeType;
 
 pub enum Probe {
     Read(EntryData),
+    ReadWrite(EntryData),
     Write,
     Ignore,
 }
@@ -57,20 +58,21 @@ impl HashTable {
         return None;
     }
 
-    /// Execute algorithm to determine whether an entry is read from the table
-    /// or overwritten
+    /// Implementation of the hash table replacement strategy
     pub fn probe_search(&self, key: u64, depth: u8) -> Probe {
         let index = key as usize % self.size;
         let entry = &self.entries[index];
         let (entry_key, entry_data) = (entry.key(), entry.decode_search());
+
         if entry_key == key {
             // *KEY MATCH
             if entry_data.depth >= depth {
-                // Read from higher depth searches
+                // Read only from higher depth searches
                 return Probe::Read(entry_data);
+            } else {
+                // Read and overwrite from lower depth searches
+                return Probe::ReadWrite(entry_data);
             }
-            // Else, overwrite old entry
-            return Probe::Write;
         } else {
             // *KEY MISMATCH
             if self.age >= entry_data.age {
@@ -80,6 +82,10 @@ impl HashTable {
             // Else
             if entry_data.depth >= depth {
                 // Keep searches at higher depth
+                return Probe::Ignore;
+            }
+            // Do not overwrite PV nodes
+            if let NodeType::PV = entry_data.node_type {
                 return Probe::Ignore;
             }
             // Overwrite newer searches if it comes from a lower depth

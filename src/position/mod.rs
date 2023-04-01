@@ -21,6 +21,7 @@ pub struct Position {
     pub fullmove_clock: u8,
     pub key: u64,
     pub stm: Color,
+    pub ply: u8,
 }
 
 #[derive(Clone, Copy)]

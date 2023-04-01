@@ -559,6 +559,16 @@ impl BB {
         out.push_str(" \n    a   b   c   d   e   f   g   h ");
         return out;
     }
+
+    pub fn to_uci(&self) -> v_uci::UciSquare {
+        debug_assert_eq!(self.pop_count(), 1);
+
+        let sq = self.to_sq() as u8;
+        let file = (sq % 8 + ascii::LOWER_A as u8) as char;
+        let rank = (sq / 8 + 1) as u8;
+
+        return v_uci::UciSquare { file, rank };
+    }
 }
 
 impl std::cmp::PartialEq for BB {
@@ -751,5 +761,12 @@ mod tests {
         let bb = BB(0x8040201);
         let result = bb.flip_vertical();
         assert_eq!(result, BB(0x102040800000000))
+    }
+
+    #[test]
+    fn test_to_uci_sq() {
+        let result = square::F5.to_uci();
+        assert_eq!(result.file, 'f');
+        assert_eq!(result.rank, 5)
     }
 }

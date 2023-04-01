@@ -1,8 +1,8 @@
-/// UCI protocol interface using the vampirc_uci crate.
+/// UCI protocol interface using the v_uci crate.
 use super::*;
 
 use regex::Regex;
-use vampirc_uci::{
+use v_uci::{
     parse_one, CommunicationDirection, Serializable, UciFen, UciMessage, UciMove, UciOptionConfig,
     UciSearchControl, UciTimeControl,
 };
@@ -88,16 +88,15 @@ impl Engine {
                 min: Some(16),
                 max: None,
             })
-            .serialize()
         );
 
-        println!("{}", UciMessage::UciOk.serialize());
+        println!("{}", UciMessage::UciOk);
         return Ok(());
     }
 
     fn exec_isready(&self) -> Result<(), RuntimeError> {
         // Respond with "readyok"
-        println!("{}", UciMessage::ReadyOk.serialize());
+        println!("{}", UciMessage::ReadyOk);
         return Ok(());
     }
 
@@ -114,8 +113,6 @@ impl Engine {
         fen: Option<UciFen>,
         moves: Vec<UciMove>,
     ) -> Result<(), RuntimeError> {
-        use movelist::MoveList;
-
         if startpos {
             self.cur_pos = Position::new_starting_pos();
         }
@@ -147,7 +144,7 @@ impl Engine {
 
     // Execute search and calculation commands
     fn exec_go(
-        &self,
+        &mut self,
         time_control: Option<UciTimeControl>,
         search_control: Option<UciSearchControl>,
     ) -> Result<(), RuntimeError> {
@@ -161,8 +158,10 @@ impl Engine {
             }
         }
 
-        if let Some(_sc) = search_control {
-            // TODO Implement search
+        if let Some(sc) = search_control {
+            if let Some(depth) = sc.depth {
+                search::search(&self.cur_pos, depth, &mut self.hash_table)
+            }
         }
 
         return Ok(());

@@ -1,7 +1,7 @@
 use super::*;
 use movelist::MoveList;
 use position::Position;
-use types::{Axis, GenType, PieceType};
+use types::{Axis, GenType, MoveType, PieceType};
 
 /// Generate all legal moves in a position
 pub fn generate_all<T: MoveList>(pos: &Position, movelist: &mut T) {
@@ -56,11 +56,11 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T, gt: GenTyp
     let quiet = targets & pos.free;
     // Add quiet moves
     for to in targets & quiet {
-        movelist.add_quiet(from, to);
+        movelist.add(from, to, MoveType::Quiet, pos);
     }
     // Add captures
     for to in targets ^ quiet {
-        movelist.add_capture(from, to);
+        movelist.add(from, to, MoveType::Capture, pos);
     }
 }
 
@@ -90,10 +90,10 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     bb_2 &= targets;
 
     for (from, to) in std::iter::zip(pos.push_back(bb_1), bb_1) {
-        movelist.add_quiet(from, to);
+        movelist.add(from, to, MoveType::Quiet, pos);
     }
     for (from, to) in std::iter::zip(pos.push_back_two(bb_2), bb_2) {
-        movelist.add_double_pawn_push(from, to);
+        movelist.add(from, to, MoveType::DoublePawnPush, pos);
     }
 
     // Promotions
@@ -102,13 +102,13 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     let bb_3 = pos.rcap(pawns_on_7 & !no_rcap) & pos.occ & targets;
 
     for (from, to) in std::iter::zip(pos.push_back(bb_1), bb_1) {
-        movelist.add_promotions(from, to);
+        movelist.add_promotions(from, to, pos);
     }
     for (from, to) in std::iter::zip(pos.lcap_back(bb_2), bb_2) {
-        movelist.add_promo_captures(from, to)
+        movelist.add_promotion_captures(from, to, pos)
     }
     for (from, to) in std::iter::zip(pos.rcap_back(bb_3), bb_3) {
-        movelist.add_promo_captures(from, to)
+        movelist.add_promotion_captures(from, to, pos)
     }
 
     // Captures
@@ -116,10 +116,10 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     let bb_2 = pos.rcap(pawns_not_on_7 & !no_rcap) & pos.occ & targets;
 
     for (from, to) in std::iter::zip(pos.lcap_back(bb_1), bb_1) {
-        movelist.add_capture(from, to)
+        movelist.add(from, to, MoveType::Capture, pos);
     }
     for (from, to) in std::iter::zip(pos.rcap_back(bb_2), bb_2) {
-        movelist.add_capture(from, to)
+        movelist.add(from, to, MoveType::Capture, pos);
     }
 
     // Enpassant
@@ -146,7 +146,7 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
                 continue;
             }
         }
-        movelist.add_ep(from, pos.ep_sq)
+        movelist.add(from, pos.ep_sq, MoveType::EnPassant, pos)
     }
 }
 
@@ -181,11 +181,11 @@ fn generate_moves<T: MoveList>(
         // Add quiet moves
         let quiet = targets & pos.free;
         for to in quiet {
-            movelist.add_quiet(from, to)
+            movelist.add(from, to, MoveType::Quiet, pos);
         }
         // Add captures
         for to in targets ^ quiet {
-            movelist.add_capture(from, to)
+            movelist.add(from, to, MoveType::Capture, pos);
         }
     }
 }
@@ -199,14 +199,14 @@ fn generate_castles<T: MoveList>(pos: &Position, movelist: &mut T) {
         && (pos.ksc_mask() & pos.occ).is_empty()
         && (pos.ksc_mask() & unsafe_squares).is_empty()
     {
-        movelist.add_short_castle(from, from.east_two());
+        movelist.add(from, from.east_two(), MoveType::ShortCastle, pos);
     }
 
     if (pos.castling_rights & pos.qsr_start()).is_not_empty()
         && (pos.qsc_free_mask() & pos.occ).is_empty()
         && (pos.qsc_safe_mask() & unsafe_squares).is_empty()
     {
-        movelist.add_long_castle(from, from.west_two());
+        movelist.add(from, from.west_two(), MoveType::LongCastle, pos);
     }
 }
 

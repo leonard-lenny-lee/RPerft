@@ -132,6 +132,7 @@ impl Position {
             fullmove_clock,
             key: 0,
             stm,
+            ply: 0,
         };
 
         // Initialize Zobrist key
@@ -157,19 +158,16 @@ impl Position {
             [' ', 'p', 'r', 'n', 'b', 'q', 'k'],
         );
 
-        for i in 1..7 {
-            for sq in b_array[i].forward_scan() {
-                let index = sq.to_sq();
-                let (x, y) = (index / 8, index % 8);
-                array[x][y] = b_charset[i];
-            }
-
-            for sq in w_array[i].forward_scan() {
-                let index = sq.to_sq();
-                let (x, y) = (index / 8, index % 8);
-                array[x][y] = w_charset[i];
+        for (i, (bb_1, bb_2)) in std::iter::zip(w_array, b_array).enumerate() {
+            for (bb, charset) in std::iter::zip([bb_1, bb_2], [w_charset, b_charset]) {
+                for sq in bb.forward_scan() {
+                    let index = sq.to_sq();
+                    let (x, y) = (index / 8, index % 8);
+                    array[x][y] = charset[i];
+                }
             }
         }
+
         return array;
     }
 
