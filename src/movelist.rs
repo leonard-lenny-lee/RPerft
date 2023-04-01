@@ -3,8 +3,6 @@ use position::Position;
 use types::{MoveType, PieceType};
 
 pub trait MoveList {
-    fn new() -> Self;
-
     fn len(&self) -> usize;
 
     fn add(&mut self, from: BB, to: BB, mt: MoveType, pos: &Position);
@@ -23,7 +21,7 @@ pub trait MoveList {
 }
 
 // "Move valuable victim, least valuable aggressor" is a simple move ordering
-// heuristic to play winning captures first. The is the lookup table
+// strategy to play winning captures first
 const MVV_LVA: [[i16; 7]; 7] = {
     // Based on the increasing value of pieces: P->N->B->R->Q->K
     const VALS: [i16; 7] = [0, 100, 400, 200, 300, 500, 600];
@@ -42,68 +40,75 @@ const MVV_LVA: [[i16; 7]; 7] = {
 };
 
 /// Scores moves as they are added and orders them to optimize pruning
-pub struct OrderedList(pub Vec<(Move, i16)>);
+pub struct OrderedList {
+    pub moves: Vec<(Move, i16)>,
+    tt_move: Move,
+    killer_moves: [Move; 2],
+    history_table: *const search::HistoryTable,
+}
 
 impl MoveList for OrderedList {
-    fn new() -> Self {
-        Self(Vec::with_capacity(45))
-    }
-
     fn len(&self) -> usize {
-        self.0.len()
+        self.moves.len()
     }
 
     fn add(&mut self, from: BB, to: BB, mt: MoveType, pos: &Position) {
         const PAWN_ID: usize = PieceType::Pawn as usize;
+
+        const HASH_SCORE: i16 = 1000;
+        const KILLER_SCORE_ONE: i16 = 50;
+        const KILLER_SCORE_TWO: i16 = 45;
+
         let mv = Move::encode(from, to, mt);
-        let mut score = 0;
+
+        // Hash moves are given the highest score
+        if mv == self.tt_move {
+            self.moves.push((mv, HASH_SCORE));
+            return;
+        }
 
         // Use MVV-LLA to score captures
-        if mv.is_capture() {
+        let score = if mv.is_capture() {
             let victim = match pos.them.pt_at(to) {
                 Some(pt) => pt as usize,
                 None => PAWN_ID, // EP is the only case where the target sq is empty.
             };
 
             let attacker = pos.us.pt_at(from).unwrap() as usize;
-            score += MVV_LVA[victim][attacker]
+            MVV_LVA[victim][attacker]
         }
+        // Score quiet moves with heuristics
+        else {
+            if mv == self.killer_moves[0] {
+                KILLER_SCORE_ONE // Primary killer
+            } else if mv == self.killer_moves[1] {
+                KILLER_SCORE_TWO // Secondary killer
+            } else {
+                // History heuristic
+                unsafe { (*self.history_table).get(mv.from(), mv.to()) as i16 }
+            }
+        };
 
-        self.0.push((mv, score));
+        self.moves.push((mv, score));
     }
 }
 
 impl OrderedList {
-    /// Increase the score of hash and killer moves
-    pub fn score(
-        &mut self,
+    pub fn new(
         tt_move: Move,
-        killers: [Move; 2],
-        history_table: &search::HistoryTable,
-    ) {
-        for (mv, score) in self.0.iter_mut() {
-            if tt_move.0 == mv.0 {
-                // Always order hash moves first
-                *score += 1000;
-                continue;
-            }
-            if !mv.is_capture() {
-                if killers[0].0 == mv.0 {
-                    // Primary killer
-                    *score += 50;
-                } else if killers[1].0 == mv.0 {
-                    // Secondary killer
-                    *score += 45
-                } else {
-                    // History heuristic
-                    *score += history_table.get(mv.from(), mv.to()) as i16
-                }
-            }
+        killer_moves: [Move; 2],
+        history_table: *const search::HistoryTable,
+    ) -> Self {
+        Self {
+            moves: Vec::with_capacity(45),
+            tt_move,
+            killer_moves,
+            history_table,
         }
     }
 
     pub fn sort(&mut self) {
-        self.0.sort_by_key(|mv| std::cmp::Reverse(mv.1));
+        self.moves.sort_by_key(|mv| std::cmp::Reverse(mv.1));
     }
 }
 
@@ -111,17 +116,13 @@ impl std::ops::Index<usize> for OrderedList {
     type Output = Move;
 
     fn index(&self, index: usize) -> &Self::Output {
-        &self.0.index(index).0
+        &self.moves.index(index).0
     }
 }
 
 pub struct UnorderedList(Vec<Move>);
 
 impl MoveList for UnorderedList {
-    fn new() -> Self {
-        Self(Vec::with_capacity(45))
-    }
-
     fn len(&self) -> usize {
         self.0.len()
     }
@@ -308,5 +309,11 @@ impl Move {
             to,
             promotion,
         };
+    }
+}
+
+impl std::cmp::PartialEq for Move {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
     }
 }

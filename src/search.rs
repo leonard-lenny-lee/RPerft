@@ -170,9 +170,15 @@ pub fn alpha_beta(
         _ => Move::null(),
     };
 
+    let killer_moves = info.killer_table.get(pos.ply);
+
     let write = matches!(probe, Probe::Write | Probe::ReadWrite(_));
 
-    let mut moves = OrderedList::new();
+    let mut moves = OrderedList::new(
+        tt_move,
+        killer_moves,
+        &info.history_table as *const HistoryTable,
+    );
     generate_all(pos, &mut moves);
 
     if moves.len() == 0 {
@@ -184,15 +190,14 @@ pub fn alpha_beta(
         }
     }
 
-    // Complete move ordering
-    moves.score(tt_move, info.killer_table.get(pos.ply), &info.history_table);
+    // Order
     moves.sort();
 
     let mut best_score = -INFINITE;
     let mut best_move = Move::null();
     let old_alpha = alpha;
 
-    for (mv, _) in moves.0.iter() {
+    for (mv, _) in moves.moves.iter() {
         let new_pos = pos.make_move(mv);
         let score = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table, info);
 
@@ -253,7 +258,12 @@ fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) 
         alpha = score;
     }
 
-    let mut moves = OrderedList::new();
+    let mut moves = OrderedList::new(
+        Move::null(),
+        [Move::null(); 2],
+        &info.history_table as *const HistoryTable,
+    );
+
     let checkers = pos.checkers();
     let our_attacks = pos.attack_sq(); // All squares our pieces are attacking
     let captures = our_attacks & pos.them.all;
@@ -276,7 +286,7 @@ fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) 
         return alpha;
     };
 
-    for (mv, _) in moves.0.iter() {
+    for (mv, _) in moves.moves.iter() {
         let new_pos = pos.make_move(mv);
         let score = -quiescence(&new_pos, -beta, -alpha, info);
 
