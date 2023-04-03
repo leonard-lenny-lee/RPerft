@@ -290,7 +290,7 @@ impl BBSet {
         };
     }
 
-    fn as_array(&self) -> [&BB; 7] {
+    pub fn as_array(&self) -> [&BB; 7] {
         return [
             &self.all,
             &self.pawn,

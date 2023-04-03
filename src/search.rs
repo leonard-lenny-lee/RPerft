@@ -33,7 +33,7 @@ pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
 fn search_iteration(pos: &Position, depth: u8, table: &HashTable) {
     use v_uci::UciInfoAttribute;
 
-    let mut info = SearchInfo::new();
+    let mut info = SearchInfo::new(depth);
     // Execute search
     alpha_beta(pos, depth, -INFINITE, INFINITE, table, &mut info);
 
@@ -243,7 +243,7 @@ pub fn alpha_beta(
 fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) -> i16 {
     info.nodes += 1;
 
-    if pos.ply > MAX_DEPTH as u8 {
+    if pos.ply > MAX_DEPTH as u8 || pos.ply > info.max_depth {
         return evaluate(pos);
     }
 
@@ -306,15 +306,17 @@ pub struct SearchInfo {
     killer_table: KillerTable,
     history_table: HistoryTable,
     start: std::time::Instant,
+    pub max_depth: u8,
 }
 
 impl SearchInfo {
-    fn new() -> Self {
+    fn new(depth: u8) -> Self {
         Self {
             nodes: 0,
             killer_table: KillerTable::new(),
             history_table: HistoryTable::new(),
             start: std::time::Instant::now(),
+            max_depth: depth * 2,
         }
     }
 
@@ -487,7 +489,7 @@ mod tests {
     fn test_alpha_beta(fen: &str, depth: u8) {
         let pos = Position::from_fen(fen).unwrap();
         let mut table = HashTable::new(DEF_TABLE_SIZE_BYTES);
-        let mut info = SearchInfo::new();
+        let mut info = SearchInfo::new(depth);
 
         let alpha_beta = alpha_beta(&pos, depth, -INFINITE, INFINITE, &table, &mut info);
         table.clear();
