@@ -133,6 +133,7 @@ impl Position {
             key: 0,
             stm,
             ply: 0,
+            unmake_info: Vec::new(),
         };
 
         // Initialize Zobrist key
@@ -144,6 +145,23 @@ impl Position {
     /// Initialize a new starting position
     pub fn new_starting_pos() -> Self {
         return Self::from_fen(STARTPOS).expect("hardcoded starting fen is valid");
+    }
+
+    pub fn copy(&self) -> Self {
+        Self {
+            us: self.us,
+            them: self.them,
+            occ: self.occ,
+            free: self.free,
+            castling_rights: self.castling_rights,
+            ep_sq: self.ep_sq,
+            halfmove_clock: self.halfmove_clock,
+            fullmove_clock: self.fullmove_clock,
+            key: self.key,
+            stm: self.stm,
+            ply: self.ply,
+            unmake_info: Vec::new(),
+        }
     }
 
     /// Convert position into a 8 x 8 array of characters

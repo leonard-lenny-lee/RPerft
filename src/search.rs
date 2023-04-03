@@ -9,7 +9,7 @@ use types::NodeType;
 const INFINITE: i16 = 30000;
 const MAX_DEPTH: u8 = 30;
 
-pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
+pub fn search(pos: &mut Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
 
     // Use iterative deepening framework
@@ -30,7 +30,7 @@ pub fn search(pos: &Position, depth: u8, table: &mut HashTable) {
 }
 
 /// Execute a search iteration within the iterative deepening framework
-fn search_iteration(pos: &Position, depth: u8, table: &HashTable) {
+fn search_iteration(pos: &mut Position, depth: u8, table: &HashTable) {
     use v_uci::UciInfoAttribute;
 
     let mut info = SearchInfo::new(depth);
@@ -77,13 +77,13 @@ fn search_iteration(pos: &Position, depth: u8, table: &HashTable) {
 
 /// Probe the transposition table for the principal variation line
 fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> {
-    let mut pos = *pos;
+    let mut pos = pos.copy();
     let mut pv = Vec::new();
 
     for depth in (1..=depth).rev() {
         if let Probe::Read(entry) = table.probe_search(pos.key, depth) {
             if !entry.best_move.is_null() {
-                pos = pos.make_move(&entry.best_move);
+                pos.make_move(&entry.best_move);
                 pv.push(entry.best_move.to_uci());
             } else {
                 break;
@@ -99,7 +99,7 @@ fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> 
 /// Search a position for the best evaluation using the exhaustative depth
 /// first negamax algorithm. Not to be used in release; use as a testing tool
 /// to ensure the same results are reached by alpha beta pruning
-fn _nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
+fn _nega_max(pos: &mut Position, depth: u8, table: &HashTable) -> i16 {
     let probe = table.probe_search(pos.key, depth);
 
     if let Probe::Read(entry) = probe {
@@ -126,8 +126,9 @@ fn _nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
     let mut best_score = -INFINITE;
 
     for mv in moves.iter() {
-        let new_pos = pos.make_move(mv);
-        let evaluation = -_nega_max(&new_pos, depth - 1, table);
+        pos.make_move(mv);
+        let evaluation = -_nega_max(pos, depth - 1, table);
+        pos.unmake_move();
         if evaluation > best_score {
             best_score = evaluation;
             best_move = *mv;
@@ -143,7 +144,7 @@ fn _nega_max(pos: &Position, depth: u8, table: &HashTable) -> i16 {
 
 /// Implementation of alpha-beta pruning to search for the best score
 pub fn alpha_beta(
-    pos: &Position,
+    pos: &mut Position,
     depth: u8,
     mut alpha: i16,
     beta: i16,
@@ -198,8 +199,9 @@ pub fn alpha_beta(
     let old_alpha = alpha;
 
     for (mv, _) in moves.moves.iter() {
-        let new_pos = pos.make_move(mv);
-        let score = -alpha_beta(&new_pos, depth - 1, -beta, -alpha, table, info);
+        pos.make_move(mv);
+        let score = -alpha_beta(pos, depth - 1, -beta, -alpha, table, info);
+        pos.unmake_move();
 
         if score > best_score {
             best_score = score;
@@ -240,7 +242,7 @@ pub fn alpha_beta(
     return alpha;
 }
 
-fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) -> i16 {
+fn quiescence(pos: &mut Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) -> i16 {
     info.nodes += 1;
 
     if pos.ply > MAX_DEPTH as u8 || pos.ply > info.max_depth {
@@ -287,8 +289,9 @@ fn quiescence(pos: &Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) 
     };
 
     for (mv, _) in moves.moves.iter() {
-        let new_pos = pos.make_move(mv);
-        let score = -quiescence(&new_pos, -beta, -alpha, info);
+        pos.make_move(mv);
+        let score = -quiescence(pos, -beta, -alpha, info);
+        pos.unmake_move();
 
         if score > alpha {
             if score >= beta {
@@ -393,10 +396,11 @@ pub mod perft {
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = movelist[i];
-                let new_pos = pos.make_move(&mv);
+                let mut pos = pos.copy();
+                pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
-                    let node_count = perft_inner(&new_pos, depth - 1, &table);
+                    let node_count = perft_inner(&mut pos, depth - 1, &table);
                     tx.send(node_count).unwrap();
                     if verbose {
                         println!("{}: {}", mv.to_algebraic(), node_count);
@@ -419,7 +423,7 @@ pub mod perft {
         return (nodes, duration, nodes_per_second);
     }
 
-    fn perft_inner(pos: &Position, depth: u8, table: &Arc<HashTable>) -> u64 {
+    fn perft_inner(pos: &mut Position, depth: u8, table: &Arc<HashTable>) -> u64 {
         let mut nodes = 0;
 
         if let Some(nodes) = table.probe_perft(pos.key, depth) {
@@ -434,8 +438,9 @@ pub mod perft {
         }
 
         for mv in movelist.iter() {
-            let new_pos = pos.make_move(mv);
-            nodes += perft_inner(&new_pos, depth - 1, table);
+            pos.make_move(mv);
+            nodes += perft_inner(pos, depth - 1, table);
+            pos.unmake_move();
         }
 
         table.write_perft(pos.key, depth, nodes);
@@ -487,14 +492,14 @@ mod tests {
     #[test_case(TPOS5, 2; "testpos5")]
     #[test_case(TPOS6, 2; "testpos6")]
     fn test_alpha_beta(fen: &str, depth: u8) {
-        let pos = Position::from_fen(fen).unwrap();
+        let mut pos = Position::from_fen(fen).unwrap();
         let mut table = HashTable::new(DEF_TABLE_SIZE_BYTES);
         let mut info = SearchInfo::new(depth);
 
-        let alpha_beta = alpha_beta(&pos, depth, -INFINITE, INFINITE, &table, &mut info);
+        let alpha_beta = alpha_beta(&mut pos, depth, -INFINITE, INFINITE, &table, &mut info);
         table.clear();
 
-        let negamax = _nega_max(&pos, depth, &table);
+        let negamax = _nega_max(&mut pos, depth, &table);
         assert_eq!(alpha_beta, negamax)
     }
 }

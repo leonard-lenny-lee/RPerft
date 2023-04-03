@@ -9,7 +9,6 @@ mod zobrist;
 
 use uci::RuntimeError;
 
-#[derive(Clone, Copy)]
 pub struct Position {
     pub us: BBSet,
     pub them: BBSet,
@@ -22,6 +21,7 @@ pub struct Position {
     pub key: u64,
     pub stm: Color,
     pub ply: u8,
+    pub unmake_info: Vec<makemove::UnmakeInfo>,
 }
 
 #[derive(Clone, Copy)]

@@ -1,7 +1,10 @@
 use super::*;
 use movelist::MoveList;
 use position::Position;
-use types::{Axis, GenType, MoveType, PieceType};
+use types::{
+    Axis, GenType, MoveType,
+    PieceType::{self, *},
+};
 
 /// Generate all legal moves in a position
 pub fn generate_all<T: MoveList>(pos: &Position, movelist: &mut T) {
@@ -35,10 +38,10 @@ pub fn generate<T: MoveList>(gt: GenType, pos: &Position, movelist: &mut T) {
 
     let pinned = pos.pinned();
 
-    generate_moves(PieceType::Rook, pos, movelist, pinned, targets);
-    generate_moves(PieceType::Knight, pos, movelist, pinned, targets);
-    generate_moves(PieceType::Bishop, pos, movelist, pinned, targets);
-    generate_moves(PieceType::Queen, pos, movelist, pinned, targets);
+    generate_moves(Rook, pos, movelist, pinned, targets);
+    generate_moves(Knight, pos, movelist, pinned, targets);
+    generate_moves(Bishop, pos, movelist, pinned, targets);
+    generate_moves(Queen, pos, movelist, pinned, targets);
 
     generate_pawn_moves(pos, movelist, pinned, targets);
     generate_king_moves(pos, movelist, gt);
@@ -66,8 +69,9 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T, gt: GenTyp
 
 #[inline(always)]
 fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB, targets: BB) {
-    // Filter pawns
+    // Filter pawns according to if they are pinned and the pin direction
     let pinned = pos.us.pawn & pinned;
+
     // Pawns pinned along a rank cannot move
     let pawns = pos.us.pawn ^ (pinned & pos.us.king.rank());
 
@@ -139,7 +143,9 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
     for from in s_1 | s_2 {
         // Check rare case where an ep can reveal a discovered check
         if (pos.us.king & pos.rank_5()).is_not_empty() {
+            // Remove ep pawns from occupied squared
             let occ = pos.occ & !(from | ep_cap_sq);
+            // Check if king now has direct line of sight to a rook or queen
             if (pos.us.king.hyp_quint(occ, Axis::Rank) & (pos.them.rook | pos.them.queen))
                 .is_not_empty()
             {
@@ -152,7 +158,7 @@ fn generate_pawn_moves<T: MoveList>(pos: &Position, movelist: &mut T, pinned: BB
 
 type AttackGenerator = fn(&BB, BB) -> BB;
 
-const ATTACK_GENERATOR: [AttackGenerator; 4] =
+const ATTACK_GENERATORS: [AttackGenerator; 4] =
     [BB::rook_lu, BB::knight_lu_, BB::bishop_lu, BB::queen_lu];
 
 #[inline(always)]
@@ -163,16 +169,10 @@ fn generate_moves<T: MoveList>(
     pinned: BB,
     targets: BB,
 ) {
-    debug_assert!(
-        pt as usize >= 2 && pt as usize <= 5,
-        "invalid PieceType for attacks"
-    );
+    debug_assert!(matches!(pt, Rook | Knight | Bishop | Queen), "invalid pt");
+    let attack_generator = ATTACK_GENERATORS[pt as usize - 2];
 
-    let bb = pos.us[pt];
-
-    let attack_generator = ATTACK_GENERATOR[pt as usize - 2];
-
-    for from in bb {
+    for from in pos.us[pt] {
         let mut targets = attack_generator(&from, pos.occ) & targets;
         // Pinned pieces, allow only moves towards or away from king
         if (from & pinned).is_not_empty() {
@@ -228,7 +228,7 @@ mod tests {
         generate_all(&pos, &mut movelist);
         let pawnmoves: Vec<_> = movelist
             .iter()
-            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(PieceType::Pawn)))
+            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(Pawn)))
             .collect();
         assert_eq!(expected_nodes, pawnmoves.len());
     }
@@ -240,7 +240,7 @@ mod tests {
         generate_all(&pos, &mut movelist);
         let knightmoves: Vec<_> = movelist
             .iter()
-            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(PieceType::Knight)))
+            .filter(|mv| matches!(pos.us.pt_at(mv.from()), Some(Knight)))
             .collect();
         assert_eq!(expected_nodes, knightmoves.len());
     }

@@ -4,117 +4,198 @@ use movelist::Move;
 use position::Position;
 use types::{
     MoveType::{self, *},
-    PieceType,
+    PieceType::{self, *},
 };
 
 impl Position {
     /// Create a new position by applying move data to a position
-    pub fn make_move(&self, mv: &Move) -> Position {
-        // Create a copy of the current position to modify
-        let mut new_pos = *self;
-        new_pos.ply += 1;
-
+    pub fn make_move(&mut self, mv: &Move) {
         // Unpack move data
-        let target = mv.to();
-        let src = mv.from();
+        let to = mv.to();
+        let from = mv.from();
         let mt = mv.movetype();
+        let captured_pt = self.them.pt_at(to);
+        let moved_pt = self.us.pt_at(from).expect("from must be occ");
+
+        // Push to undo info stack
+        self.unmake_info.push(UnmakeInfo {
+            from,
+            to,
+            mt,
+            moved_pt,
+            captured_pt,
+            castling_rights: self.castling_rights,
+            halfmove_clock: self.halfmove_clock,
+            ep_sq: self.ep_sq,
+            key: self.key,
+        });
+
+        // Undo current ep key before position is modified
+        self.ep_key_update();
+
+        // Increment clocks
+        self.ply += 1;
+        self.halfmove_clock += 1;
+        self.fullmove_clock += self.stm as u8;
 
         // Source squares must be free and target squares must be occupied
-        new_pos.free |= src;
-        new_pos.free &= !target;
+        self.free |= from;
+        self.free &= !to;
 
         // Our bitboards must be flipped at the target and source
-        let moved_pt = new_pos.us.pt_at(src).expect("from must be occ");
-        let move_mask = src | target;
-        new_pos.us[moved_pt] ^= move_mask;
-        new_pos.us.all ^= move_mask;
+        let move_mask = from | to;
+        self.us[moved_pt] ^= move_mask;
+        self.us.all ^= move_mask;
+        self.move_key_update(moved_pt, from, to, self.wtm());
 
-        // If our king has moved, remove all further rights to castle
-        if matches!(moved_pt, PieceType::King) {
-            new_pos.castling_rights &= !new_pos.rank_1();
+        // Reset halfmove clock on pawn moves, remove castle rights on king moves
+        match moved_pt {
+            Pawn => self.halfmove_clock = 0,
+            King => self.castling_rights &= !self.rank_1(),
+            _ => (),
         }
 
-        // If the rooks have moved, remove rights to castle
-        new_pos.castling_rights &= !src;
+        // If the rooks have moved, remove right to castle on that side
+        self.castling_rights &= !from;
 
-        // Increment half move clock; reset if capture or pawn move
-        if mv.is_capture() || matches!(moved_pt, PieceType::Pawn) {
-            new_pos.halfmove_clock = 0
-        } else {
-            new_pos.halfmove_clock += 1
+        // Set ep target to empty, set later if dbl pawn push
+        self.ep_sq = EMPTY_BB;
+
+        // Captures, excluding en passant
+        if let Some(pt) = captured_pt {
+            self.them[pt] ^= to;
+            self.them.all ^= to;
+            self.sq_key_update(pt, to, !self.wtm());
+            // Remove castling right if rook has been captured
+            self.castling_rights &= !to;
+            self.halfmove_clock = 0;
         }
 
-        // Increment full move clock if black has moved
-        new_pos.fullmove_clock += !new_pos.wtm() as u8;
-
-        // Set ep target to empty, set if dbl pawn push
-        new_pos.ep_sq = EMPTY_BB;
+        // Promotions
+        if mv.is_promotion() {
+            let promo_pt = mv.promo_pt().expect("must encode pt");
+            self.us[promo_pt] ^= to;
+            self.us.pawn ^= to;
+            self.sq_key_update(Pawn, to, self.wtm());
+            self.sq_key_update(promo_pt, to, self.wtm());
+        }
 
         // Execute special actions
         match mt {
-            Quiet => (),
             DoublePawnPush => {
                 // Ep target is one square behind dbl push target
-                new_pos.ep_sq = new_pos.push_back(target);
+                self.ep_sq = self.push_back(to);
             }
-            ShortCastle | LongCastle => new_pos.exec_castle(mt, target),
-            Capture => new_pos.exec_capture(target),
-            EnPassant => new_pos.exec_ep(target),
-            NPromotion | BPromotion | RPromotion | QPromotion => {
-                let promo_pt = mv.promo_pt().expect("must encode pt");
-                new_pos.exec_promo(promo_pt, target)
+
+            ShortCastle | LongCastle => {
+                let (rook_from, rook_to) = if let ShortCastle = mt {
+                    (to.east_one(), to.west_one())
+                } else {
+                    (to.west_two(), to.east_one())
+                };
+                let mask = rook_from | rook_to;
+                self.us.rook ^= mask;
+                self.us.all ^= mask;
+                self.free ^= mask;
+                self.move_key_update(Rook, rook_from, rook_to, self.wtm())
             }
-            NPromoCapture | BPromoCapture | RPromoCapture | QPromoCapture => {
-                let promo_pt = mv.promo_pt().expect("must encode pt");
-                new_pos.exec_promo(promo_pt, target);
-                new_pos.exec_capture(target)
+
+            EnPassant => {
+                let ep_sq = self.push_back(to);
+                self.them.pawn ^= ep_sq;
+                self.them.all ^= ep_sq;
+                self.free ^= ep_sq;
+                self.sq_key_update(Pawn, ep_sq, !self.wtm())
             }
+
+            _ => (),
         }
 
-        new_pos.occ = !new_pos.free;
+        self.occ = !self.free;
         // Change the turn and state
-        new_pos.change_state();
-        new_pos.update_key(moved_pt, src, target, self);
-        return new_pos;
+        self.change_state();
+        // Update key
+        self.turn_key_update();
+        self.ep_key_update();
+        self.castle_key_update();
     }
 
-    #[inline(always)]
-    fn exec_capture(&mut self, target: BB) {
-        let captured_pt = self.them.pt_at(target).unwrap();
-        self.them[captured_pt] ^= target;
-        self.them.all ^= target;
-        self.castling_rights &= !target;
-        self.sq_key_update(captured_pt, target, !self.wtm())
-    }
+    pub fn unmake_move(&mut self) {
+        let prev = self.unmake_info.pop().unwrap();
 
-    #[inline(always)]
-    fn exec_promo(&mut self, promo_pt: PieceType, target: BB) {
-        self.us[promo_pt] ^= target;
-        self.us.pawn ^= target;
-        self.sq_key_update(PieceType::Pawn, target, self.wtm());
-        self.sq_key_update(promo_pt, target, self.wtm());
-    }
+        // Reverse clocks
+        self.ply -= 1;
+        self.halfmove_clock = prev.halfmove_clock;
+        self.fullmove_clock -= 1 - self.stm as u8;
 
-    #[inline(always)]
-    fn exec_castle(&mut self, mt: MoveType, target: BB) {
-        let (rook_src, rook_target) = match mt {
-            MoveType::ShortCastle => (target.east_one(), target.west_one()),
-            MoveType::LongCastle => (target.west_two(), target.east_one()),
-            _ => return,
-        };
-        let mask = rook_src | rook_target;
-        self.us.rook ^= mask;
-        self.us.all ^= mask;
-        self.free ^= mask;
-        self.move_key_update(PieceType::Rook, rook_src, rook_target, self.wtm())
-    }
+        // Restore info from the stack
+        self.castling_rights = prev.castling_rights;
+        self.ep_sq = prev.ep_sq;
+        self.halfmove_clock = prev.halfmove_clock;
+        self.key = prev.key;
 
-    #[inline(always)]
-    fn exec_ep(&mut self, target: BB) {
-        let ep_capture_sq = self.push_back(target);
-        self.them.pawn ^= ep_capture_sq;
-        self.them.all ^= ep_capture_sq;
-        self.free ^= ep_capture_sq;
-        self.sq_key_update(PieceType::Pawn, ep_capture_sq, !self.wtm())
+        // Source square must now be occupied, free target square for now
+        self.free |= prev.to;
+        self.free &= !prev.from;
+
+        // Reverse changes to our bbs
+        let moved_pt = self.them.pt_at(prev.to).expect("must be occupied");
+        let move_mask = prev.from | prev.to;
+        self.them.all ^= move_mask;
+
+        if moved_pt == prev.moved_pt {
+            self.them[moved_pt] ^= move_mask;
+        } else {
+            // Must be a promotion
+            self.them[moved_pt] ^= prev.to;
+            self.them.pawn ^= prev.from;
+        }
+
+        // Undo capture
+        if let Some(pt) = prev.captured_pt {
+            self.us[pt] ^= prev.to;
+            self.us.all ^= prev.to;
+            self.free ^= prev.to;
+        }
+
+        // Undo special actions
+        match prev.mt {
+            ShortCastle | LongCastle => {
+                let mask = if let ShortCastle = prev.mt {
+                    prev.to.east_one() | prev.to.west_one()
+                } else {
+                    prev.to.west_two() | prev.to.east_one()
+                };
+                self.them.rook ^= mask;
+                self.them.all ^= mask;
+                self.free ^= mask;
+            }
+
+            EnPassant => {
+                let ep_sq = self.push(prev.to);
+                self.us.pawn ^= ep_sq;
+                self.us.all ^= ep_sq;
+                self.free ^= ep_sq;
+            }
+
+            _ => (),
+        }
+
+        self.occ = !self.free;
+        self.change_state();
     }
+}
+
+pub struct UnmakeInfo {
+    // Move info
+    pub from: BB,
+    pub to: BB,
+    pub mt: MoveType,
+    // Irretrievable info
+    pub moved_pt: PieceType,
+    pub captured_pt: Option<PieceType>,
+    pub castling_rights: BB,
+    pub ep_sq: BB,
+    pub halfmove_clock: u8,
+    pub key: u64,
 }

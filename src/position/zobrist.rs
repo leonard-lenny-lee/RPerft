@@ -58,35 +58,31 @@ impl Position {
 
     fn ep_hash(&self) -> u64 {
         let mut key = 0;
-        let (white, black) = self.white_black();
-        let pawns = match self.stm {
-            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & white.pawn,
-            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & black.pawn,
-        };
 
-        if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
+        if self.ep_sq.is_not_empty() {
+            let (white, black) = self.white_black();
+            let pawns = match self.stm {
+                Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & white.pawn,
+                Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & black.pawn,
+            };
+
+            if pawns.is_not_empty() {
+                key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
+            }
         }
+
         return key;
     }
 
-    /// Common hash update function
-    pub fn update_key(&mut self, moved_pt: PieceType, src: BB, target: BB, prev: &Position) {
-        // Turn has passed so we must xor turn
+    pub fn turn_key_update(&mut self) {
         self.key ^= HASH_KEYS[780];
-        // Update at both source and target squares for the piece
-        self.move_key_update(moved_pt, src, target, prev.wtm());
-        // Update en passant hash
-        self.ep_key_update(prev);
-        // Update castle hashing
-        self.castle_key_update(prev);
     }
 
     /// Update at both source and target squares for the piece
-    pub fn move_key_update(&mut self, moved_pt: PieceType, src: BB, target: BB, wtm: bool) {
+    pub fn move_key_update(&mut self, moved_pt: PieceType, from: BB, to: BB, wtm: bool) {
         let idx = PT_KEY_IDX_MAP[moved_pt as usize] * 2 + wtm as usize;
-        self.key ^= HASH_KEYS[64 * idx + src.to_sq()];
-        self.key ^= HASH_KEYS[64 * idx + target.to_sq()];
+        self.key ^= HASH_KEYS[64 * idx + from.to_sq()];
+        self.key ^= HASH_KEYS[64 * idx + to.to_sq()];
     }
 
     /// Update hash for a single bitflip
@@ -96,13 +92,14 @@ impl Position {
     }
 
     /// Update hash for an en passant square update
-    fn ep_key_update(&mut self, prev: &Position) {
-        self.key ^= self.ep_hash() ^ prev.ep_hash();
+    pub fn ep_key_update(&mut self) {
+        self.key ^= self.ep_hash();
     }
 
     /// Update hash for an update to castling rights
-    fn castle_key_update(&mut self, prev: &Position) {
-        let mut diff = self.castling_rights ^ prev.castling_rights;
+    pub fn castle_key_update(&mut self) {
+        let prev = self.unmake_info.last().unwrap().castling_rights;
+        let mut diff = self.castling_rights ^ prev;
         while diff.is_not_empty() {
             match diff.pop_ils1b() {
                 7 => self.key ^= HASH_KEYS[768],  // White kingside
@@ -358,15 +355,15 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
         "loss of castling")]
     fn test_hash_update_quiet(startpos: &str, from: usize, to: usize, expected: &str) {
-        let pos = Position::from_fen(startpos).unwrap();
+        let mut pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(BB::from_sq(from), BB::from_sq(to), MoveType::Quiet, &pos);
         let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.make_move(&mv);
+        pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(new_pos.key, expected_pos.key)
+        assert_eq!(pos.key, expected_pos.key)
     }
 
     #[test_case(TPOS2, 8, 24,
@@ -384,7 +381,7 @@ mod test {
         "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2";
         "eps transfer")]
     fn test_hash_update_double_pawn_push(startpos: &str, from: usize, to: usize, expected: &str) {
-        let pos = Position::from_fen(startpos).unwrap();
+        let mut pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
@@ -394,10 +391,9 @@ mod test {
             &pos,
         );
         let mv = movelist.pop().unwrap();
-        // Apply move
-        let new_pos = pos.make_move(&mv);
+        pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(new_pos.key, expected_pos.key)
+        assert_eq!(pos.key, expected_pos.key)
     }
 
     #[test_case(
@@ -409,7 +405,7 @@ mod test {
         "r4rk1/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 w - - 2 4";
         "black")]
     fn test_hash_update_castling(startpos: &str, from: usize, to: usize, expected: &str) {
-        let pos = Position::from_fen(startpos).unwrap();
+        let mut pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
@@ -420,9 +416,9 @@ mod test {
         );
         let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.make_move(&mv);
+        pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(new_pos.key, expected_pos.key)
+        assert_eq!(pos.key, expected_pos.key)
     }
 
     #[test_case(
@@ -430,7 +426,7 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/p1N2Q1p/1PPBBPPP/R3K2R w KQkq - 0 2";
         "black")]
     fn test_hash_update_en_passant(startpos: &str, from: usize, to: usize, expected: &str) {
-        let pos = Position::from_fen(startpos).unwrap();
+        let mut pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
@@ -441,8 +437,8 @@ mod test {
         );
         let mv = movelist.pop().unwrap();
         // Apply move
-        let new_pos = pos.make_move(&mv);
+        pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(new_pos.key, expected_pos.key)
+        assert_eq!(pos.key, expected_pos.key)
     }
 }

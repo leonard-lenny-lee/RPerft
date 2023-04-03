@@ -129,7 +129,7 @@ impl Engine {
             let mv_algebraic = format!("{ucimove}");
 
             if let Some(mv) = movelist.find(mv_algebraic) {
-                self.cur_pos = self.cur_pos.make_move(&mv);
+                self.cur_pos.make_move(&mv);
                 continue;
             }
 
@@ -160,7 +160,7 @@ impl Engine {
 
         if let Some(sc) = search_control {
             if let Some(depth) = sc.depth {
-                search::search(&self.cur_pos, depth, &mut self.hash_table)
+                search::search(&mut self.cur_pos, depth, &mut self.hash_table)
             }
         }
 

@@ -27,7 +27,7 @@ pub fn find_moves_benchmark(c: &mut Criterion) {
 }
 
 pub fn apply_move_benchmark(c: &mut Criterion) {
-    let (pos, mut movelist) = setup();
+    let (mut pos, mut movelist) = setup();
     generate_all(&pos, &mut movelist);
 
     c.bench_function("apply_move", |b| b.iter(|| pos.make_move(&movelist[0])));
