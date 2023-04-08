@@ -1,5 +1,4 @@
 use super::*;
-use evaluate::evaluate;
 use hash::{HashTable, Probe};
 use movegen::{generate, generate_all};
 use movelist::{Move, MoveList, OrderedList, UnorderedList};
@@ -107,7 +106,7 @@ fn _nega_max(pos: &mut Position, depth: u8, table: &HashTable) -> i16 {
     }
 
     if depth == 0 {
-        return evaluate(pos);
+        return pos.evaluate();
     }
 
     let mut moves = UnorderedList::new();
@@ -160,7 +159,7 @@ pub fn alpha_beta(
     info.nodes += 1;
 
     if pos.ply >= MAX_DEPTH {
-        return evaluate(pos);
+        return pos.evaluate();
     }
 
     let probe = table.probe_search(pos.key, depth);
@@ -246,11 +245,11 @@ fn quiescence(pos: &mut Position, mut alpha: i16, beta: i16, info: &mut SearchIn
     info.nodes += 1;
 
     if pos.ply > MAX_DEPTH as u8 || pos.ply > info.max_depth {
-        return evaluate(pos);
+        return pos.evaluate();
     }
 
     // "Stand pat" decision
-    let score = evaluate(pos);
+    let score = pos.evaluate();
 
     if score >= beta {
         return beta;

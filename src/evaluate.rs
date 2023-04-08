@@ -1,14 +1,14 @@
 use super::*;
+
 use position::Position;
+use types::PieceType;
 
 const WHITE: usize = 0;
 const BLACK: usize = 1;
-
 const COLORS: [usize; 2] = [WHITE, BLACK];
 
 const MG: usize = 0;
 const EG: usize = 1;
-
 const PHASES: [usize; 2] = [MG, EG];
 
 const PAWN: usize = 0;
@@ -17,27 +17,128 @@ const KNIGHT: usize = 2;
 const BISHOP: usize = 3;
 const QUEEN: usize = 4;
 const KING: usize = 5;
-
 const PIECES: [usize; 6] = [PAWN, ROOK, KNIGHT, BISHOP, QUEEN, KING];
 
-const MAX_MG_PHASE: i16 = 24;
+/* The phase score allows interpolation between the middlegame and endgame psqts.
+   It's scored from 0, a pure endgame, to 24, a pure middlegame.
+*/
+const PHASE_CONTRIBUTIONS: [i32; 6] = [0, 2, 1, 1, 4, 0];
+const MAX_MG_PHASE: i32 = 24;
+
+#[derive(Clone, Copy)]
+pub struct Score {
+    mg: i32,
+    eg: i32,
+    phase: i32,
+}
+
+impl Score {
+    pub fn new_equal() -> Self {
+        Self {
+            mg: 0,
+            eg: 0,
+            phase: 0,
+        }
+    }
+}
+
+impl Position {
+    pub fn init_score(&mut self) {
+        let (mut white, mut black) = (self.us, self.them);
+        if !self.wtm {
+            std::mem::swap(&mut white, &mut black)
+        };
+        let bbsets = [&white.as_array(), &black.as_array()];
+
+        for stm in COLORS {
+            let sign = if stm == WHITE { 1 } else { -1 }; // Black eval is negative
+            for pt in PIECES {
+                let bb = bbsets[stm][pt + 1];
+                for sq in *bb {
+                    self.score.mg += SCORES[stm][pt][MG][sq.to_sq()] * sign;
+                    self.score.eg += SCORES[stm][pt][EG][sq.to_sq()] * sign;
+                    self.score.phase += PHASE_CONTRIBUTIONS[pt];
+                }
+            }
+        }
+    }
+
+    pub fn score_move_update(&mut self, pt: PieceType, from: BB, to: BB) {
+        let sign = if self.wtm { 1 } else { -1 };
+        let stm = self.stm as usize;
+        let pt = pt as usize - 1;
+        let from = from.to_sq();
+        let to = to.to_sq();
+
+        // Remove score from previous sq
+        self.score.mg -= SCORES[stm][pt][MG][from] * sign;
+        self.score.eg -= SCORES[stm][pt][EG][from] * sign;
+
+        // Add score for new sq
+        self.score.mg += SCORES[stm][pt][MG][to] * sign;
+        self.score.eg += SCORES[stm][pt][EG][to] * sign;
+    }
+
+    pub fn score_capture_update(&mut self, pt: PieceType, sq: BB) {
+        let sign = if self.wtm { 1 } else { -1 };
+        let not_stm = self.wtm as usize;
+        let pt = pt as usize - 1;
+        let sq = sq.to_sq();
+
+        // Add score for side currently moving
+        self.score.mg += SCORES[not_stm][pt][MG][sq] * sign;
+        self.score.eg += SCORES[not_stm][pt][EG][sq] * sign;
+
+        // Update phase
+        self.score.phase -= PHASE_CONTRIBUTIONS[pt]
+    }
+
+    pub fn score_promotion_update(&mut self, pt: PieceType, sq: BB) {
+        let sign = if self.wtm { 1 } else { -1 };
+        let stm = self.stm as usize;
+        let pt = pt as usize - 1;
+        let sq = sq.to_sq();
+
+        // Unset the pawn
+        self.score.mg -= SCORES[stm][PAWN][MG][sq] * sign;
+        self.score.eg -= SCORES[stm][PAWN][EG][sq] * sign;
+
+        // Set the promotion piece
+        self.score.mg += SCORES[stm][pt][MG][sq] * sign;
+        self.score.eg += SCORES[stm][pt][EG][sq] * sign;
+
+        // Update phase
+        self.score.phase += PHASE_CONTRIBUTIONS[pt];
+    }
+
+    pub fn evaluate(&self) -> i16 {
+        // Use a maximum phase of 24, in case of early promotion
+        let phase = std::cmp::min(MAX_MG_PHASE, self.score.phase);
+
+        return ((self.score.mg * phase + self.score.eg * (MAX_MG_PHASE - phase)) / MAX_MG_PHASE)
+            as i16;
+    }
+}
 
 lazy_static! {
-    // Initialize the score lookup table
-    static ref SCORES: [[[i16; 64]; 2]; 12] = {
-        let mut scores = [[[0; 64]; 2]; 12];
+    /* Initialize the score lookup table with the index scheme:
+            color->piecetype->gamephase->square->score
+       The score is a combined material and positional evaluation
+    */
+    static ref SCORES: [[[[i32; 64]; 2]; 6]; 2] = {
+        let mut scores = [[[[0; 64]; 2]; 6]; 2];
 
         for pt in PIECES {
             for stm in COLORS {
                 for phase in PHASES {
                     for sq in 0..64 {
-                        let material_score = tables::MATERIAL[pt][phase];
-                        let position_score = if stm == WHITE {
+                        let material = tables::MATERIAL[pt][phase];
+                        let position = if stm == WHITE {
                             tables::PSQT[pt][phase][sq^56]
                         } else {
                             tables::PSQT[pt][phase][sq]
                         };
-                        scores[pt*2+stm][phase][sq] += material_score + position_score;
+                        scores[stm][pt][phase][sq] += material + position;
                     }
                 }
             }
@@ -46,52 +147,10 @@ lazy_static! {
     };
 }
 
-pub fn evaluate(pos: &Position) -> i16 {
-    let mg_phase = game_phase(pos);
-    let eg_phase = MAX_MG_PHASE - mg_phase;
-
-    let mut scores = [[0; 2]; 2];
-
-    let (w, b) = pos.white_black();
-    let bbs = [w.as_array(), b.as_array()];
-
-    for pt in PIECES {
-        for stm in COLORS {
-            for phase in PHASES {
-                for sq in *bbs[stm][pt + 1] {
-                    scores[phase][stm] = SCORES[pt * 2 + stm][phase][sq.to_sq()];
-                }
-            }
-        }
-    }
-
-    let mg_score = (scores[MG][WHITE] - scores[MG][BLACK]) * mg_phase;
-    let eg_score = (scores[EG][WHITE] - scores[EG][BLACK]) * eg_phase;
-
-    return (mg_score + eg_score) / 24;
-}
-
-/// Calculate a game phase value to allow interpolation of middlegame and
-/// endgame phases. Middlegame 24 -> 0 Endgame
-fn game_phase(pos: &Position) -> i16 {
-    const KNIGHT: i16 = 1;
-    const BISHOP: i16 = 1;
-    const ROOK: i16 = 2;
-    const QUEEN: i16 = 4;
-
-    let phase = KNIGHT * (pos.us.knight | pos.them.knight).pop_count()
-        + BISHOP * (pos.us.bishop | pos.them.bishop).pop_count()
-        + ROOK * (pos.us.rook | pos.them.rook).pop_count()
-        + QUEEN * (pos.us.queen | pos.them.queen).pop_count();
-
-    // If phase is > 24, due to promotion, return phase at maximum value of 24
-    return std::cmp::min(phase, MAX_MG_PHASE);
-}
-
 #[rustfmt::skip]
 mod tables {
     // Taken from the chess wiki "PeSTO" evaluation function.
-    pub const PSQT: [[[i16; 64]; 2]; 6] = [
+    pub const PSQT: [[[i32; 64]; 2]; 6] = [
         [ // Pawn
             [ // MG
                    0,   0,   0,   0,   0,   0,   0,   0,
@@ -237,7 +296,7 @@ mod tables {
         ]
     ];
 
-    pub const MATERIAL: [[i16; 2]; 6] = [
+    pub const MATERIAL: [[i32; 2]; 6] = [
         [  82,  94], // Pawn
         [ 477, 512], // Rook
         [ 337, 281], // Knight

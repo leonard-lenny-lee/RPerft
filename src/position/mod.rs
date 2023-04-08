@@ -7,6 +7,8 @@ mod parse;
 mod states;
 mod zobrist;
 
+use evaluate::Score;
+use types::Color;
 use uci::RuntimeError;
 
 pub struct Position {
@@ -19,8 +21,10 @@ pub struct Position {
     pub halfmove_clock: u8,
     pub fullmove_clock: u8,
     pub key: u64,
+    pub wtm: bool,
     pub stm: Color,
     pub ply: u8,
+    pub score: Score,
     pub unmake_info: Vec<makemove::UnmakeInfo>,
 }
 
@@ -33,10 +37,4 @@ pub struct BBSet {
     pub bishop: BB,
     pub queen: BB,
     pub king: BB,
-}
-
-#[derive(Clone, Copy)]
-pub enum Color {
-    White,
-    Black,
 }

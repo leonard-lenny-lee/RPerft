@@ -20,7 +20,7 @@ impl Position {
             return Err(RuntimeError::ParseFenError);
         }
 
-        // Fill BBSet for white and black
+        // Fill BBSet for white and black. Set 'us' as white for now
         let mut us = BBSet::new_empty();
         let mut them = BBSet::new_empty();
         let mut board_tokens: Vec<&str> = tokens[0].split("/").collect();
@@ -75,9 +75,9 @@ impl Position {
         let free = !occ;
 
         // Set side to move
-        let stm = match tokens[1] {
-            "w" => Color::White,
-            "b" => Color::Black,
+        let (wtm, stm) = match tokens[1] {
+            "w" => (true, Color::White),
+            "b" => (false, Color::Black),
             _ => return Err(RuntimeError::ParseFenError),
         };
 
@@ -131,13 +131,18 @@ impl Position {
             halfmove_clock,
             fullmove_clock,
             key: 0,
+            wtm,
             stm,
             ply: 0,
+            score: Score::new_equal(),
             unmake_info: Vec::new(),
         };
 
         // Initialize Zobrist key
         pos.key = pos.generate_key();
+        // Initialize score
+        pos.init_score();
+        // Check that the king cannot be captured
         pos.check_legal()?;
         return Ok(pos);
     }
@@ -158,8 +163,10 @@ impl Position {
             halfmove_clock: self.halfmove_clock,
             fullmove_clock: self.fullmove_clock,
             key: self.key,
+            wtm: self.wtm,
             stm: self.stm,
             ply: self.ply,
+            score: self.score,
             unmake_info: Vec::new(),
         }
     }

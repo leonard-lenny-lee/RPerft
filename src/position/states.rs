@@ -9,12 +9,8 @@ impl Position {
             Color::White => Color::Black,
             Color::Black => Color::White,
         };
+        self.wtm = !self.wtm;
         std::mem::swap(&mut self.us, &mut self.them)
-    }
-
-    /// Return the boolean value of whether it's white to move
-    pub fn wtm(&self) -> bool {
-        return matches!(self.stm, Color::White);
     }
 
     pub fn white_black(&self) -> (&BBSet, &BBSet) {

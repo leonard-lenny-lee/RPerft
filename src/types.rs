@@ -11,6 +11,12 @@ pub enum PieceType {
     King,
 }
 
+#[derive(Clone, Copy)]
+pub enum Color {
+    White,
+    Black,
+}
+
 impl PieceType {
     /// Returns an iterator that iterates through the pieces only
     pub fn iterpieces() -> std::slice::Iter<'static, PieceType> {
