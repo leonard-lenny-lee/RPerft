@@ -12,7 +12,6 @@ pub mod movegen;
 pub mod movelist;
 pub mod position;
 pub mod search;
-pub mod tables;
 pub mod types;
 pub mod uci;
 

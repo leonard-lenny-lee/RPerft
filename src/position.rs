@@ -1,6 +1,4 @@
-/// Contains the Position struct, which wraps the Data struct, which fully
-/// describes a chess position, as well as its Zobrist Hash and state machine
-/// which changes the behavior for when it's wtm or btm.
+/// Contains the internal representation of a chess position
 use super::*;
 mod analysis;
 mod parse;
