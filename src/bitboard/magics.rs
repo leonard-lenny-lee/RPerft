@@ -52,7 +52,7 @@ impl MagicTable {
 
     fn init_tables(&mut self) {
         use std::iter::zip;
-        for (sq, ((_magic, mask), _shift)) in
+        for (sq, ((magic_factor, mask), shift)) in
             zip(zip(self.magic_factors, self.masks), self.shifts).enumerate()
         {
             let n_bits = mask.count_ones();
@@ -79,7 +79,7 @@ impl MagicTable {
                 };
                 #[cfg(not(USE_PEXT))]
                 {
-                    key = (occ.wrapping_mul(*_magic) >> _shift) as usize
+                    key = (occ.wrapping_mul(*magic_factor) >> shift) as usize
                 };
                 self.tables[sq][key] = match self.table_type {
                     TableType::Bishop => BB::from_sq(sq).bishop_hq(BB(occ)),
@@ -89,21 +89,20 @@ impl MagicTable {
         }
     }
 
+    #[cfg(USE_PEXT)]
+    fn lu(&self, sq: BB, occ: BB) -> BB {
+        let sq_key = sq.ils1b();
+        let key = unsafe { std::arch::x86_64::_pext_u64(occ.0, self.masks[sq_key]) };
+        return self.tables[sq_key][key as usize];
+    }
+
+    #[cfg(not(USE_PEXT))]
     fn lu(&self, sq: BB, occ: BB) -> BB {
         assert!(sq.0.count_ones() == 1);
         let sq_key = sq.ils1b();
-        // Hash the occlusion bitboard
-        #[cfg(USE_PEXT)]
-        {
-            let key = unsafe { std::arch::x86_64::_pext_u64(occ.0, self.masks[sq_key]) };
-            return self.tables[sq_key][key as usize];
-        }
-        #[cfg(not(USE_PEXT))]
-        {
-            let key = (occ.0 & self.masks[sq_key]).wrapping_mul(self.magic_factors[sq_key])
-                >> self.shifts[sq_key];
-            return self.tables[sq_key][key as usize];
-        }
+        let key = (occ.0 & self.masks[sq_key]).wrapping_mul(self.magic_factors[sq_key])
+            >> self.shifts[sq_key];
+        return self.tables[sq_key][key as usize];
     }
 }
 
