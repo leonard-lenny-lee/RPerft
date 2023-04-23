@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
+#[macro_use]
+extern crate static_assertions;
 extern crate vampirc_uci as v_uci;
 
 pub mod bitboard;
@@ -10,6 +12,7 @@ pub mod hash;
 pub mod makemove;
 pub mod movegen;
 pub mod movelist;
+pub mod nnue;
 pub mod position;
 pub mod search;
 pub mod types;
