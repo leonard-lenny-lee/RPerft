@@ -35,8 +35,4 @@ fn main() {
         }
     }
     println!("cargo:rustc-cfg=USE_{}", simd);
-
-    if simd != "AUTO" {
-        println!("cargo:rustc-cfg=VECTOR");
-    }
 }

@@ -5,13 +5,23 @@ enum Colors {
     White, Black
 }
 
+/**
+* Internal piece representation
+*     wking=1, wqueen=2, wrook=3, wbishop= 4, wknight= 5, wpawn= 6,
+*     bking=7, bqueen=8, brook=9, bbishop=10, bknight=11, bpawn=12
+*
+* Make sure the piecesyou pass to the library from your engine
+* use this format.
+*/
 #[rustfmt::skip]
 enum Pieces {
     Blank = 0, WKing, WQueen, WRook, WBishop, WKnight, WPawn,
                BKing, BQueen, BRook, BBishop, BKnight, BPawn,
 }
 
-// NNUE data structures
+/**
+* nnue data structure
+*/
 struct DirtyPiece {
     dirty_num: usize,
     pc: [usize; 3],
@@ -133,64 +143,20 @@ const_assert!(K_HALF_DIMENSIONS % 256 == 0);
 mod neon {
     pub use std::arch::aarch64::*;
     pub const SIMD_WIDTH: usize = 128;
+    pub const NUM_REGS: usize = 16;
+    pub const TILE_HEIGHT: usize = NUM_REGS * SIMD_WIDTH / 16;
     pub type vec16_t = int16x8_t;
     pub type vec8_t = int8x16_t;
-
-    macro_rules! load_vec16_t {
-        ($ptr: expr) => {
-            vld1q_s16($ptr)
-        };
-    }
-
-    macro_rules! store_vec8_t {
-        ($ptr: expr, $vec: expr) => {
-            vst1q_s8($ptr, $vec)
-        };
-    }
-
-    macro_rules! vec_add_16 {
-        ($a: expr, $b: expr) => {
-            vaddq_s16($a, $b)
-        };
-    }
-
-    macro_rules! vec_sub_16 {
-        ($a: expr, $b: expr) => {
-            vsubq_s16($a, $b)
-        };
-    }
-
-    macro_rules! vec_packs {
-        ($a: ident, $b: ident) => {
-            vcombine_s8(vqmovn_s16($a), vqmovn_s16($b))
-        };
-    }
-
-    macro_rules! vec_mask_pos {
-        ($a: ident) => {
-            neon_movemask(vcgtq_s8($a, vdupq_n_s8(0)))
-        };
-    }
-
-    pub const NUM_REGS: usize = 16;
-
-    pub fn neon_movemask(v: uint8x16_t) -> mask_t {
-        const POWERS: [u8; 16] = [1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128];
-        let k_powers: uint8x16_t = unsafe { vld1q_u8(POWERS.as_ptr()) };
-
-        let mask = unsafe { vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vandq_u8(v, k_powers)))) };
-        return unsafe {
-            vgetq_lane_u8(vreinterpretq_u8_u64(mask), 0) as mask_t
-                | (vgetq_lane_u8(vreinterpretq_u8_u64(mask), 8) << 8) as mask_t
-        };
-    }
     pub type mask_t = u16;
-}
 
-#[cfg(VECTOR)]
-mod vector {
-    use super::*;
-    pub const TILE_HEIGHT: usize = NUM_REGS * SIMD_WIDTH / 16;
+    pub unsafe fn neon_movemask(v: uint8x16_t) -> mask_t {
+        const POWERS: [u8; 16] = [1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128];
+        let k_powers = vld1q_u8(POWERS.as_ptr());
+
+        let mask = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vandq_u8(v, k_powers))));
+        return vgetq_lane_u8(vreinterpretq_u8_u64(mask), 0) as mask_t
+            | (vgetq_lane_u8(vreinterpretq_u8_u64(mask), 8) << 8) as mask_t;
+    }
 }
 
 #[cfg(USE_AUTO)]
@@ -201,9 +167,6 @@ mod auto {
 
 #[cfg(USE_NEON)]
 use neon::*;
-
-#[cfg(VECTOR)]
-use vector::*;
 
 #[cfg(USE_AUTO)]
 use auto::*;
@@ -453,21 +416,25 @@ impl NNUE {
         for p in 0..2 {
             let offset = K_HALF_DIMENSIONS * p;
 
-            #[cfg(VECTOR)]
+            #[cfg(USE_NEON)]
             unsafe {
                 const NUM_CHUNKS: usize = (16 * K_HALF_DIMENSIONS) / SIMD_WIDTH;
                 const CHUNK_SIZE: usize = size_of::<vec16_t>() / size_of::<i16>();
                 let out: *mut i8 = &mut output[offset];
                 for i in 0..(NUM_CHUNKS / 2) {
-                    let s0 = load_vec16_t!(accumulation[perspectives[p]]
-                        .as_ptr()
-                        .add(i * 2 * CHUNK_SIZE));
-                    let s1 = load_vec16_t!(accumulation[perspectives[p]]
-                        .as_ptr()
-                        .add((i * 2 + 1) * CHUNK_SIZE));
-                    let out_vec = vec_packs!(s0, s1);
-                    store_vec8_t!(out.add(i * size_of::<vec8_t>()), out_vec);
-                    out_mask[mask_idx] = vec_mask_pos!(out_vec);
+                    let s0 = vld1q_s16(
+                        accumulation[perspectives[p]]
+                            .as_ptr()
+                            .add(i * 2 * CHUNK_SIZE),
+                    );
+                    let s1 = vld1q_s16(
+                        accumulation[perspectives[p]]
+                            .as_ptr()
+                            .add((i * 2 + 1) * CHUNK_SIZE),
+                    );
+                    let out_vec = vcombine_s8(vqmovn_s16(s0), vqmovn_s16(s1));
+                    vst1q_s8(out.add(i * size_of::<vec8_t>()), out_vec);
+                    out_mask[mask_idx] = neon_movemask(vcgtq_s8(out_vec, vdupq_n_s8(0)));
                     mask_idx += 1;
                 }
             }
@@ -499,19 +466,24 @@ impl NNUE {
             assert!(biases.len() == 32);
 
             let biases = biases.as_ptr();
-            const BIAS_OFFSET: usize = size_of::<int32x4_t>() / size_of::<i32>();
-            let mut out_0 = vld1q_s32(biases.add(0 * BIAS_OFFSET));
-            let mut out_1 = vld1q_s32(biases.add(1 * BIAS_OFFSET));
-            let mut out_2 = vld1q_s32(biases.add(2 * BIAS_OFFSET));
-            let mut out_3 = vld1q_s32(biases.add(3 * BIAS_OFFSET));
-            let mut out_4 = vld1q_s32(biases.add(4 * BIAS_OFFSET));
-            let mut out_5 = vld1q_s32(biases.add(5 * BIAS_OFFSET));
-            let mut out_6 = vld1q_s32(biases.add(6 * BIAS_OFFSET));
-            let mut out_7 = vld1q_s32(biases.add(7 * BIAS_OFFSET));
+            const BIAS_WIDTH: usize = size_of::<int32x4_t>() / size_of::<i32>();
+            let mut out_0 = vld1q_s32(biases.add(0 * BIAS_WIDTH));
+            let mut out_1 = vld1q_s32(biases.add(1 * BIAS_WIDTH));
+            let mut out_2 = vld1q_s32(biases.add(2 * BIAS_WIDTH));
+            let mut out_3 = vld1q_s32(biases.add(3 * BIAS_WIDTH));
+            let mut out_4 = vld1q_s32(biases.add(4 * BIAS_WIDTH));
+            let mut out_5 = vld1q_s32(biases.add(5 * BIAS_WIDTH));
+            let mut out_6 = vld1q_s32(biases.add(6 * BIAS_WIDTH));
+            let mut out_7 = vld1q_s32(biases.add(7 * BIAS_WIDTH));
 
-            let mut v = std::mem::transmute::<[mask_t; 4], mask2_t>(
-                in_mask[0..4].try_into().expect("slice incorrect length"),
-            ); // Dodgy, review
+            let mut v = 0;
+
+            std::ptr::copy_nonoverlapping(
+                // Cast pointer types as u8 so count is interpreted as bytes
+                in_mask.as_ptr() as *const u8,
+                &mut v as *mut mask2_t as *mut u8,
+                size_of::<mask2_t>(),
+            );
 
             let mut idx = 0;
             let mut offset = 0;
@@ -614,7 +586,7 @@ impl NNUE {
 
         let accumulator = unsafe { &mut (*pos.nnue[0]).accumulator };
 
-        #[cfg(VECTOR)]
+        #[cfg(USE_NEON)]
         unsafe {
             const VSIZE: usize = size_of::<vec16_t>() / size_of::<u16>();
             for c in 0..2 {
@@ -635,7 +607,7 @@ impl NNUE {
                         let column = self.ft_weights.as_ptr().add(offset);
 
                         for j in 0..NUM_REGS {
-                            acc[j] = vec_add_16!(acc[j], vld1q_s16(column.add(VSIZE * j)));
+                            acc[j] = vaddq_s16(acc[j], vld1q_s16(column.add(VSIZE * j)));
                         }
                     }
 
@@ -651,7 +623,7 @@ impl NNUE {
                 std::ptr::copy_nonoverlapping(
                     self.ft_biases.as_ptr(),
                     accumulator.accumulation[c].as_mut_ptr(),
-                    K_HALF_DIMENSIONS * size_of::<i16>(),
+                    K_HALF_DIMENSIONS,
                 );
             }
             for k in 0..active_indices[c].size {
@@ -700,7 +672,7 @@ impl NNUE {
         let mut reset = [false; 2];
         append_changed_indices(pos, &mut removed_indices, &mut added_indices, &mut reset);
 
-        #[cfg(VECTOR)]
+        #[cfg(USE_NEON)]
         {
             const VSIZE: usize = size_of::<vec16_t>() / size_of::<u16>();
             for i in 0..K_HALF_DIMENSIONS / TILE_HEIGHT {
@@ -713,13 +685,13 @@ impl NNUE {
                     if reset[c] {
                         let ft_b_tile = self.ft_biases.as_ptr().add(i * TILE_HEIGHT);
                         for j in 0..NUM_REGS {
-                            acc.push(load_vec16_t!(ft_b_tile.add(j * VSIZE)))
+                            acc.push(vld1q_s16(ft_b_tile.add(j * VSIZE)))
                         }
                     } else {
                         let prev_acc_tile =
                             (*prev_acc).accumulation[c].as_ptr().add(i * TILE_HEIGHT);
                         for j in 0..NUM_REGS {
-                            acc.push(load_vec16_t!(prev_acc_tile.add(j * VSIZE)))
+                            acc.push(vld1q_s16(prev_acc_tile.add(j * VSIZE)))
                         }
 
                         // Difference calculation for the deactivated features
@@ -729,7 +701,7 @@ impl NNUE {
 
                             let column = self.ft_weights.as_ptr().add(offset);
                             for j in 0..NUM_REGS {
-                                acc[j] = vec_sub_16!(acc[j], vld1q_s16(column.add(j * VSIZE)));
+                                acc[j] = vsubq_s16(acc[j], vld1q_s16(column.add(j * VSIZE)));
                             }
                         }
 
@@ -748,13 +720,13 @@ impl NNUE {
                     std::ptr::copy_nonoverlapping(
                         nn.ft_biases.as_ptr(),
                         (*accumulator).accumulation[c].as_mut_ptr(),
-                        K_HALF_DIMENSIONS * size_of::<i16>(),
+                        K_HALF_DIMENSIONS,
                     )
                 } else {
                     std::ptr::copy_nonoverlapping(
                         (*prev_acc).accumulation[c].as_ptr(),
                         (*accumulator).accumulation[c].as_mut_ptr(),
-                        K_HALF_DIMENSIONS * size_of::<i16>(),
+                        K_HALF_DIMENSIONS,
                     );
                     // Difference calculation for the deactivated features
                     for k in 0..removed_indices[c].size {
@@ -784,7 +756,7 @@ impl NNUE {
     }
 }
 
-#[cfg(VECTOR)]
+#[cfg(USE_NEON)]
 fn next_idx(
     idx: &mut usize,
     offset: &mut usize,
@@ -803,7 +775,7 @@ fn next_idx(
                 v as *mut mask2_t as *mut u8,
                 size_of::<mask2_t>(),
             )
-        }; // TODO Dodgy, review
+        };
     }
     *idx = *offset + v.trailing_zeros() as usize;
     *v &= *v - 1;
