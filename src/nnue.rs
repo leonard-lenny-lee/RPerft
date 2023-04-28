@@ -1,4 +1,7 @@
-use std::mem::size_of;
+/// NNUE probing library ported from C++ library: https://github.com/dshawul/nnue-probe
+use std::mem;
+use std::os::unix::prelude::MetadataExt;
+use std::ptr;
 
 #[rustfmt::skip]
 enum Colors {
@@ -289,9 +292,9 @@ fn append_changed_indices(
 pub struct NNUE {
     ft_weights: [i16; K_HALF_DIMENSIONS * FT_IN_DIMS],
     ft_biases: [i16; K_HALF_DIMENSIONS],
-    hidden1_weights: [weight_t; 64 * 512],
+    hidden1_weights: [weight_t; 32 * 512],
     hidden1_biases: [i32; 32],
-    hidden2_weights: [weight_t; 64 * 32],
+    hidden2_weights: [weight_t; 32 * 32],
     hidden2_biases: [i32; 32],
     output_weights: [weight_t; 1 * 32],
     output_biases: [i32; 1],
@@ -300,8 +303,8 @@ pub struct NNUE {
 // Evaluation routines
 impl NNUE {
     pub fn evaluate_pos(&self, pos: &mut Position) -> i32 {
-        let mut input_mask = [0; FT_OUT_DIMS / (8 * size_of::<mask_t>())];
-        let mut hidden1_mask = [0; 8 / size_of::<mask_t>()];
+        let mut input_mask = [0; FT_OUT_DIMS / (8 * mem::size_of::<mask_t>())];
+        let mut hidden1_mask = [0; 8 / mem::size_of::<mask_t>()];
         let mut buf = NetData::init();
 
         // Input layer
@@ -363,11 +366,7 @@ impl NNUE {
             player,
             pieces,
             squares,
-            nnue: [
-                &mut nnue as *mut NNUEData,
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
-            ],
+            nnue: [&mut nnue as *mut NNUEData, ptr::null_mut(), ptr::null_mut()],
         };
         return self.evaluate_pos(&mut pos);
     }
@@ -390,8 +389,7 @@ impl NNUE {
         nnue: [*mut NNUEData; 3],
     ) -> i32 {
         assert!(
-            !nnue[0].is_null()
-                && unsafe { std::mem::align_of_val(&(*nnue[0]).accumulator) % 64 == 0 }
+            !nnue[0].is_null() && unsafe { mem::align_of_val(&(*nnue[0]).accumulator) % 64 == 0 }
         );
 
         let mut pos = Position {
@@ -419,7 +417,7 @@ impl NNUE {
             #[cfg(USE_NEON)]
             unsafe {
                 const NUM_CHUNKS: usize = (16 * K_HALF_DIMENSIONS) / SIMD_WIDTH;
-                const CHUNK_SIZE: usize = size_of::<vec16_t>() / size_of::<i16>();
+                const CHUNK_SIZE: usize = mem::size_of::<vec16_t>() / mem::size_of::<i16>();
                 let out: *mut i8 = &mut output[offset];
                 for i in 0..(NUM_CHUNKS / 2) {
                     let s0 = vld1q_s16(
@@ -433,7 +431,7 @@ impl NNUE {
                             .add((i * 2 + 1) * CHUNK_SIZE),
                     );
                     let out_vec = vcombine_s8(vqmovn_s16(s0), vqmovn_s16(s1));
-                    vst1q_s8(out.add(i * size_of::<vec8_t>()), out_vec);
+                    vst1q_s8(out.add(i * mem::size_of::<vec8_t>()), out_vec);
                     out_mask[mask_idx] = neon_movemask(vcgtq_s8(out_vec, vdupq_n_s8(0)));
                     mask_idx += 1;
                 }
@@ -466,7 +464,7 @@ impl NNUE {
             assert!(biases.len() == 32);
 
             let biases = biases.as_ptr();
-            const BIAS_WIDTH: usize = size_of::<int32x4_t>() / size_of::<i32>();
+            const BIAS_WIDTH: usize = mem::size_of::<int32x4_t>() / mem::size_of::<i32>();
             let mut out_0 = vld1q_s32(biases.add(0 * BIAS_WIDTH));
             let mut out_1 = vld1q_s32(biases.add(1 * BIAS_WIDTH));
             let mut out_2 = vld1q_s32(biases.add(2 * BIAS_WIDTH));
@@ -478,11 +476,11 @@ impl NNUE {
 
             let mut v = 0;
 
-            std::ptr::copy_nonoverlapping(
+            ptr::copy_nonoverlapping(
                 // Cast pointer types as u8 so count is interpreted as bytes
                 in_mask.as_ptr() as *const u8,
                 &mut v as *mut mask2_t as *mut u8,
-                size_of::<mask2_t>(),
+                mem::size_of::<mask2_t>(),
             );
 
             let mut idx = 0;
@@ -521,7 +519,7 @@ impl NNUE {
                 vst1q_s8(out_vec, out0_vec);
                 out_mask[0] = neon_movemask(vcgtq_s8(out0_vec, k_zero));
                 let out1_vec = vcombine_s8(vqmovn_s16(out_16_2), vqmovn_s16(out_16_3));
-                vst1q_s8(out_vec.add(size_of::<int8x16_t>()), out1_vec);
+                vst1q_s8(out_vec.add(mem::size_of::<int8x16_t>()), out1_vec);
                 out_mask[1] = neon_movemask(vcgtq_s8(out1_vec, k_zero));
             } else {
                 // The next step takes int8x8_t as input, so store as int8x8_t
@@ -588,7 +586,7 @@ impl NNUE {
 
         #[cfg(USE_NEON)]
         unsafe {
-            const VSIZE: usize = size_of::<vec16_t>() / size_of::<u16>();
+            const VSIZE: usize = mem::size_of::<vec16_t>() / mem::size_of::<u16>();
             for c in 0..2 {
                 for i in 0..(K_HALF_DIMENSIONS / TILE_HEIGHT) {
                     let ft_biases_tile = self.ft_biases.as_ptr().add(i * TILE_HEIGHT);
@@ -620,7 +618,7 @@ impl NNUE {
         #[cfg(USE_AUTO)]
         for c in 0..2 {
             unsafe {
-                std::ptr::copy_nonoverlapping(
+                ptr::copy_nonoverlapping(
                     self.ft_biases.as_ptr(),
                     accumulator.accumulation[c].as_mut_ptr(),
                     K_HALF_DIMENSIONS,
@@ -647,7 +645,7 @@ impl NNUE {
             return true;
         }
 
-        let mut prev_acc = std::ptr::null::<Accumulator>();
+        let mut prev_acc = ptr::null::<Accumulator>();
 
         if (pos.nnue[1].is_null()
             || (*{
@@ -674,7 +672,7 @@ impl NNUE {
 
         #[cfg(USE_NEON)]
         {
-            const VSIZE: usize = size_of::<vec16_t>() / size_of::<u16>();
+            const VECTOR_COUNT: usize = mem::size_of::<vec16_t>() / mem::size_of::<u16>();
             for i in 0..K_HALF_DIMENSIONS / TILE_HEIGHT {
                 for c in 0..2 {
                     let acc_tile = (*accumulator).accumulation[c]
@@ -685,13 +683,13 @@ impl NNUE {
                     if reset[c] {
                         let ft_b_tile = self.ft_biases.as_ptr().add(i * TILE_HEIGHT);
                         for j in 0..NUM_REGS {
-                            acc.push(vld1q_s16(ft_b_tile.add(j * VSIZE)))
+                            acc.push(vld1q_s16(ft_b_tile.add(j * VECTOR_COUNT)))
                         }
                     } else {
                         let prev_acc_tile =
                             (*prev_acc).accumulation[c].as_ptr().add(i * TILE_HEIGHT);
                         for j in 0..NUM_REGS {
-                            acc.push(vld1q_s16(prev_acc_tile.add(j * VSIZE)))
+                            acc.push(vld1q_s16(prev_acc_tile.add(j * VECTOR_COUNT)))
                         }
 
                         // Difference calculation for the deactivated features
@@ -701,12 +699,12 @@ impl NNUE {
 
                             let column = self.ft_weights.as_ptr().add(offset);
                             for j in 0..NUM_REGS {
-                                acc[j] = vsubq_s16(acc[j], vld1q_s16(column.add(j * VSIZE)));
+                                acc[j] = vsubq_s16(acc[j], vld1q_s16(column.add(j * VECTOR_COUNT)));
                             }
                         }
 
                         for j in 0..NUM_REGS {
-                            vst1q_s16(acc_tile.add(j * VSIZE), acc[j])
+                            vst1q_s16(acc_tile.add(j * VECTOR_COUNT), acc[j])
                         }
                     }
                 }
@@ -717,13 +715,13 @@ impl NNUE {
         {
             for c in 0..2 {
                 if reset[c] {
-                    std::ptr::copy_nonoverlapping(
+                    ptr::copy_nonoverlapping(
                         nn.ft_biases.as_ptr(),
                         (*accumulator).accumulation[c].as_mut_ptr(),
                         K_HALF_DIMENSIONS,
                     )
                 } else {
-                    std::ptr::copy_nonoverlapping(
+                    ptr::copy_nonoverlapping(
                         (*prev_acc).accumulation[c].as_ptr(),
                         (*accumulator).accumulation[c].as_mut_ptr(),
                         K_HALF_DIMENSIONS,
@@ -765,15 +763,15 @@ fn next_idx(
     in_dims: usize,
 ) -> bool {
     while *v == 0 {
-        *offset += 8 * size_of::<mask2_t>();
+        *offset += 8 * mem::size_of::<mask2_t>();
         if *offset >= in_dims {
             return false;
         }
         unsafe {
-            std::ptr::copy_nonoverlapping(
+            ptr::copy_nonoverlapping(
                 (mask.as_ptr() as *const u8).add(*offset / 8),
                 v as *mut mask2_t as *mut u8,
-                size_of::<mask2_t>(),
+                mem::size_of::<mask2_t>(),
             )
         };
     }
@@ -782,7 +780,6 @@ fn next_idx(
     return true;
 }
 
-#[repr(align(64))]
 struct NetData {
     input: [clipped_t; FT_OUT_DIMS],
     hidden1_out: [clipped_t; 32],
@@ -799,51 +796,122 @@ impl NetData {
     }
 }
 
+const TRANSFORMER_START: usize = 3 * 4 + 177;
+const NETWORK_START: usize = TRANSFORMER_START + 4 + 2 * 256 + 2 * 256 * 64 * 641;
+
+macro_rules! read_le {
+    ($T: ty, $data: ident, $index: expr) => {{
+        let arr: [u8; mem::size_of::<$T>()] = $data[$index..$index + mem::size_of::<$T>()]
+            .try_into()
+            .unwrap();
+        <$T>::from_le_bytes(arr)
+    }};
+}
+
 // Initialization routines
 impl NNUE {
     pub fn init(eval_file: &str) -> Result<(), Box<dyn std::error::Error>> {
         println!("Loading NNUE : {eval_file}");
-        let nn = NNUE {
+
+        let mut nn = NNUE {
             ft_weights: [0; K_HALF_DIMENSIONS * FT_IN_DIMS],
             ft_biases: [0; K_HALF_DIMENSIONS],
-            hidden1_weights: [0; 64 * 512],
+            hidden1_weights: [0; 32 * 512],
             hidden1_biases: [0; 32],
-            hidden2_weights: [0; 64 * 32],
+            hidden2_weights: [0; 32 * 32],
             hidden2_biases: [0; 32],
             output_weights: [0; 1 * 32],
             output_biases: [0; 1],
         };
 
-        nn.load_eval_file(eval_file)?;
-        return Ok(());
+        let fp = std::path::Path::new(eval_file);
+        let r = nn.load_eval_file(fp);
+
+        match r {
+            Ok(()) => println!("NNUE Loaded"),
+            Err(_) => println!("NNUE file not found"),
+        }
+
+        return r;
     }
 
-    fn load_eval_file(&self, eval_file: &str) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
+    fn load_eval_file(&mut self, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        let fd = std::fs::File::open(path)?;
+        let size = fd.metadata()?.size();
+
+        let eval_data = std::fs::read(path)?;
+
+        if self.verify_net(&eval_data, size) {
+            self.init_weights(&eval_data);
+        };
+        Ok(())
     }
-}
 
-fn read_output_weights(w: &mut [weight_t], d: &[u8]) {
-    for i in 0..32 {
-        w[i] = d[i] as weight_t;
+    fn verify_net(&self, eval_data: &Vec<u8>, size: u64) -> bool {
+        if size != 21022697 {
+            return false;
+        }
+        if read_le!(u32, eval_data, 0) != NNUE_VERSION {
+            return false;
+        }
+        if read_le!(u32, eval_data, 4) != 0x3e5aa6ee {
+            return false;
+        }
+        if read_le!(u32, eval_data, 8) != 177 {
+            return false;
+        }
+        if read_le!(u32, eval_data, TRANSFORMER_START) != 0x5d69d7b8 {
+            return false;
+        }
+        if read_le!(u32, eval_data, NETWORK_START) != 0x63337156 {
+            return false;
+        }
+
+        return true;
     }
-}
 
-#[inline(always)]
-fn wt_idx(r: usize, c: usize, dims: usize) -> usize {
-    return c * 32 + r;
-}
+    fn init_weights(&mut self, eval_data: &Vec<u8>) {
+        let mut d = TRANSFORMER_START + 4;
 
-fn read_hidden_weights<'a>(w: &'a mut [weight_t], dims: usize, d: &'a [u8]) -> &'a [u8] {
-    let mut d = d;
-    for r in 0..32 {
-        for c in 0..dims {
-            w[wt_idx(r, c, dims)] = d[0] as weight_t;
-            d = &d[1..];
+        // Read transformer
+        for i in 0..K_HALF_DIMENSIONS {
+            self.ft_biases[i] = read_le!(i16, eval_data, d);
+            d += 2;
+        }
+        for i in 0..(K_HALF_DIMENSIONS * FT_IN_DIMS) {
+            self.ft_weights[i] = read_le!(i16, eval_data, d);
+            d += 2;
+        }
+
+        // Read network
+        d += 4;
+        for i in 0..32 {
+            self.hidden1_biases[i] = read_le!(i32, eval_data, d);
+            d += 4;
+        }
+        for r in 0..32 {
+            for c in 0..512 {
+                self.hidden1_weights[c * 32 + r] = read_le!(weight_t, eval_data, d);
+                d += 1;
+            }
+        }
+        for i in 0..32 {
+            self.hidden2_biases[i] = read_le!(i32, eval_data, d);
+            d += 4;
+        }
+        for r in 0..32 {
+            for c in 0..32 {
+                self.hidden2_weights[c * 32 + r] = read_le!(weight_t, eval_data, d);
+                d += 1;
+            }
+        }
+        for i in 0..1 {
+            self.output_biases[i] = read_le!(i32, eval_data, d);
+            d += 4;
+        }
+        for i in 0..32 {
+            self.output_weights[i] = read_le!(weight_t, eval_data, d);
+            d += 1;
         }
     }
-    return d;
 }
-
-const TRANSFORMER_START: usize = 3 * 4 + 177;
-const NETWORK_START: usize = TRANSFORMER_START + 4 + 2 * 256 + 2 * 256 * 64 * 641;
