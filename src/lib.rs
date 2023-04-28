@@ -12,6 +12,7 @@ pub mod hash;
 pub mod makemove;
 pub mod movegen;
 pub mod movelist;
+#[allow(non_camel_case_types)]
 pub mod nnue;
 pub mod position;
 pub mod search;

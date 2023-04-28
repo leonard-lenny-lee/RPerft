@@ -1,10 +1,9 @@
 /// NNUE probing library ported from C++ library: https://github.com/dshawul/nnue-probe
 use std::mem;
-use std::os::unix::prelude::MetadataExt;
 use std::ptr;
 
 #[rustfmt::skip]
-enum Colors {
+pub enum Colors {
     White, Black
 }
 
@@ -13,11 +12,11 @@ enum Colors {
 *     wking=1, wqueen=2, wrook=3, wbishop= 4, wknight= 5, wpawn= 6,
 *     bking=7, bqueen=8, brook=9, bbishop=10, bknight=11, bpawn=12
 *
-* Make sure the piecesyou pass to the library from your engine
+* Make sure the pieces you pass to the library from your engine
 * use this format.
 */
 #[rustfmt::skip]
-enum Pieces {
+pub enum Pieces {
     Blank = 0, WKing, WQueen, WRook, WBishop, WKnight, WPawn,
                BKing, BQueen, BRook, BBishop, BKnight, BPawn,
 }
@@ -25,22 +24,12 @@ enum Pieces {
 /**
 * nnue data structure
 */
+#[derive(Default)]
 struct DirtyPiece {
     dirty_num: usize,
     pc: [usize; 3],
     from: [usize; 3],
     to: [usize; 3],
-}
-
-impl DirtyPiece {
-    fn init() -> DirtyPiece {
-        DirtyPiece {
-            dirty_num: 0,
-            pc: [0; 3],
-            from: [0; 3],
-            to: [0; 3],
-        }
-    }
 }
 
 #[repr(align(64))]
@@ -49,27 +38,19 @@ struct Accumulator {
     computed_accumulation: bool,
 }
 
-impl Accumulator {
-    fn init() -> Accumulator {
-        Accumulator {
-            accumulation: [[0; 256]; 2],
-            computed_accumulation: false,
+impl Default for Accumulator {
+    fn default() -> Self {
+        Self {
+            accumulation: [[i16::default(); 256]; 2],
+            computed_accumulation: bool::default(),
         }
     }
 }
 
+#[derive(Default)]
 pub struct NNUEData {
     accumulator: Accumulator,
     dirty_piece: DirtyPiece,
-}
-
-impl NNUEData {
-    fn init() -> NNUEData {
-        NNUEData {
-            accumulator: Accumulator::init(),
-            dirty_piece: DirtyPiece::init(),
-        }
-    }
 }
 
 /**
@@ -142,7 +123,6 @@ const FT_OUT_DIMS: usize = K_HALF_DIMENSIONS * 2;
 const_assert!(K_HALF_DIMENSIONS % 256 == 0);
 
 #[cfg(USE_NEON)]
-#[macro_use]
 mod neon {
     pub use std::arch::aarch64::*;
     pub const SIMD_WIDTH: usize = 128;
@@ -178,18 +158,10 @@ type mask2_t = u64;
 type clipped_t = i8;
 type weight_t = i8;
 
+#[derive(Clone, Copy, Default)]
 struct IndexList {
     size: usize,
     values: [usize; 30],
-}
-
-impl IndexList {
-    fn init() -> IndexList {
-        IndexList {
-            size: 0,
-            values: [0; 30],
-        }
-    }
 }
 
 #[inline(always)]
@@ -252,6 +224,7 @@ fn append_changed_indices(
     added: &mut [IndexList; 2],
     reset: &mut [bool; 2],
 ) {
+    assert!(!pos.nnue[0].is_null() && !pos.nnue[1].is_null());
     let dp = unsafe { &(*pos.nnue[0]).dirty_piece };
 
     if unsafe { (*pos.nnue[1]).accumulator.computed_accumulation } {
@@ -305,7 +278,7 @@ impl NNUE {
     pub fn evaluate_pos(&self, pos: &mut Position) -> i32 {
         let mut input_mask = [0; FT_OUT_DIMS / (8 * mem::size_of::<mask_t>())];
         let mut hidden1_mask = [0; 8 / mem::size_of::<mask_t>()];
-        let mut buf = NetData::init();
+        let mut buf = NetData::default();
 
         // Input layer
         self.transform(pos, &mut buf.input, &mut input_mask);
@@ -361,7 +334,7 @@ impl NNUE {
      *   Score relative to side to move in approximate centi-pawns
      */
     pub fn evaluate(&self, player: usize, pieces: [usize; 32], squares: [usize; 32]) -> i32 {
-        let mut nnue = NNUEData::init();
+        let mut nnue = NNUEData::default();
         let mut pos = Position {
             player,
             pieces,
@@ -579,7 +552,7 @@ impl NNUE {
 
     // Calculate cumulative value without using difference calculation
     fn refresh_accumulator(&self, pos: &mut Position) {
-        let mut active_indices = [IndexList::init(), IndexList::init()];
+        let mut active_indices = [IndexList::default(); 2];
         append_active_indices(pos, &mut active_indices);
 
         let accumulator = unsafe { &mut (*pos.nnue[0]).accumulator };
@@ -647,27 +620,21 @@ impl NNUE {
 
         let mut prev_acc = ptr::null::<Accumulator>();
 
-        if (pos.nnue[1].is_null()
-            || (*{
-                prev_acc = &(*pos.nnue[1]).accumulator;
-                prev_acc
-            })
-            .computed_accumulation)
-            || (pos.nnue[2].is_null()
-                || (*{
-                    prev_acc = &(*pos.nnue[2]).accumulator;
-                    prev_acc
-                })
-                .computed_accumulation)
-        {
+        if (pos.nnue[1].is_null() || {
+            prev_acc = &(*pos.nnue[1]).accumulator;
+            (*prev_acc).computed_accumulation
+        }) && (pos.nnue[2].is_null() || {
+            prev_acc = &(*pos.nnue[2]).accumulator;
+            (*prev_acc).computed_accumulation
+        }) {
             return false;
         }
 
         assert!(!prev_acc.is_null());
 
-        let mut removed_indices = [IndexList::init(), IndexList::init()];
-        let mut added_indices = [IndexList::init(), IndexList::init()];
-        let mut reset = [false; 2];
+        let mut removed_indices = [IndexList::default(); 2];
+        let mut added_indices = [IndexList::default(); 2];
+        let mut reset = [bool::default(); 2];
         append_changed_indices(pos, &mut removed_indices, &mut added_indices, &mut reset);
 
         #[cfg(USE_NEON)]
@@ -786,12 +753,12 @@ struct NetData {
     hidden2_out: [clipped_t; 32],
 }
 
-impl NetData {
-    fn init() -> NetData {
-        NetData {
-            input: [0; FT_OUT_DIMS],
-            hidden1_out: [0; 32],
-            hidden2_out: [0; 32],
+impl Default for NetData {
+    fn default() -> Self {
+        Self {
+            input: [clipped_t::default(); FT_OUT_DIMS],
+            hidden1_out: Default::default(),
+            hidden2_out: Default::default(),
         }
     }
 }
@@ -836,19 +803,16 @@ impl NNUE {
     }
 
     fn load_eval_file(&mut self, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-        let fd = std::fs::File::open(path)?;
-        let size = fd.metadata()?.size();
-
         let eval_data = std::fs::read(path)?;
 
-        if self.verify_net(&eval_data, size) {
+        if NNUE::verify_net(&eval_data) {
             self.init_weights(&eval_data);
         };
         Ok(())
     }
 
-    fn verify_net(&self, eval_data: &Vec<u8>, size: u64) -> bool {
-        if size != 21022697 {
+    fn verify_net(eval_data: &Vec<u8>) -> bool {
+        if eval_data.len() != 21022697 {
             return false;
         }
         if read_le!(u32, eval_data, 0) != NNUE_VERSION {
@@ -885,26 +849,11 @@ impl NNUE {
 
         // Read network
         d += 4;
-        for i in 0..32 {
-            self.hidden1_biases[i] = read_le!(i32, eval_data, d);
-            d += 4;
-        }
-        for r in 0..32 {
-            for c in 0..512 {
-                self.hidden1_weights[c * 32 + r] = read_le!(weight_t, eval_data, d);
-                d += 1;
-            }
-        }
-        for i in 0..32 {
-            self.hidden2_biases[i] = read_le!(i32, eval_data, d);
-            d += 4;
-        }
-        for r in 0..32 {
-            for c in 0..32 {
-                self.hidden2_weights[c * 32 + r] = read_le!(weight_t, eval_data, d);
-                d += 1;
-            }
-        }
+        NNUE::read_hidden_biases(&mut self.hidden1_biases, eval_data, &mut d);
+        NNUE::read_hidden_weights(&mut self.hidden1_weights, eval_data, 512, &mut d);
+        NNUE::read_hidden_biases(&mut self.hidden2_biases, eval_data, &mut d);
+        NNUE::read_hidden_weights(&mut self.hidden2_weights, eval_data, 32, &mut d);
+
         for i in 0..1 {
             self.output_biases[i] = read_le!(i32, eval_data, d);
             d += 4;
@@ -912,6 +861,22 @@ impl NNUE {
         for i in 0..32 {
             self.output_weights[i] = read_le!(weight_t, eval_data, d);
             d += 1;
+        }
+    }
+
+    fn read_hidden_biases(b: &mut [i32], eval_data: &Vec<u8>, d: &mut usize) {
+        for i in 0..32 {
+            b[i] = read_le!(i32, eval_data, *d);
+            *d += 4;
+        }
+    }
+
+    fn read_hidden_weights(w: &mut [weight_t], eval_data: &Vec<u8>, dim: usize, d: &mut usize) {
+        for r in 0..32 {
+            for c in 0..dim {
+                w[c * 32 + r] = read_le!(weight_t, eval_data, *d);
+                *d += 1;
+            }
         }
     }
 }
