@@ -24,6 +24,7 @@ pub struct Position {
     pub ply: u8,
     pub score: Score,
     pub unmake_info: Vec<makemove::UnmakeInfo>,
+    pub nnue_pos: NNUEPosition,
 }
 
 #[derive(Clone, Copy)]
@@ -35,4 +36,12 @@ pub struct BBSet {
     pub bishop: BB,
     pub queen: BB,
     pub king: BB,
+}
+
+#[derive(Default)]
+pub struct NNUEPosition {
+    player: usize,
+    pieces: [usize; 32],
+    squares: [usize; 32],
+    nnue_data: std::collections::VecDeque<nnue::NNUEData>,
 }

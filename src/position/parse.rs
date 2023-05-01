@@ -136,6 +136,7 @@ impl Position {
             ply: 0,
             score: Score::new_equal(),
             unmake_info: Vec::new(),
+            nnue_pos: NNUEPosition::init(board, stm),
         };
 
         // Initialize Zobrist key
@@ -168,6 +169,7 @@ impl Position {
             ply: self.ply,
             score: self.score,
             unmake_info: Vec::new(),
+            nnue_pos: NNUEPosition::default(),
         }
     }
 
@@ -325,6 +327,47 @@ impl BBSet {
             &self.queen,
             &self.king,
         ];
+    }
+}
+
+impl NNUEPosition {
+    fn init(board: String, stm: Color) -> NNUEPosition {
+        const PIECE_NAME: &str = "_KQRBNPkqrbnp_";
+        const NUMBERS: &str = "12345678";
+
+        let mut pieces = [0; 32];
+        let mut squares = [0; 32];
+
+        let mut sq = 0;
+        let mut index = 2;
+
+        for c in board.chars() {
+            if let Some(pc) = PIECE_NAME.find(c) {
+                if pc == 1 {
+                    pieces[0] = pc;
+                    squares[0] = sq;
+                } else if pc == 7 {
+                    pieces[1] = pc;
+                    squares[1] = sq;
+                } else {
+                    pieces[index] = pc;
+                    squares[index] = pc;
+                    index += 1;
+                }
+                sq += 1;
+            } else if let Some(_) = NUMBERS.find(c) {
+                sq += c.to_digit(10).expect("is number") as usize;
+            } else {
+                panic!("fen check error")
+            }
+        }
+
+        return NNUEPosition {
+            player: stm as usize,
+            pieces,
+            squares,
+            nnue_data: std::collections::VecDeque::new(),
+        };
     }
 }
 

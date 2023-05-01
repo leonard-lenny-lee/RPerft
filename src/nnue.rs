@@ -57,7 +57,7 @@ pub struct NNUEData {
 * position data structure passed to core subroutines
 *  See @nnue_evaluate for a description of parameters
 */
-pub struct Position {
+struct Position {
     player: usize,
     pieces: [usize; 32],
     squares: [usize; 32],
@@ -275,46 +275,6 @@ pub struct NNUE {
 
 // Evaluation routines
 impl NNUE {
-    pub fn evaluate_pos(&self, pos: &mut Position) -> i32 {
-        let mut input_mask = [0; FT_OUT_DIMS / (8 * mem::size_of::<mask_t>())];
-        let mut hidden1_mask = [0; 8 / mem::size_of::<mask_t>()];
-        let mut buf = NetData::default();
-
-        // Input layer
-        self.transform(pos, &mut buf.input, &mut input_mask);
-
-        // Hidden 1 Layer
-        self.affine_txfm(
-            &buf.input,
-            &mut buf.hidden1_out,
-            FT_OUT_DIMS,
-            32,
-            &self.hidden1_biases,
-            &self.hidden1_weights,
-            &input_mask,
-            &mut hidden1_mask,
-            true,
-        );
-
-        // Hidden 2 Layer
-        self.affine_txfm(
-            &buf.hidden1_out,
-            &mut buf.hidden2_out,
-            32,
-            32,
-            &self.hidden2_biases,
-            &self.hidden2_weights,
-            &hidden1_mask,
-            &mut hidden1_mask.clone(), // Dummy
-            false,
-        );
-
-        // Output layer
-        let out_value = self.affine_propagate(buf.hidden2_out);
-
-        return out_value / FV_SCALE;
-    }
-
     /**
      * Evaluation subroutine suitable for chess engines.
      * -------------------------------------------------
@@ -372,6 +332,46 @@ impl NNUE {
             nnue,
         };
         return self.evaluate_pos(&mut pos);
+    }
+
+    fn evaluate_pos(&self, pos: &mut Position) -> i32 {
+        let mut input_mask = [0; FT_OUT_DIMS / (8 * mem::size_of::<mask_t>())];
+        let mut hidden1_mask = [0; 8 / mem::size_of::<mask_t>()];
+        let mut buf = NetData::default();
+
+        // Input layer
+        self.transform(pos, &mut buf.input, &mut input_mask);
+
+        // Hidden 1 Layer
+        self.affine_txfm(
+            &buf.input,
+            &mut buf.hidden1_out,
+            FT_OUT_DIMS,
+            32,
+            &self.hidden1_biases,
+            &self.hidden1_weights,
+            &input_mask,
+            &mut hidden1_mask,
+            true,
+        );
+
+        // Hidden 2 Layer
+        self.affine_txfm(
+            &buf.hidden1_out,
+            &mut buf.hidden2_out,
+            32,
+            32,
+            &self.hidden2_biases,
+            &self.hidden2_weights,
+            &hidden1_mask,
+            &mut hidden1_mask.clone(), // Dummy
+            false,
+        );
+
+        // Output layer
+        let out_value = self.affine_propagate(buf.hidden2_out);
+
+        return out_value / FV_SCALE;
     }
 
     // Convert input features
