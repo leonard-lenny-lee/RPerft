@@ -59,8 +59,8 @@ pub struct NNUEData {
 */
 struct Position {
     player: usize,
-    pieces: [usize; 32],
-    squares: [usize; 32],
+    pieces: *const usize,
+    squares: *const usize,
     nnue: [*mut NNUEData; 3],
 }
 
@@ -174,13 +174,13 @@ fn make_index(c: usize, s: usize, pc: usize, ksq: usize) -> usize {
     return orient(c, s) + PIECE_TO_INDEX[c][pc] + I!(PS::End) * ksq;
 }
 
-fn half_kp_append_active_indices(pos: &Position, c: usize, active: &mut IndexList) {
-    let mut ksq = pos.squares[c];
+unsafe fn half_kp_append_active_indices(pos: &Position, c: usize, active: &mut IndexList) {
+    let mut ksq = *pos.squares.add(c);
     ksq = orient(c, ksq);
     let mut i = 2;
-    while pos.pieces[i] != 0 {
-        let sq = pos.squares[i];
-        let pc = pos.pieces[i];
+    while *pos.pieces.add(i) != 0 {
+        let sq = *pos.squares.add(i);
+        let pc = *pos.pieces.add(i);
         active.values[active.size] = make_index(c, sq, pc, ksq);
         active.size += 1;
         i += 1;
@@ -194,7 +194,7 @@ fn half_kp_append_changed_indices(
     removed: &mut IndexList,
     added: &mut IndexList,
 ) {
-    let mut ksq = pos.squares[c];
+    let mut ksq = unsafe { *pos.squares.add(c) };
     ksq = orient(c, ksq);
     for i in 0..dp.dirty_num {
         let pc = dp.pc[i];
@@ -212,13 +212,13 @@ fn half_kp_append_changed_indices(
     }
 }
 
-fn append_active_indices(pos: &Position, active: &mut [IndexList; 2]) {
+unsafe fn append_active_indices(pos: &Position, active: &mut [IndexList; 2]) {
     for c in 0..2 {
         half_kp_append_active_indices(pos, c, &mut active[c])
     }
 }
 
-fn append_changed_indices(
+unsafe fn append_changed_indices(
     pos: &Position,
     removed: &mut [IndexList; 2],
     added: &mut [IndexList; 2],
@@ -293,7 +293,7 @@ impl NNUE {
      * Returns
      *   Score relative to side to move in approximate centi-pawns
      */
-    pub fn evaluate(&self, player: usize, pieces: [usize; 32], squares: [usize; 32]) -> i32 {
+    pub fn evaluate(&self, player: usize, pieces: *const usize, squares: *const usize) -> i32 {
         let mut nnue = NNUEData::default();
         let mut pos = Position {
             player,
@@ -317,8 +317,8 @@ impl NNUE {
     pub fn evaluate_incremental(
         &self,
         player: usize,
-        pieces: [usize; 32],
-        squares: [usize; 32],
+        pieces: *const usize,
+        squares: *const usize,
         nnue: [*mut NNUEData; 3],
     ) -> i32 {
         assert!(
@@ -553,7 +553,7 @@ impl NNUE {
     // Calculate cumulative value without using difference calculation
     fn refresh_accumulator(&self, pos: &mut Position) {
         let mut active_indices = [IndexList::default(); 2];
-        append_active_indices(pos, &mut active_indices);
+        unsafe { append_active_indices(pos, &mut active_indices) };
 
         let accumulator = unsafe { &mut (*pos.nnue[0]).accumulator };
 
@@ -777,7 +777,7 @@ macro_rules! read_le {
 
 // Initialization routines
 impl NNUE {
-    pub fn init(eval_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn init(eval_file: &str) -> NNUE {
         println!("Loading NNUE : {eval_file}");
 
         let mut nn = NNUE {
@@ -792,14 +792,14 @@ impl NNUE {
         };
 
         let fp = std::path::Path::new(eval_file);
-        let r = nn.load_eval_file(fp);
 
-        match r {
-            Ok(()) => println!("NNUE Loaded"),
-            Err(_) => println!("NNUE file not found"),
-        }
+        if let Err(e) = nn.load_eval_file(fp) {
+            panic!("NNUE Load Error {}", e);
+        };
 
-        return r;
+        println!("NNUE Loaded");
+
+        return nn;
     }
 
     fn load_eval_file(&mut self, path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {

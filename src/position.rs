@@ -40,8 +40,8 @@ pub struct BBSet {
 
 #[derive(Default)]
 pub struct NNUEPosition {
-    player: usize,
-    pieces: [usize; 32],
-    squares: [usize; 32],
-    nnue_data: std::collections::VecDeque<nnue::NNUEData>,
+    pub player: usize,
+    pub pieces: [usize; 32],
+    pub squares: [usize; 32],
+    pub nnue_data: std::collections::VecDeque<nnue::NNUEData>,
 }

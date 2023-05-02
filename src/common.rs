@@ -5,6 +5,8 @@ use super::*;
 pub const ENGINE_NAME: &str = "cRusty";
 pub const AUTHOR_NAME: &str = "LeonardL";
 
+pub const NNUE_PATH: &str = "..";
+
 // Standard chess positions useful for testing
 pub const STARTPOS: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 // Test positions
