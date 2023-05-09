@@ -138,7 +138,7 @@ mod neon {
 
         let mask = vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vandq_u8(v, k_powers))));
         return vgetq_lane_u8(vreinterpretq_u8_u64(mask), 0) as mask_t
-            | (vgetq_lane_u8(vreinterpretq_u8_u64(mask), 8) << 8) as mask_t;
+            | (vgetq_lane_u8(vreinterpretq_u8_u64(mask), 8) as mask_t) << 8;
     }
 }
 
@@ -227,7 +227,7 @@ unsafe fn append_changed_indices(
     assert!(!pos.nnue[0].is_null() && !pos.nnue[1].is_null());
     let dp = unsafe { &(*pos.nnue[0]).dirty_piece };
 
-    if unsafe { (*pos.nnue[1]).accumulator.computed_accumulation } {
+    if (*pos.nnue[1]).accumulator.computed_accumulation {
         for c in 0..2 {
             reset[c] = dp.pc[0] == king!(c);
             if reset[c] {
@@ -237,7 +237,7 @@ unsafe fn append_changed_indices(
             }
         }
     } else {
-        let dp2 = unsafe { &(*pos.nnue[1]).dirty_piece };
+        let dp2 = &(*pos.nnue[1]).dirty_piece;
         for c in 0..2 {
             reset[c] = dp.pc[0] == king!(c) || dp2.pc[0] == king!(c);
             if reset[c] {

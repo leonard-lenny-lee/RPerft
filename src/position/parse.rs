@@ -134,7 +134,6 @@ impl Position {
             wtm,
             stm,
             ply: 0,
-            score: Score::new_equal(),
             unmake_info: Vec::new(),
             nnue_pos: NNUEPosition::init(board, stm),
         };
@@ -142,7 +141,6 @@ impl Position {
         // Initialize Zobrist key
         pos.key = pos.generate_key();
         // Initialize score
-        pos.init_score();
         // Check that the king cannot be captured
         pos.check_legal()?;
         return Ok(pos);
@@ -167,7 +165,6 @@ impl Position {
             wtm: self.wtm,
             stm: self.stm,
             ply: self.ply,
-            score: self.score,
             unmake_info: Vec::new(),
             nnue_pos: NNUEPosition::default(),
         }
@@ -331,6 +328,14 @@ impl BBSet {
 }
 
 impl NNUEPosition {
+    pub fn pieces(&self) -> *const usize {
+        return self.pieces.as_ptr();
+    }
+
+    pub fn squares(&self) -> *const usize {
+        return self.squares.as_ptr();
+    }
+
     fn init(board: String, stm: Color) -> NNUEPosition {
         const PIECE_NAME: &str = "_KQRBNPkqrbnp_";
         const NUMBERS: &str = "12345678";

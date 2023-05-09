@@ -2,66 +2,58 @@
 use super::*;
 use types::Axis;
 
+macro_rules! generate_table64 {
+    ($f: ident) => {{
+        let mut maps = [BB(0); 64];
+        let mut i = 0;
+        while i < 64 {
+            maps[i] = $f(i);
+            i += 1;
+        }
+        maps
+    }};
+}
+
 const KNIGHT_ATTACKS: [BB; 64] = {
-    let mut maps: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        maps[i] = BB(1 << i).knight_attacks();
-        i += 1;
+    const fn f(sq: usize) -> BB {
+        BB(1 << sq as usize).knight_attacks()
     }
-    maps
+    generate_table64!(f)
 };
 
 const KING_ATTACKS: [BB; 64] = {
-    let mut maps: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        maps[i] = BB(1 << i).king_attacks();
-        i += 1;
+    const fn f(sq: usize) -> BB {
+        BB(1 << sq as usize).king_attacks()
     }
-    maps
+    generate_table64!(f)
 };
 
 const RANK_TABLE: [BB; 64] = {
-    let mut masks: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        masks[i] = RANK_MASKS[i / 8];
-        i += 1;
+    const fn f(sq: usize) -> BB {
+        RANK_MASKS[sq / 8]
     }
-    masks
+    generate_table64!(f)
 };
 
 const FILE_TABLE: [BB; 64] = {
-    let mut masks: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        masks[i] = FILE_MASKS[i % 8];
-        i += 1;
+    const fn f(sq: usize) -> BB {
+        FILE_MASKS[sq % 8]
     }
-    masks
+    generate_table64!(f)
 };
 
 const DIAG_TABLE: [BB; 64] = {
-    let mut masks: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        let origin = BB(1 << i);
-        masks[i] = BB(origin.no_ea_fill().0 | origin.so_we_fill().0);
-        i += 1;
+    const fn f(sq: usize) -> BB {
+        BB(BB(1 << sq).no_ea_fill().0 | BB(1 << sq).so_we_fill().0)
     }
-    masks
+    generate_table64!(f)
 };
 
 const ADIAG_TABLE: [BB; 64] = {
-    let mut masks: [BB; 64] = [BB(0); 64];
-    let mut i = 0;
-    while i < 64 {
-        let origin = BB(1 << i);
-        masks[i] = BB(origin.no_we_fill().0 | origin.so_ea_fill().0);
-        i += 1
+    const fn f(sq: usize) -> BB {
+        BB(BB(1 << sq).no_we_fill().0 | BB(1 << sq).so_ea_fill().0)
     }
-    masks
+    generate_table64!(f)
 };
 
 impl BB {

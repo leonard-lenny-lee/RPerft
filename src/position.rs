@@ -5,7 +5,6 @@ mod parse;
 mod states;
 mod zobrist;
 
-use evaluate::Score;
 use types::Color;
 use uci::RuntimeError;
 
@@ -22,7 +21,6 @@ pub struct Position {
     pub wtm: bool,
     pub stm: Color,
     pub ply: u8,
-    pub score: Score,
     pub unmake_info: Vec<makemove::UnmakeInfo>,
     pub nnue_pos: NNUEPosition,
 }

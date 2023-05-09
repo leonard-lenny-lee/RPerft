@@ -47,7 +47,6 @@ pub const FILE_MASKS: [BB; 8] = [
 pub const FILLED_BB: BB = BB(0xffffffffffffffff);
 pub const EMPTY_BB: BB = BB(0x0);
 
-#[allow(dead_code)]
 pub mod square {
     use super::BB;
     pub const A1: BB = BB(1 << 0);

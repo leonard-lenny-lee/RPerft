@@ -1,6 +1,5 @@
 /// Make move function for applying a move to a position
 use super::*;
-use evaluate::Score;
 use movelist::Move;
 use position::Position;
 use types::{
@@ -29,11 +28,7 @@ impl Position {
             halfmove_clock: self.halfmove_clock,
             ep_sq: self.ep_sq,
             key: self.key,
-            score: self.score,
         });
-
-        // Update the score with move
-        self.score_move_update(moved_pt, from, to);
 
         // Undo current ep key before position is modified
         self.ep_key_update();
@@ -71,7 +66,6 @@ impl Position {
             self.them[pt] ^= to;
             self.them.all ^= to;
             self.sq_key_update(pt, to, !self.wtm);
-            self.score_capture_update(pt, to);
             // Remove castling right if rook has been captured
             self.castling_rights &= !to;
             self.halfmove_clock = 0;
@@ -84,7 +78,6 @@ impl Position {
             self.us.pawn ^= to;
             self.sq_key_update(Pawn, to, self.wtm);
             self.sq_key_update(promo_pt, to, self.wtm);
-            self.score_promotion_update(promo_pt, to);
         }
 
         // Execute special actions
@@ -105,7 +98,6 @@ impl Position {
                 self.us.all ^= mask;
                 self.free ^= mask;
                 self.move_key_update(Rook, rook_from, rook_to, self.wtm);
-                self.score_move_update(Rook, rook_from, rook_to)
             }
 
             EnPassant => {
@@ -114,7 +106,6 @@ impl Position {
                 self.them.all ^= ep_sq;
                 self.free ^= ep_sq;
                 self.sq_key_update(Pawn, ep_sq, !self.wtm);
-                self.score_capture_update(Pawn, ep_sq);
             }
 
             _ => (),
@@ -142,7 +133,6 @@ impl Position {
         self.ep_sq = prev.ep_sq;
         self.halfmove_clock = prev.halfmove_clock;
         self.key = prev.key;
-        self.score = prev.score;
 
         // Source square must now be occupied, free target square for now
         self.free |= prev.to;
@@ -208,5 +198,4 @@ pub struct UnmakeInfo {
     pub ep_sq: BB,
     pub halfmove_clock: u8,
     pub key: u64,
-    pub score: Score,
 }
