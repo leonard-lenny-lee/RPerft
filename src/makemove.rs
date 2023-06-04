@@ -1,9 +1,9 @@
 /// Make move function for applying a move to a position
 use super::*;
 use movelist::Move;
-use position::Position;
+use position::{Position, StackData};
 use types::{
-    MoveType::{self, *},
+    MoveType::*,
     PieceType::{self, *},
 };
 
@@ -17,8 +17,8 @@ impl Position {
         let captured_pt = self.them.pt_at(to);
         let moved_pt = self.us.pt_at(from).expect("from must be occ");
 
-        // Push to undo info stack
-        self.unmake_info.push(UnmakeInfo {
+        // Push data to stack
+        self.stack.push(StackData {
             from,
             to,
             mt,
@@ -29,6 +29,11 @@ impl Position {
             ep_sq: self.ep_sq,
             key: self.key,
         });
+
+        // NNUE routine
+        let from_sq = from.to_sq();
+        let to_sq = to.to_sq();
+        self.nnue_pos.move_pc(from_sq, to_sq);
 
         // Undo current ep key before position is modified
         self.ep_key_update();
@@ -69,6 +74,8 @@ impl Position {
             // Remove castling right if rook has been captured
             self.castling_rights &= !to;
             self.halfmove_clock = 0;
+            //index swap has already occurred so from_sq actually points to the target pc
+            self.nnue_pos.remove_pc(from_sq);
         }
 
         // Promotions
@@ -78,6 +85,7 @@ impl Position {
             self.us.pawn ^= to;
             self.sq_key_update(Pawn, to, self.wtm);
             self.sq_key_update(promo_pt, to, self.wtm);
+            self.nnue_pos.promote_pc(to_sq, promo_pt);
         }
 
         // Execute special actions
@@ -98,6 +106,7 @@ impl Position {
                 self.us.all ^= mask;
                 self.free ^= mask;
                 self.move_key_update(Rook, rook_from, rook_to, self.wtm);
+                self.nnue_pos.move_pc(rook_from.to_sq(), rook_to.to_sq());
             }
 
             EnPassant => {
@@ -106,6 +115,7 @@ impl Position {
                 self.them.all ^= ep_sq;
                 self.free ^= ep_sq;
                 self.sq_key_update(Pawn, ep_sq, !self.wtm);
+                self.nnue_pos.remove_pc(ep_sq.to_sq());
             }
 
             _ => (),
@@ -121,7 +131,7 @@ impl Position {
     }
 
     pub fn unmake_move(&mut self) {
-        let prev = self.unmake_info.pop().unwrap();
+        let prev = self.stack.pop().unwrap();
 
         // Reverse clocks
         self.ply -= 1;
@@ -186,16 +196,31 @@ impl Position {
     }
 }
 
-pub struct UnmakeInfo {
-    // Move info
-    pub from: BB,
-    pub to: BB,
-    pub mt: MoveType,
-    // Irretrievable info
-    pub moved_pt: PieceType,
-    pub captured_pt: Option<PieceType>,
-    pub castling_rights: BB,
-    pub ep_sq: BB,
-    pub halfmove_clock: u8,
-    pub key: u64,
+impl position::NNUEPosition {
+    fn move_pc(&mut self, from_sq: usize, to_sq: usize) {
+        let index = self.board[from_sq];
+        self.squares[index] = to_sq;
+        self.board.swap(from_sq, to_sq);
+    }
+
+    fn remove_pc(&mut self, sq: usize) {
+        let index = self.board[sq];
+        assert_ne!(index, 0);
+        // Swap captured pc with pc at the end of the array
+        let end_sq = self.squares[self.end_ptr];
+        self.board[end_sq] = index;
+        self.pieces.swap(index, self.end_ptr);
+        self.squares.swap(index, self.end_ptr);
+        // Wipe info about the pc at the end of array
+        self.pieces[self.end_ptr] = 0;
+        self.squares[self.end_ptr] = 0;
+        self.board[sq] = 0;
+        self.end_ptr -= 1;
+    }
+
+    fn promote_pc(&mut self, sq: usize, promo_pt: PieceType) {
+        let index = self.board[sq];
+        assert!(self.pieces[index] % 6 == 0); // Assert it's a pawn (6 or 12)
+        self.pieces[index] += promo_pt.to_nnue_pc() - 6;
+    }
 }

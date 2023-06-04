@@ -16,6 +16,7 @@ pub enum Colors {
 * use this format.
 */
 #[rustfmt::skip]
+#[derive(Clone, Copy)]
 pub enum Pieces {
     Blank = 0, WKing, WQueen, WRook, WBishop, WKnight, WPawn,
                BKing, BQueen, BRook, BBishop, BKnight, BPawn,
@@ -24,16 +25,21 @@ pub enum Pieces {
 /**
 * nnue data structure
 */
-#[derive(Default)]
-struct DirtyPiece {
-    dirty_num: usize,
-    pc: [usize; 3],
-    from: [usize; 3],
-    to: [usize; 3],
+#[derive(Default, Clone, Copy)]
+pub struct DirtyPiece {
+    pub dirty_num: usize, // Number of changed pieces
+    // Max 3 pieces can change in one move. A promotion with capture moves
+    // both the pawn and the captured piece to SQ_NONE and the piece promoted
+    // to from SQ_NONE to the capture square.
+    pub pc: [usize; 3],
+    pub from: [usize; 3], // From squares
+    pub to: [usize; 3],   // To squares
 }
 
+/// Holds the result of affine transformation of input features
 #[repr(align(64))]
-struct Accumulator {
+#[derive(Clone, Copy)]
+pub struct Accumulator {
     accumulation: [[i16; 256]; 2],
     computed_accumulation: bool,
 }
@@ -47,10 +53,10 @@ impl Default for Accumulator {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct NNUEData {
-    accumulator: Accumulator,
-    dirty_piece: DirtyPiece,
+    pub accumulator: Accumulator,
+    pub dirty_piece: DirtyPiece,
 }
 
 /**

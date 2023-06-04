@@ -3,6 +3,9 @@ use super::*;
 use nnue::NNUE;
 use position::Position;
 
+const MAX_EVALUATION: i32 = i16::MAX as i32;
+const MIN_EVALUATION: i32 = i16::MIN as i32;
+
 /*
     NNUE Evaluation Procedure
 */
@@ -12,14 +15,11 @@ lazy_static! {
 
 impl Position {
     pub fn evaluate(&self) -> i16 {
-        const MAX: i32 = i16::MAX as i32;
-        const MIN: i32 = i16::MIN as i32;
-        return NN
-            .evaluate(
-                self.nnue_pos.player,
-                self.nnue_pos.pieces(),
-                self.nnue_pos.squares(),
-            )
-            .clamp(MIN, MAX) as i16;
+        NN.evaluate(
+            self.nnue_pos.player,
+            self.nnue_pos.pieces(),
+            self.nnue_pos.squares(),
+        )
+        .clamp(MIN_EVALUATION, MAX_EVALUATION) as i16
     }
 }

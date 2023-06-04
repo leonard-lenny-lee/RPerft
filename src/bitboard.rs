@@ -1,7 +1,7 @@
 use super::*;
 use types::Axis;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BB(pub u64);
 
 #[rustfmt::skip]

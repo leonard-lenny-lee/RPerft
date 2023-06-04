@@ -6,7 +6,6 @@ use position::Position;
 use types::NodeType;
 
 const INFINITE: i16 = 30000;
-const MAX_DEPTH: u8 = 30;
 
 pub fn search(pos: &mut Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
@@ -158,7 +157,7 @@ pub fn alpha_beta(
 
     info.nodes += 1;
 
-    if pos.ply >= MAX_DEPTH {
+    if pos.ply >= MAX_DEPTH as u8 {
         return pos.evaluate();
     }
 

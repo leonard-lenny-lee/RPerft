@@ -98,7 +98,7 @@ impl Position {
 
     /// Update hash for an update to castling rights
     pub fn castle_key_update(&mut self) {
-        let prev = self.unmake_info.last().unwrap().castling_rights;
+        let prev = self.stack.last().unwrap().castling_rights;
         let mut diff = self.castling_rights ^ prev;
         while diff.is_not_empty() {
             match diff.pop_ils1b() {

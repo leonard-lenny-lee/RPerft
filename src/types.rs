@@ -1,7 +1,8 @@
 use super::*;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Default)]
 pub enum PieceType {
+    #[default]
     All,
     Pawn,
     Rook,
@@ -48,12 +49,20 @@ impl PieceType {
             _ => panic!("invalid pt for to_uci"),
         }
     }
+
+    // Convert to NNUE piece code
+    pub fn to_nnue_pc(&self) -> usize {
+        use nnue::Pieces::*;
+        const MAP: [nnue::Pieces; 7] = [Blank, WPawn, WRook, WKnight, WBishop, WQueen, WKing];
+        return MAP[*self as usize] as usize;
+    }
 }
 
 // Bitflags as discriminants
 #[repr(u16)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum MoveType {
+    #[default]
     Quiet = 0x0000,
     DoublePawnPush = 0x1000,
     ShortCastle = 0x2000,

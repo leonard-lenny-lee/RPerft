@@ -134,15 +134,15 @@ impl Position {
             wtm,
             stm,
             ply: 0,
-            unmake_info: Vec::new(),
+            stack: Vec::new(),
             nnue_pos: NNUEPosition::init(board, stm),
         };
 
         // Initialize Zobrist key
         pos.key = pos.generate_key();
-        // Initialize score
         // Check that the king cannot be captured
         pos.check_legal()?;
+        pos.stack.push(StackData::default());
         return Ok(pos);
     }
 
@@ -165,8 +165,8 @@ impl Position {
             wtm: self.wtm,
             stm: self.stm,
             ply: self.ply,
-            unmake_info: Vec::new(),
-            nnue_pos: NNUEPosition::default(),
+            stack: Vec::new(),
+            nnue_pos: self.nnue_pos,
         }
     }
 
@@ -336,27 +336,31 @@ impl NNUEPosition {
         return self.squares.as_ptr();
     }
 
-    fn init(board: String, stm: Color) -> NNUEPosition {
+    fn init(token: String, stm: Color) -> NNUEPosition {
         const PIECE_NAME: &str = "_KQRBNPkqrbnp_";
         const NUMBERS: &str = "12345678";
 
         let mut pieces = [0; 32];
         let mut squares = [0; 32];
+        let mut board = [0; 64];
 
         let mut sq = 0;
         let mut index = 2;
 
-        for c in board.chars() {
+        for c in token.chars() {
             if let Some(pc) = PIECE_NAME.find(c) {
                 if pc == 1 {
                     pieces[0] = pc;
                     squares[0] = sq;
+                    board[sq] = 0;
                 } else if pc == 7 {
                     pieces[1] = pc;
                     squares[1] = sq;
+                    board[sq] = 1;
                 } else {
                     pieces[index] = pc;
                     squares[index] = pc;
+                    board[sq] = index;
                     index += 1;
                 }
                 sq += 1;
@@ -371,7 +375,8 @@ impl NNUEPosition {
             player: stm as usize,
             pieces,
             squares,
-            nnue_data: std::collections::VecDeque::new(),
+            board,
+            end_ptr: index - 1,
         };
     }
 }
