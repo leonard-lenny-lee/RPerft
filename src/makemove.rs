@@ -28,6 +28,7 @@ impl Position {
             halfmove_clock: self.halfmove_clock,
             ep_sq: self.ep_sq,
             key: self.key,
+            nnue_pos: self.nnue_pos,
         });
 
         // NNUE routine
@@ -74,7 +75,7 @@ impl Position {
             // Remove castling right if rook has been captured
             self.castling_rights &= !to;
             self.halfmove_clock = 0;
-            //index swap has already occurred so from_sq actually points to the target pc
+            // Index swap has already occurred so from_sq actually points to the target pc
             self.nnue_pos.remove_pc(from_sq);
         }
 
@@ -123,6 +124,7 @@ impl Position {
 
         self.occ = !self.free;
         // Change the turn and state
+        self.nnue_pos.player ^= 1;
         self.change_state();
         // Update key
         self.turn_key_update();
@@ -143,6 +145,7 @@ impl Position {
         self.ep_sq = prev.ep_sq;
         self.halfmove_clock = prev.halfmove_clock;
         self.key = prev.key;
+        self.nnue_pos = prev.nnue_pos;
 
         // Source square must now be occupied, free target square for now
         self.free |= prev.to;
@@ -205,22 +208,99 @@ impl position::NNUEPosition {
 
     fn remove_pc(&mut self, sq: usize) {
         let index = self.board[sq];
-        assert_ne!(index, 0);
-        // Swap captured pc with pc at the end of the array
-        let end_sq = self.squares[self.end_ptr];
-        self.board[end_sq] = index;
-        self.pieces.swap(index, self.end_ptr);
-        self.squares.swap(index, self.end_ptr);
+        assert_ne!(index, 32);
+        if index != self.end_ptr {
+            // Swap captured pc with pc at the end of the array
+            let end_sq = self.squares[self.end_ptr];
+            self.board[end_sq] = index;
+            self.pieces.swap(index, self.end_ptr);
+            self.squares.swap(index, self.end_ptr);
+        }
         // Wipe info about the pc at the end of array
         self.pieces[self.end_ptr] = 0;
-        self.squares[self.end_ptr] = 0;
-        self.board[sq] = 0;
+        self.squares[self.end_ptr] = 64;
+        self.board[sq] = 32;
         self.end_ptr -= 1;
     }
 
     fn promote_pc(&mut self, sq: usize, promo_pt: PieceType) {
         let index = self.board[sq];
-        assert!(self.pieces[index] % 6 == 0); // Assert it's a pawn (6 or 12)
-        self.pieces[index] += promo_pt.to_nnue_pc() - 6;
+        assert!(self.pieces[index] == 6 || self.pieces[index] == 12); // Assert it's a pawn (6 or 12)
+        self.pieces[index] += promo_pt.to_nnue_pc();
+        self.pieces[index] -= 6;
+    }
+}
+
+#[cfg(test)]
+mod nnue_pos_tests {
+    use super::*;
+    use test_case::test_case;
+
+    #[test_case(STARTPOS; "starting_pos")]
+    #[test_case("2K2r2/4P3/8/8/8/8/8/3k4 w - - 0 1"; "promote out of check")]
+    #[test_case(TPOS2; "test_pos_2")]
+    #[test_case(TPOS3; "test_pos_3")]
+    #[test_case(TPOS4; "test_pos_4")]
+    #[test_case(TPOS5; "test_pos_5")]
+    #[test_case(TPOS6; "test_pos_6")]
+    fn test_moves(fen: &str) {
+        let mut pos = position::Position::from_fen(fen).unwrap();
+        let mut movelist = movelist::UnorderedList::new();
+        movegen::generate_all(&pos, &mut movelist);
+
+        for mv in movelist.iter() {
+            pos.make_move(&mv);
+            assert!(
+                validate_nnue_pos(&pos),
+                "{} {:?}",
+                mv.to_algebraic(),
+                mv.movetype()
+            );
+            pos.unmake_move();
+        }
+    }
+
+    fn validate_nnue_pos(pos: &Position) -> bool {
+        let mut i = 0;
+        let (w, b) = pos.white_black();
+
+        while pos.nnue_pos.pieces[i] != 0 {
+            let pc = pos.nnue_pos.pieces[i];
+            let sq = pos.nnue_pos.squares[i];
+            // Check board
+            if pos.nnue_pos.board[sq] != i {
+                return false;
+            };
+
+            // Check piece and square info corresponds with bitboards
+            let pc_is_white = pc < nnue::Pieces::BKing as usize;
+            let expected_pt = if pc_is_white {
+                w.pt_at(BB::from_sq(sq))
+            } else {
+                b.pt_at(BB::from_sq(sq))
+            };
+            match expected_pt {
+                Some(pt) => {
+                    let mut expected_pt = pt.to_nnue_pc();
+                    if !pc_is_white {
+                        expected_pt += 6
+                    }
+                    if pc != expected_pt {
+                        return false;
+                    }
+                }
+                None => panic!("No piece at sq {}", sq),
+            }
+            i += 1;
+            if i == 32 {
+                break;
+            }
+        }
+        if pos.occ.pop_count() as usize != i {
+            return false;
+        }
+        let expected_player = if pos.wtm { 0 } else { 1 };
+        assert!(expected_player == pos.nnue_pos.player);
+        return true;
     }
 }

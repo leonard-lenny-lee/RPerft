@@ -60,7 +60,7 @@ impl PieceType {
 
 // Bitflags as discriminants
 #[repr(u16)]
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum MoveType {
     #[default]
     Quiet = 0x0000,

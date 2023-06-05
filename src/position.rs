@@ -45,7 +45,6 @@ pub struct NNUEPosition {
     pub end_ptr: usize,
 }
 
-#[derive(Default)]
 pub struct StackData {
     // Move info
     pub from: BB,
@@ -58,4 +57,5 @@ pub struct StackData {
     pub ep_sq: BB,
     pub halfmove_clock: u8,
     pub key: u64,
+    pub nnue_pos: NNUEPosition,
 }

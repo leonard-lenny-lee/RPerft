@@ -7,6 +7,7 @@ extern crate vampirc_uci as v_uci;
 mod bitboard;
 #[allow(dead_code)]
 mod constants;
+mod globals;
 
 pub mod engine;
 pub mod evaluate;

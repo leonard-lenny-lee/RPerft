@@ -120,7 +120,7 @@ impl std::ops::Index<usize> for OrderedList {
     }
 }
 
-pub struct UnorderedList(Vec<Move>);
+pub struct UnorderedList(pub Vec<Move>);
 
 impl MoveList for UnorderedList {
     fn len(&self) -> usize {
@@ -242,6 +242,10 @@ impl Move {
             0xf000 => QPromoCapture,
             _ => panic!("invalid bitflag"),
         }
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        self.0 & MoveType::Quiet as u16 == 0
     }
 
     /// Decode if the move encodes a capture of any sort

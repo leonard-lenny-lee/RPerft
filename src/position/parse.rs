@@ -142,7 +142,6 @@ impl Position {
         pos.key = pos.generate_key();
         // Check that the king cannot be captured
         pos.check_legal()?;
-        pos.stack.push(StackData::default());
         return Ok(pos);
     }
 
@@ -341,8 +340,8 @@ impl NNUEPosition {
         const NUMBERS: &str = "12345678";
 
         let mut pieces = [0; 32];
-        let mut squares = [0; 32];
-        let mut board = [0; 64];
+        let mut squares = [64; 32];
+        let mut board = [32; 64];
 
         let mut sq = 0;
         let mut index = 2;
@@ -359,7 +358,7 @@ impl NNUEPosition {
                     board[sq] = 1;
                 } else {
                     pieces[index] = pc;
-                    squares[index] = pc;
+                    squares[index] = sq;
                     board[sq] = index;
                     index += 1;
                 }
@@ -458,6 +457,58 @@ mod tests {
     fn test_to_fen() {
         let pos = Position::from_fen(TPOS3).unwrap();
         assert_eq!(pos.to_fen(), TPOS3)
+    }
+
+    #[test]
+    fn test_nnue_pos_init() {
+        use nnue::Pieces::*;
+        use square::*;
+
+        let pos = Position::new_starting_pos();
+
+        #[rustfmt::skip]
+        let expected_pieces = [
+            WKing, BKing,
+            WRook, WKnight, WBishop, WQueen, WBishop, WKnight, WRook,
+            WPawn, WPawn, WPawn, WPawn, WPawn, WPawn, WPawn, WPawn,
+            BPawn, BPawn, BPawn, BPawn, BPawn, BPawn, BPawn, BPawn,
+            BRook, BKnight, BBishop, BQueen, BBishop, BKnight, BRook,
+        ].map(|x| x as usize);
+
+        #[rustfmt::skip]
+        let expected_squares = [
+            E1, E8,
+            A1, B1, C1, D1, F1, G1, H1,
+            A2, B2, C2, D2, E2, F2, G2, H2,
+            A7, B7, C7, D7, E7, F7, G7, H7,
+            A8, B8, C8, D8, F8, G8, H8,
+        ].map(|x| x.to_sq());
+
+        #[rustfmt::skip]
+        let expected_board = [
+             2,  3,  4,  5,  0,  6,  7,  8,
+             9, 10, 11, 12, 13, 14, 15, 16,
+            32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32,
+            32, 32, 32, 32, 32, 32, 32, 32,
+            17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28,  1, 29, 30, 31,
+        ];
+
+        let expected_end_ptr = 31;
+
+        let expected_player = if pos.wtm {
+            nnue::Colors::White as usize
+        } else {
+            nnue::Colors::Black as usize
+        };
+
+        assert_eq!(expected_pieces, pos.nnue_pos.pieces, "piece failure");
+        assert_eq!(expected_squares, pos.nnue_pos.squares, "square failure");
+        assert_eq!(expected_board, pos.nnue_pos.board, "board failure");
+        assert_eq!(expected_end_ptr, pos.nnue_pos.end_ptr, "pointer failure");
+        assert_eq!(expected_player, pos.nnue_pos.player, "player failutre")
     }
 
     #[ignore]

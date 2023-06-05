@@ -5,7 +5,7 @@ use super::*;
 pub const ENGINE_NAME: &str = "cRusty";
 pub const AUTHOR_NAME: &str = "LeonardL";
 
-pub const NNUE_PATH: &str = ".."; // Placeholder
+pub const NNUE_FILE: &str = "nn-04cf2b4ed1da.nnue";
 
 // Search parameters
 pub const MAX_DEPTH: usize = 50;

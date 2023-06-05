@@ -783,10 +783,10 @@ macro_rules! read_le {
 
 // Initialization routines
 impl NNUE {
-    pub fn init(eval_file: &str) -> NNUE {
+    pub fn init(eval_file: &str) -> Box<NNUE> {
         println!("Loading NNUE : {eval_file}");
 
-        let mut nn = NNUE {
+        let mut nn = Box::new(NNUE {
             ft_weights: [0; K_HALF_DIMENSIONS * FT_IN_DIMS],
             ft_biases: [0; K_HALF_DIMENSIONS],
             hidden1_weights: [0; 32 * 512],
@@ -795,7 +795,7 @@ impl NNUE {
             hidden2_biases: [0; 32],
             output_weights: [0; 1 * 32],
             output_biases: [0; 1],
-        };
+        });
 
         let fp = std::path::Path::new(eval_file);
 
