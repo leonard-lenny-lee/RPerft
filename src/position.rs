@@ -57,5 +57,5 @@ pub struct StackData {
     pub ep_sq: BB,
     pub halfmove_clock: u8,
     pub key: u64,
-    pub nnue_pos: NNUEPosition,
+    pub restore_index: Option<usize>,
 }
