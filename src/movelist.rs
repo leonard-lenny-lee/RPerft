@@ -1,48 +1,49 @@
 use super::*;
+
 use position::Position;
 use types::{MoveType, PieceType};
 
 pub trait MoveList {
     fn len(&self) -> usize;
 
-    fn add(&mut self, from: BB, to: BB, mt: MoveType, pos: &Position);
+    fn add(&mut self, from: BitBoard, to: BitBoard, movetype: MoveType, position: &Position);
 
-    fn add_promotions(&mut self, from: BB, to: BB, pos: &Position) {
-        for mt in MoveType::iter_promos() {
-            self.add(from, to, *mt, pos)
+    fn add_promotions(&mut self, from: BitBoard, to: BitBoard, position: &Position) {
+        for mt in types::PROMOTION_MOVE_TYPES {
+            self.add(from, to, mt, position)
         }
     }
 
-    fn add_promotion_captures(&mut self, from: BB, to: BB, pos: &Position) {
-        for mt in MoveType::iter_promo_captures() {
-            self.add(from, to, *mt, pos)
+    fn add_promotion_captures(&mut self, from: BitBoard, to: BitBoard, position: &Position) {
+        for mt in types::PROMOTION_CAPTURE_MOVE_TYPES {
+            self.add(from, to, mt, position)
         }
     }
 }
 
 // "Move valuable victim, least valuable aggressor" is a simple move ordering
 // strategy to play winning captures first
-const MVV_LVA: [[i16; 7]; 7] = {
+const MVV_LVA_TABLE: [[i16; 7]; 7] = {
     // Based on the increasing value of pieces: P->N->B->R->Q->K
-    const VALS: [i16; 7] = [0, 100, 400, 200, 300, 500, 600];
+    const VALUES: [i16; 7] = [0, 100, 400, 200, 300, 500, 600];
 
-    let mut mvv_lva = [[0; 7]; 7];
+    let mut table = [[0; 7]; 7];
     let mut victim = 0;
     while victim < 7 {
         let mut attacker = 0;
         while attacker < 7 {
-            mvv_lva[victim][attacker] = VALS[victim] - VALS[attacker] / 10;
+            table[victim][attacker] = VALUES[victim] - VALUES[attacker] / 10;
             attacker += 1;
         }
         victim += 1;
     }
-    mvv_lva
+    table
 };
 
 /// Scores moves as they are added and orders them to optimize pruning
 pub struct OrderedList {
     pub moves: Vec<(Move, i16)>,
-    tt_move: Move,
+    table_move: Move,
     killer_moves: [Move; 2],
     history_table: *const search::HistoryTable,
 }
@@ -52,30 +53,30 @@ impl MoveList for OrderedList {
         self.moves.len()
     }
 
-    fn add(&mut self, from: BB, to: BB, mt: MoveType, pos: &Position) {
+    fn add(&mut self, from: BitBoard, to: BitBoard, movetype: MoveType, position: &Position) {
         const PAWN_ID: usize = PieceType::Pawn as usize;
 
         const HASH_SCORE: i16 = 1000;
         const KILLER_SCORE_ONE: i16 = 50;
         const KILLER_SCORE_TWO: i16 = 45;
 
-        let mv = Move::encode(from, to, mt);
+        let mv = Move::encode(from, to, movetype);
 
         // Hash moves are given the highest score
-        if mv == self.tt_move {
+        if mv == self.table_move {
             self.moves.push((mv, HASH_SCORE));
             return;
         }
 
         // Use MVV-LLA to score captures
         let score = if mv.is_capture() {
-            let victim = match pos.them.pt_at(to) {
+            let victim = match position.them.piecetype_at(to) {
                 Some(pt) => pt as usize,
                 None => PAWN_ID, // EP is the only case where the target sq is empty.
             };
 
-            let attacker = pos.us.pt_at(from).unwrap() as usize;
-            MVV_LVA[victim][attacker]
+            let attacker = position.us.piecetype_at(from).unwrap() as usize;
+            MVV_LVA_TABLE[victim][attacker]
         }
         // Score quiet moves with heuristics
         else {
@@ -95,19 +96,19 @@ impl MoveList for OrderedList {
 
 impl OrderedList {
     pub fn new(
-        tt_move: Move,
+        table_move: Move,
         killer_moves: [Move; 2],
         history_table: *const search::HistoryTable,
     ) -> Self {
         Self {
             moves: Vec::with_capacity(45),
-            tt_move,
+            table_move,
             killer_moves,
             history_table,
         }
     }
 
-    pub fn sort(&mut self) {
+    pub fn sort_by_score(&mut self) {
         self.moves.sort_by_key(|mv| std::cmp::Reverse(mv.1));
     }
 }
@@ -120,14 +121,14 @@ impl std::ops::Index<usize> for OrderedList {
     }
 }
 
-pub struct UnorderedList(Vec<Move>);
+pub struct UnorderedList(pub Vec<Move>);
 
 impl MoveList for UnorderedList {
     fn len(&self) -> usize {
         self.0.len()
     }
 
-    fn add(&mut self, from: BB, to: BB, mt: MoveType, _pos: &Position) {
+    fn add(&mut self, from: BitBoard, to: BitBoard, mt: MoveType, _pos: &Position) {
         self.0.push(Move::encode(from, to, mt));
     }
 }
@@ -142,6 +143,7 @@ impl UnorderedList {
         self.0.iter()
     }
 
+    #[allow(dead_code)]
     pub fn pop(&mut self) -> Option<Move> {
         self.0.pop()
     }
@@ -204,44 +206,48 @@ impl Move {
         return Move(word);
     }
 
-    pub fn encode(from: BB, to: BB, mt: MoveType) -> Self {
-        return Self(from.to_uint16_sq() | (to.to_uint16_sq() << 6) | mt as u16);
+    pub fn encode(from: BitBoard, to: BitBoard, movetype: MoveType) -> Self {
+        return Self(from.to_square_uint16() | (to.to_square_uint16() << 6) | movetype as u16);
     }
 
     /// Decode the target into a one bit bitmask
-    pub fn to(&self) -> BB {
-        const TARGET: u16 = 0x0fc0;
-        BB::from_sq(((self.0 & TARGET) >> 6).into())
+    pub fn to(&self) -> BitBoard {
+        const TARGET_BITS: u16 = 0x0fc0;
+        BitBoard::from_square(((self.0 & TARGET_BITS) >> 6).into())
     }
 
     /// Decode the source into a one bit bitmask
-    pub fn from(&self) -> BB {
-        const SRC: u16 = 0x003f;
-        BB::from_sq((self.0 & SRC).into())
+    pub fn from(&self) -> BitBoard {
+        const SOURCE_BITS: u16 = 0x003f;
+        BitBoard::from_square((self.0 & SOURCE_BITS).into())
     }
 
     /// Decode the type of move
     pub fn movetype(&self) -> MoveType {
         use MoveType::*;
-        const FLAGS: u16 = 0xf000;
+        const FLAG_BITS: u16 = 0xf000;
 
-        match self.0 & FLAGS {
+        match self.0 & FLAG_BITS {
             0x0000 => Quiet,
             0x1000 => DoublePawnPush,
             0x2000 => ShortCastle,
             0x3000 => LongCastle,
             0x4000 => Capture,
             0x5000 => EnPassant,
-            0x8000 => NPromotion,
-            0x9000 => BPromotion,
-            0xa000 => RPromotion,
-            0xb000 => QPromotion,
-            0xc000 => NPromoCapture,
-            0xd000 => BPromoCapture,
-            0xe000 => RPromoCapture,
-            0xf000 => QPromoCapture,
+            0x8000 => KnightPromotion,
+            0x9000 => BishopPromotion,
+            0xa000 => RookPromotion,
+            0xb000 => QueenPromotion,
+            0xc000 => KnightPromotionCapture,
+            0xd000 => BishopPromotionCapture,
+            0xe000 => RookPromotionCapture,
+            0xf000 => QueenPromotionCapture,
             _ => panic!("invalid bitflag"),
         }
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        self.0 & MoveType::Quiet as u16 == 0
     }
 
     /// Decode if the move encodes a capture of any sort
@@ -262,7 +268,7 @@ impl Move {
     }
 
     /// What kind of promotion is encoded
-    pub fn promo_pt(&self) -> Option<PieceType> {
+    pub fn promotion_piecetype(&self) -> Option<PieceType> {
         const PT_FLAG: u16 = 0x3000;
         debug_assert!(self.is_promotion());
         match self.0 & PT_FLAG {
@@ -279,7 +285,7 @@ impl Move {
         let to = self.to().to_algebraic();
 
         let promo_pt = if self.is_promotion() {
-            match self.promo_pt().expect("is_promotion check") {
+            match self.promotion_piecetype().expect("is_promotion check") {
                 PieceType::Rook => "r",
                 PieceType::Knight => "n",
                 PieceType::Bishop => "b",
@@ -295,11 +301,15 @@ impl Move {
 
     /// Convert move into UciMove struct of the v_uci crate
     pub fn to_uci(&self) -> v_uci::UciMove {
-        let from = self.from().to_uci();
-        let to = self.to().to_uci();
+        let from = self.from().to_uci_square();
+        let to = self.to().to_uci_square();
 
         let promotion = if self.is_promotion() {
-            Some(self.promo_pt().expect(".is_promotion check").to_uci())
+            Some(
+                self.promotion_piecetype()
+                    .expect(".is_promotion check")
+                    .to_uci(),
+            )
         } else {
             None
         };

@@ -1,17 +1,17 @@
 /// Methods to generate and update the Zobrist key using the Polyglot format.
 /// http://hgm.nubati.net/book_format.html
 use super::*;
+use constants::bb;
 use position::Position;
 use types::PieceType;
 
 impl Position {
-    /// Generate a Zobrist key, call during position initialization and use
-    /// update methods during .makemove
-    pub fn generate_key(&self) -> u64 {
+    /// Generate a Zobrist key, call during position initialization and use update methods during .makemove
+    pub fn generate_zobrist_key(&self) -> u64 {
         let mut key = 0;
 
         // Organize BBs into arrays to allow convenient access of hash array
-        let (w, b) = self.white_black();
+        let (w, b) = self.white_black_bitboards();
         let white = [w.pawn, w.knight, w.bishop, w.rook, w.queen, w.king];
         let black = [b.pawn, b.knight, b.bishop, b.rook, b.queen, b.king];
         let pieces = [black, white];
@@ -20,7 +20,7 @@ impl Position {
         for color in pieces.iter().enumerate() {
             for piece in color.1.iter().enumerate() {
                 for sq in piece.1.forward_scan() {
-                    let idx = sq.to_sq();
+                    let idx = sq.to_square();
                     let piece_id = piece.0 * 2 + color.0;
                     let hash_idx = 64 * piece_id + idx;
                     key ^= HASH_KEYS[hash_idx]
@@ -29,9 +29,7 @@ impl Position {
         }
 
         // Hash castling
-        for (sq, hash_idx) in
-            std::iter::zip([square::H1, square::A1, square::H8, square::A8], 768..=771)
-        {
+        for (sq, hash_idx) in std::iter::zip([bb::H1, bb::A1, bb::H8, bb::A8], 768..=771) {
             if (self.castling_rights & sq).is_not_empty() {
                 key ^= HASH_KEYS[hash_idx]
             }
@@ -39,69 +37,81 @@ impl Position {
 
         // Hash ep
         // Find pawns that are able to move to the target square
-        let pawns = match self.stm {
-            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & w.pawn,
-            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & b.pawn,
+        let pawns = match self.side_to_move {
+            Color::White => (self.en_passant.sout_west() | self.en_passant.sout_east()) & w.pawn,
+            Color::Black => (self.en_passant.nort_west() | self.en_passant.nort_east()) & b.pawn,
         };
 
         if pawns.is_not_empty() {
-            key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
+            key ^= HASH_KEYS[772 + self.en_passant.to_square() % 8];
         }
 
         // Hash turn
-        if matches!(self.stm, Color::White) {
+        if matches!(self.side_to_move, Color::White) {
             key ^= HASH_KEYS[780]
         }
 
         return key;
     }
 
-    fn ep_hash(&self) -> u64 {
+    /// Generate the en passant contribution of the zobrist hash
+    fn en_passant_hash(&self) -> u64 {
         let mut key = 0;
 
-        if self.ep_sq.is_not_empty() {
-            let (white, black) = self.white_black();
-            let pawns = match self.stm {
-                Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & white.pawn,
-                Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & black.pawn,
+        if self.en_passant.is_not_empty() {
+            let (white, black) = self.white_black_bitboards();
+            let pawns = match self.side_to_move {
+                Color::White => {
+                    (self.en_passant.sout_west() | self.en_passant.sout_east()) & white.pawn
+                }
+                Color::Black => {
+                    (self.en_passant.nort_west() | self.en_passant.nort_east()) & black.pawn
+                }
             };
 
             if pawns.is_not_empty() {
-                key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
+                key ^= HASH_KEYS[772 + self.en_passant.to_square() % 8];
             }
         }
 
         return key;
     }
 
+    // Update zobrist hash upon move turn
     pub fn turn_key_update(&mut self) {
         self.key ^= HASH_KEYS[780];
     }
 
     /// Update at both source and target squares for the piece
-    pub fn move_key_update(&mut self, moved_pt: PieceType, from: BB, to: BB, wtm: bool) {
-        let idx = PT_KEY_IDX_MAP[moved_pt as usize] * 2 + wtm as usize;
-        self.key ^= HASH_KEYS[64 * idx + from.to_sq()];
-        self.key ^= HASH_KEYS[64 * idx + to.to_sq()];
+    pub fn move_key_update(
+        &mut self,
+        moved_pt: PieceType,
+        from: BitBoard,
+        to: BitBoard,
+        wtm: bool,
+    ) {
+        let idx = PIECETYPE_TO_KEY_INDEX_MAP[moved_pt as usize] * 2 + wtm as usize;
+        self.key ^= HASH_KEYS[64 * idx + from.to_square()];
+        self.key ^= HASH_KEYS[64 * idx + to.to_square()];
     }
 
     /// Update hash for a single bitflip
-    pub fn sq_key_update(&mut self, pt: PieceType, sq: BB, wtm: bool) {
-        let idx = PT_KEY_IDX_MAP[pt as usize] * 2 + wtm as usize;
-        self.key ^= HASH_KEYS[64 * idx + sq.to_sq()];
+    pub fn square_key_update(&mut self, pt: PieceType, sq: BitBoard, wtm: bool) {
+        let idx = PIECETYPE_TO_KEY_INDEX_MAP[pt as usize] * 2 + wtm as usize;
+        self.key ^= HASH_KEYS[64 * idx + sq.to_square()];
     }
 
     /// Update hash for an en passant square update
-    pub fn ep_key_update(&mut self) {
-        self.key ^= self.ep_hash();
+    pub fn en_passant_key_update(&mut self) {
+        self.key ^= self.en_passant_hash();
     }
 
     /// Update hash for an update to castling rights
-    pub fn castle_key_update(&mut self) {
-        let prev = self.unmake_info.last().unwrap().castling_rights;
+    pub fn castling_key_update(&mut self) {
+        let prev = self.peek_stack().castling_rights;
         let mut diff = self.castling_rights ^ prev;
         while diff.is_not_empty() {
-            match diff.pop_ils1b() {
+            match diff.pop_ls1b_index() {
                 7 => self.key ^= HASH_KEYS[768],  // White kingside
                 0 => self.key ^= HASH_KEYS[769],  // White queenside
                 63 => self.key ^= HASH_KEYS[770], // Black kingside
@@ -110,11 +120,15 @@ impl Position {
             }
         }
     }
+
+    fn peek_stack(&self) -> &position::StackData {
+        &self.stack[self.ply as usize - 1]
+    }
 }
 
 // Converts the internal enum discriminant of a piece into the appropriate
 // index used by the Polyglot hash table
-const PT_KEY_IDX_MAP: [usize; 7] = [0, 0, 3, 1, 2, 4, 5];
+const PIECETYPE_TO_KEY_INDEX_MAP: [usize; 7] = [0, 0, 3, 1, 2, 4, 5];
 
 // The pseudo-random hash keys used by the Polyglot program. We can use these
 // to test that our hashing algorithm is working correctly or use these for all
@@ -325,7 +339,6 @@ mod test {
     use super::*;
     use movelist::{MoveList, UnorderedList};
     use test_case::test_case;
-    use types::MoveType;
 
     #[test_case("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0x463b96181691fc9c; "1")]
     #[test_case("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", 0x823c9b50fd114196; "2")]
@@ -343,7 +356,7 @@ mod test {
 
     // Tests for the incremental update of Zobrist keys after a make move operation
     #[test_case(
-        TPOS2, 21, 30,
+        constants::fen::TEST_2, 21, 30,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P1Q1/2N4p/PPPBBPPP/R3K2R b KQkq - 1 1";
         "base case")]
     #[test_case(
@@ -351,14 +364,19 @@ mod test {
         "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2QPp/1PPBBP1P/R3K2R b KQkq - 0 2";
         "loss of en passant")]
     #[test_case(
-        TPOS2, 4, 5,
+        constants::fen::TEST_2, 4, 5,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
         "loss of castling")]
     fn test_hash_update_quiet(startpos: &str, from: usize, to: usize, expected: &str) {
         let mut pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = UnorderedList::new();
-        movelist.add(BB::from_sq(from), BB::from_sq(to), MoveType::Quiet, &pos);
+        movelist.add(
+            BitBoard::from_square(from),
+            BitBoard::from_square(to),
+            MoveType::Quiet,
+            &pos,
+        );
         let mv = movelist.pop().unwrap();
         // Apply move
         pos.make_move(&mv);
@@ -366,10 +384,10 @@ mod test {
         assert_eq!(pos.key, expected_pos.key)
     }
 
-    #[test_case(TPOS2, 8, 24,
+    #[test_case(constants::fen::TEST_2, 8, 24,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R b KQkq a3 0 1";
         "eps gain")]
-    #[test_case(TPOS2, 14, 30,
+    #[test_case(constants::fen::TEST_2, 14, 30,
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P1P1/2N2Q1p/PPPBBP1P/R3K2R b KQkq g3 0 1";
         "no eps gain")]
     #[test_case(
@@ -385,8 +403,8 @@ mod test {
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
-            BB::from_sq(from),
-            BB::from_sq(to),
+            BitBoard::from_square(from),
+            BitBoard::from_square(to),
             MoveType::DoublePawnPush,
             &pos,
         );
@@ -409,8 +427,8 @@ mod test {
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
-            BB::from_sq(from),
-            BB::from_sq(to),
+            BitBoard::from_square(from),
+            BitBoard::from_square(to),
             MoveType::ShortCastle,
             &pos,
         );
@@ -430,8 +448,8 @@ mod test {
         // Specify move
         let mut movelist = UnorderedList::new();
         movelist.add(
-            BB::from_sq(from),
-            BB::from_sq(to),
+            BitBoard::from_square(from),
+            BitBoard::from_square(to),
             MoveType::EnPassant,
             &pos,
         );

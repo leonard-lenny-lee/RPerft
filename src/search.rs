@@ -1,13 +1,13 @@
+// Search algorithm
 use super::*;
+
 use hash::{HashTable, Probe};
 use movegen::{generate, generate_all};
 use movelist::{Move, MoveList, OrderedList, UnorderedList};
 use position::Position;
 use types::NodeType;
 
-const INFINITE: i16 = 30000;
-const MAX_DEPTH: u8 = 30;
-
+/// Master search function, execute search at this depth
 pub fn search(pos: &mut Position, depth: u8, table: &mut HashTable) {
     table.age += 1;
 
@@ -34,7 +34,14 @@ fn search_iteration(pos: &mut Position, depth: u8, table: &HashTable) {
 
     let mut info = SearchInfo::new(depth);
     // Execute search
-    alpha_beta(pos, depth, -INFINITE, INFINITE, table, &mut info);
+    alpha_beta(
+        pos,
+        depth,
+        -constants::INFINITE,
+        constants::INFINITE,
+        table,
+        &mut info,
+    );
 
     // Report search results
     let mut uci_info = Vec::new();
@@ -46,7 +53,7 @@ fn search_iteration(pos: &mut Position, depth: u8, table: &HashTable) {
         uci_info.push(UciInfoAttribute::Pv(pv));
 
         // Score
-        let mate = if entry.score.abs() >= INFINITE - MAX_DEPTH as i16 {
+        let mate = if entry.score.abs() >= constants::INFINITE - constants::MAX_DEPTH as i16 {
             if entry.score < 0 {
                 pv_len *= -1
             }
@@ -76,7 +83,7 @@ fn search_iteration(pos: &mut Position, depth: u8, table: &HashTable) {
 
 /// Probe the transposition table for the principal variation line
 fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> {
-    let mut pos = pos.copy();
+    let mut pos = pos.clone();
     let mut pv = Vec::new();
 
     for depth in (1..=depth).rev() {
@@ -113,16 +120,16 @@ fn _nega_max(pos: &mut Position, depth: u8, table: &HashTable) -> i16 {
     generate_all(pos, &mut moves);
 
     if moves.len() == 0 {
-        let n_checkers = pos.checkers().pop_count();
+        let n_checkers = pos.opponent_checkers().pop_count();
         if n_checkers > 0 {
-            return -INFINITE; // Checkmate
+            return -constants::INFINITE; // Checkmate
         } else {
             return 0; // Stalemate
         }
     }
 
     let mut best_move = Move::null();
-    let mut best_score = -INFINITE;
+    let mut best_score = -constants::INFINITE;
 
     for mv in moves.iter() {
         pos.make_move(mv);
@@ -158,7 +165,7 @@ pub fn alpha_beta(
 
     info.nodes += 1;
 
-    if pos.ply >= MAX_DEPTH {
+    if pos.ply >= constants::MAX_DEPTH as u8 {
         return pos.evaluate();
     }
 
@@ -182,18 +189,18 @@ pub fn alpha_beta(
     generate_all(pos, &mut moves);
 
     if moves.len() == 0 {
-        let n_checkers = pos.checkers().pop_count();
+        let n_checkers = pos.opponent_checkers().pop_count();
         if n_checkers > 0 {
-            return -INFINITE + pos.ply as i16; // Checkmate
+            return -constants::INFINITE + pos.ply as i16; // Checkmate
         } else {
             return 0; // Stalemate
         }
     }
 
     // Order
-    moves.sort();
+    moves.sort_by_score();
 
-    let mut best_score = -INFINITE;
+    let mut best_score = -constants::INFINITE;
     let mut best_move = Move::null();
     let old_alpha = alpha;
 
@@ -244,7 +251,7 @@ pub fn alpha_beta(
 fn quiescence(pos: &mut Position, mut alpha: i16, beta: i16, info: &mut SearchInfo) -> i16 {
     info.nodes += 1;
 
-    if pos.ply > MAX_DEPTH as u8 || pos.ply > info.max_depth {
+    if pos.ply > constants::MAX_DEPTH as u8 || pos.ply > info.max_depth {
         return pos.evaluate();
     }
 
@@ -265,22 +272,22 @@ fn quiescence(pos: &mut Position, mut alpha: i16, beta: i16, info: &mut SearchIn
         &info.history_table as *const HistoryTable,
     );
 
-    let checkers = pos.checkers();
-    let our_attacks = pos.attack_sq(); // All squares our pieces are attacking
+    let checkers = pos.opponent_checkers();
+    let our_attacks = pos.our_attack_squares(); // All squares our pieces are attacking
     let captures = our_attacks & pos.them.all;
 
     // If in check, the priority is to resolve the check
     if checkers.is_not_empty() {
-        generate(types::GenType::Evasions(checkers), pos, &mut moves);
+        generate(types::GeneratorType::Evasions(checkers), pos, &mut moves);
 
         if moves.len() == 0 {
-            return -INFINITE;
+            return -constants::INFINITE;
         }
     }
     // Enumerate the through the captures only
-    else if captures != EMPTY_BB {
-        generate(types::GenType::Captures, pos, &mut moves);
-        moves.sort();
+    else if captures != constants::bb::EMPTY {
+        generate(types::GeneratorType::Captures, pos, &mut moves);
+        moves.sort_by_score();
     }
     // No captures and not in check so stop quiescing
     else {
@@ -331,11 +338,11 @@ impl SearchInfo {
     }
 }
 
-struct KillerTable([[Move; 2]; MAX_DEPTH as usize]);
+struct KillerTable([[Move; 2]; constants::MAX_DEPTH as usize]);
 
 impl KillerTable {
     fn new() -> Self {
-        Self([[Move::null(); 2]; MAX_DEPTH as usize])
+        Self([[Move::null(); 2]; constants::MAX_DEPTH as usize])
     }
 
     fn get(&self, ply: u8) -> [Move; 2] {
@@ -355,12 +362,12 @@ impl HistoryTable {
         Self([[0; 64]; 64])
     }
 
-    pub fn get(&self, from: BB, to: BB) -> u16 {
-        self.0[from.to_sq()][to.to_sq()]
+    pub fn get(&self, from: BitBoard, to: BitBoard) -> u16 {
+        self.0[from.to_square()][to.to_square()]
     }
 
-    fn set(&mut self, from: BB, to: BB, depth: u8) {
-        self.0[from.to_sq()][to.to_sq()] += depth as u16;
+    fn set(&mut self, from: BitBoard, to: BitBoard, depth: u8) {
+        self.0[from.to_square()][to.to_square()] += depth as u16;
     }
 }
 
@@ -395,7 +402,7 @@ pub mod perft {
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = movelist[i];
-                let mut pos = pos.copy();
+                let mut pos = pos.clone();
                 pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
@@ -446,8 +453,10 @@ pub mod perft {
         return nodes;
     }
 
-    pub fn run_perft_suite(num_threads: usize, table_size: usize) {
-        let positions = [STARTPOS, TPOS2, TPOS3, TPOS4, TPOS5, TPOS6];
+    pub fn run_perft_benchmark_suite(num_threads: usize, table_size: usize) {
+        use constants::fen::*;
+
+        let positions = [START, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
         let depths = [6, 5, 7, 5, 5, 5];
         let mut results = Vec::new();
         for (i, (pos_fen, depth)) in std::iter::zip(positions, depths).enumerate() {
@@ -479,23 +488,31 @@ pub mod perft {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use constants::fen::*;
     use engine::DEF_TABLE_SIZE_BYTES;
     use test_case::test_case;
 
     // Test the equivalency of search result from negamax and alpha beta
     #[ignore]
-    #[test_case(STARTPOS, 2; "startpos")]
-    #[test_case(TPOS2, 2; "testpos2")]
-    #[test_case(TPOS3, 2; "testpos3")]
-    #[test_case(TPOS4, 2; "testpos4")]
-    #[test_case(TPOS5, 2; "testpos5")]
-    #[test_case(TPOS6, 2; "testpos6")]
+    #[test_case(START, 2; "startpos")]
+    #[test_case(TEST_2, 2; "testpos2")]
+    #[test_case(TEST_3, 2; "testpos3")]
+    #[test_case(TEST_4, 2; "testpos4")]
+    #[test_case(TEST_5, 2; "testpos5")]
+    #[test_case(TEST_6, 2; "testpos6")]
     fn test_alpha_beta(fen: &str, depth: u8) {
         let mut pos = Position::from_fen(fen).unwrap();
         let mut table = HashTable::new(DEF_TABLE_SIZE_BYTES);
         let mut info = SearchInfo::new(depth);
 
-        let alpha_beta = alpha_beta(&mut pos, depth, -INFINITE, INFINITE, &table, &mut info);
+        let alpha_beta = alpha_beta(
+            &mut pos,
+            depth,
+            -constants::INFINITE,
+            constants::INFINITE,
+            &table,
+            &mut info,
+        );
         table.clear();
 
         let negamax = _nega_max(&mut pos, depth, &table);
@@ -506,17 +523,18 @@ mod tests {
 #[cfg(test)]
 mod perft_tests {
     use super::*;
+    use constants::fen::*;
     use engine::DEF_TABLE_SIZE_BYTES;
     use perft::perft;
     use test_case::test_case;
 
     /// Standard test suite
-    #[test_case(STARTPOS, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
-    #[test_case(TPOS2, vec![48, 2039, 97862, 4085603, 193690690], 5; "testpos2")]
-    #[test_case(TPOS3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "testpos3")]
-    #[test_case(TPOS4, vec![6, 264, 9467, 422333, 15833292], 5; "testpos4")]
-    #[test_case(TPOS5, vec![44, 1486, 62379, 2103487, 89941194], 5; "testpos5")]
-    #[test_case(TPOS6, vec![46, 2079, 89890, 3894594, 164075551], 5; "testpos6")]
+    #[test_case(START, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
+    #[test_case(TEST_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "testpos2")]
+    #[test_case(TEST_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "testpos3")]
+    #[test_case(TEST_4, vec![6, 264, 9467, 422333, 15833292], 5; "testpos4")]
+    #[test_case(TEST_5, vec![44, 1486, 62379, 2103487, 89941194], 5; "testpos5")]
+    #[test_case(TEST_6, vec![46, 2079, 89890, 3894594, 164075551], 5; "testpos6")]
     fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
         let node = Position::from_fen(fen).unwrap();
         for (exp_node_count, depth) in std::iter::zip(expected_nodes, 1..=depth) {
@@ -551,11 +569,11 @@ mod perft_tests {
     /// Intensive perft tests. Keep ignore flag to prevent from being
     /// run in a normal test suite.
     #[ignore]
-    #[test_case(STARTPOS, 3195901860, 7; "startpos")]
-    #[test_case(TPOS2, 8031647685, 6; "testpos2")]
-    #[test_case(TPOS3, 3009794393, 8; "testpos3")]
-    #[test_case(TPOS4, 706045033, 6; "testpos4")]
-    #[test_case(TPOS6, 6923051137, 6; "testpos5")]
+    #[test_case(START, 3195901860, 7; "startpos")]
+    #[test_case(TEST_2, 8031647685, 6; "testpos2")]
+    #[test_case(TEST_3, 3009794393, 8; "testpos3")]
+    #[test_case(TEST_4, 706045033, 6; "testpos4")]
+    #[test_case(TEST_6, 6923051137, 6; "testpos5")]
     fn deep_perft_suite(fen: &str, expected_nodes: u64, depth: u8) {
         let node = Position::from_fen(fen).unwrap();
         let result = perft(&node, depth, num_cpus::get(), DEF_TABLE_SIZE_BYTES, false).0;
