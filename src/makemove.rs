@@ -25,7 +25,7 @@ impl position::Position {
             captured_pt,
             castling_rights: self.castling_rights,
             halfmove_clock: self.halfmove_clock,
-            ep_sq: self.en_passant,
+            en_passant: self.en_passant,
             key: self.key,
             restore_index: None,
         };
@@ -39,7 +39,6 @@ impl position::Position {
         self.en_passant_key_update();
 
         // Increment clocks
-        self.ply += 1;
         self.halfmove_clock += 1;
         self.fullmove_clock += self.side_to_move as u8;
 
@@ -126,7 +125,7 @@ impl position::Position {
         // Change the turn and state
         self.nnue_pos.player ^= 1;
         self.change_state();
-        self.stack.push(stack_data);
+        self.push_to_stack(stack_data);
         // Update key
         self.turn_key_update();
         self.en_passant_key_update();
@@ -134,16 +133,15 @@ impl position::Position {
     }
 
     pub fn unmake_move(&mut self) {
-        let prev = self.stack.pop().unwrap();
+        let prev = self.pop_from_stack();
 
         // Reverse clocks
-        self.ply -= 1;
         self.halfmove_clock = prev.halfmove_clock;
         self.fullmove_clock -= 1 - self.side_to_move as u8;
 
         // Restore info from the stack
         self.castling_rights = prev.castling_rights;
-        self.en_passant = prev.ep_sq;
+        self.en_passant = prev.en_passant;
         self.halfmove_clock = prev.halfmove_clock;
         self.key = prev.key;
 
@@ -259,6 +257,22 @@ impl position::NNUEPosition {
         let cur_pt = self.pieces[index] - self.player * 6;
         self.pieces[index] += pt.to_nnue_pc();
         self.pieces[index] -= cur_pt;
+    }
+}
+
+impl position::Position {
+    fn push_to_stack(&mut self, mut stack_data: position::StackData) {
+        let entry = &mut self.stack[self.ply as usize];
+        std::mem::swap(entry, &mut stack_data);
+        self.ply += 1;
+    }
+
+    fn pop_from_stack(&mut self) -> position::StackData {
+        self.ply -= 1;
+        let mut stack_data = position::StackData::default();
+        let stack_entry = &mut self.stack[self.ply as usize];
+        std::mem::swap(&mut stack_data, stack_entry);
+        stack_data
     }
 }
 

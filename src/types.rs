@@ -21,7 +21,7 @@ pub const PIECES: [PieceType; 6] = [
     PieceType::King,
 ];
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     White = 0,
     Black,

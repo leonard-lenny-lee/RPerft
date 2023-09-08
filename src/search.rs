@@ -83,7 +83,7 @@ fn search_iteration(pos: &mut Position, depth: u8, table: &HashTable) {
 
 /// Probe the transposition table for the principal variation line
 fn find_pv(pos: &Position, depth: u8, table: &HashTable) -> Vec<v_uci::UciMove> {
-    let mut pos = pos.copy();
+    let mut pos = pos.clone();
     let mut pv = Vec::new();
 
     for depth in (1..=depth).rev() {
@@ -402,7 +402,7 @@ pub mod perft {
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = movelist[i];
-                let mut pos = pos.copy();
+                let mut pos = pos.clone();
                 pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {

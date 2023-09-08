@@ -135,7 +135,7 @@ impl Position {
             white_to_move,
             side_to_move,
             ply: 0,
-            stack: Vec::new(),
+            stack: Box::new([StackData::default(); constants::MAX_DEPTH]),
             nnue_pos: NNUEPosition::init(board, side_to_move),
         };
 
@@ -149,25 +149,6 @@ impl Position {
     /// Initialize a new starting position
     pub fn new_starting_position() -> Self {
         return Self::from_fen(constants::fen::START).expect("start fen is valid");
-    }
-
-    pub fn copy(&self) -> Self {
-        Self {
-            us: self.us,
-            them: self.them,
-            occupied: self.occupied,
-            free: self.free,
-            castling_rights: self.castling_rights,
-            en_passant: self.en_passant,
-            halfmove_clock: self.halfmove_clock,
-            fullmove_clock: self.fullmove_clock,
-            key: self.key,
-            white_to_move: self.white_to_move,
-            side_to_move: self.side_to_move,
-            ply: self.ply,
-            stack: Vec::new(),
-            nnue_pos: self.nnue_pos,
-        }
     }
 
     /// Convert position into a 8 x 8 array of characters

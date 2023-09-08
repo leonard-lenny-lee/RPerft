@@ -8,6 +8,7 @@ mod parse;
 mod states;
 mod zobrist;
 
+#[derive(Debug, Clone)]
 pub struct Position {
     pub us: BBSet,
     pub them: BBSet,
@@ -20,12 +21,12 @@ pub struct Position {
     pub key: u64,
     pub white_to_move: bool,
     pub side_to_move: Color,
-    pub ply: u8,
-    pub stack: Vec<StackData>,
+    pub ply: u8, // Ply acts as the stack pointer
+    pub stack: Box<[StackData; constants::MAX_DEPTH]>,
     pub nnue_pos: NNUEPosition,
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BBSet {
     pub all: BitBoard,
     pub pawn: BitBoard,
@@ -36,7 +37,7 @@ pub struct BBSet {
     pub king: BitBoard,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct NNUEPosition {
     pub player: usize,
     pub pieces: [usize; 32],
@@ -55,7 +56,7 @@ pub struct StackData {
     pub moved_pt: PieceType,
     pub captured_pt: Option<PieceType>,
     pub castling_rights: BitBoard,
-    pub ep_sq: BitBoard,
+    pub en_passant: BitBoard,
     pub halfmove_clock: u8,
     pub key: u64,
     pub restore_index: Option<usize>,

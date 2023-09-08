@@ -108,7 +108,7 @@ impl Position {
 
     /// Update hash for an update to castling rights
     pub fn castling_key_update(&mut self) {
-        let prev = self.stack.last().unwrap().castling_rights;
+        let prev = self.peek_stack().castling_rights;
         let mut diff = self.castling_rights ^ prev;
         while diff.is_not_empty() {
             match diff.pop_ls1b_index() {
@@ -119,6 +119,10 @@ impl Position {
                 _ => panic!("Unrecognised bit in castling rights"),
             }
         }
+    }
+
+    fn peek_stack(&self) -> &position::StackData {
+        &self.stack[self.ply as usize - 1]
     }
 }
 
