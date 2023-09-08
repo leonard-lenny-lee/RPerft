@@ -1,6 +1,7 @@
 /// Contains methods for parsing FEN strings into position representation
 /// and serialize the position into other formats.
 use super::*;
+use constants::bb;
 use types::PieceType;
 
 impl Position {
@@ -21,8 +22,8 @@ impl Position {
         }
 
         // Fill BBSet for white and black. Set 'us' as white for now
-        let mut us = BBSet::new_empty();
-        let mut them = BBSet::new_empty();
+        let mut us = BBSet::default();
+        let mut them = BBSet::default();
         let mut board_tokens: Vec<&str> = tokens[0].split("/").collect();
 
         if board_tokens.len() != 8 {
@@ -38,7 +39,7 @@ impl Position {
             if sq >= 64 {
                 return Err(RuntimeError::ParseFenError);
             }
-            let mask = BB::from_sq(sq);
+            let mask = BitBoard::from_square(sq);
 
             // Alphabetic characters represent a piece of the square
             if c.is_alphabetic() {
@@ -71,34 +72,34 @@ impl Position {
             return Err(RuntimeError::ParseFenError);
         }
 
-        let occ = us.all | them.all;
-        let free = !occ;
+        let occupied = us.all | them.all;
+        let free = !occupied;
 
         // Set side to move
-        let (wtm, stm) = match tokens[1] {
+        let (white_to_move, side_to_move) = match tokens[1] {
             "w" => (true, Color::White),
             "b" => (false, Color::Black),
             _ => return Err(RuntimeError::ParseFenError),
         };
 
         // Set castling rights
-        let mut castling_rights = EMPTY_BB;
+        let mut castling_rights = bb::EMPTY;
         for c in tokens[2].chars() {
             match c {
-                'K' => castling_rights |= square::H1,
-                'k' => castling_rights |= square::H8,
-                'Q' => castling_rights |= square::A1,
-                'q' => castling_rights |= square::A8,
+                'K' => castling_rights |= bb::H1,
+                'k' => castling_rights |= bb::H8,
+                'Q' => castling_rights |= bb::A1,
+                'q' => castling_rights |= bb::A8,
                 '-' => (),
                 _ => return Err(RuntimeError::ParseFenError),
             }
         }
 
         // Set en passant target square
-        let ep_sq = if tokens[3] == "-" {
-            EMPTY_BB
+        let en_passant = if tokens[3] == "-" {
+            bb::EMPTY
         } else {
-            match BB::from_algebraic(tokens[3]) {
+            match BitBoard::from_algebraic(tokens[3]) {
                 Ok(bb) => bb,
                 Err(_) => return Err(RuntimeError::ParseFenError),
             }
@@ -117,52 +118,52 @@ impl Position {
         };
 
         // Swap us/them pointers if black to move
-        if let Color::Black = stm {
+        if let Color::Black = side_to_move {
             std::mem::swap(&mut us, &mut them)
         }
 
         let mut pos = Self {
             us,
             them,
-            occ,
+            occupied,
             free,
             castling_rights,
-            ep_sq,
+            en_passant,
             halfmove_clock,
             fullmove_clock,
             key: 0,
-            wtm,
-            stm,
+            white_to_move,
+            side_to_move,
             ply: 0,
             stack: Vec::new(),
-            nnue_pos: NNUEPosition::init(board, stm),
+            nnue_pos: NNUEPosition::init(board, side_to_move),
         };
 
         // Initialize Zobrist key
-        pos.key = pos.generate_key();
+        pos.key = pos.generate_zobrist_key();
         // Check that the king cannot be captured
         pos.check_legal()?;
         return Ok(pos);
     }
 
     /// Initialize a new starting position
-    pub fn new_starting_pos() -> Self {
-        return Self::from_fen(STARTPOS).expect("hardcoded starting fen is valid");
+    pub fn new_starting_position() -> Self {
+        return Self::from_fen(constants::fen::START).expect("start fen is valid");
     }
 
     pub fn copy(&self) -> Self {
         Self {
             us: self.us,
             them: self.them,
-            occ: self.occ,
+            occupied: self.occupied,
             free: self.free,
             castling_rights: self.castling_rights,
-            ep_sq: self.ep_sq,
+            en_passant: self.en_passant,
             halfmove_clock: self.halfmove_clock,
             fullmove_clock: self.fullmove_clock,
             key: self.key,
-            wtm: self.wtm,
-            stm: self.stm,
+            white_to_move: self.white_to_move,
+            side_to_move: self.side_to_move,
             ply: self.ply,
             stack: Vec::new(),
             nnue_pos: self.nnue_pos,
@@ -172,7 +173,7 @@ impl Position {
     /// Convert position into a 8 x 8 array of characters
     fn to_array(&self) -> [[char; 8]; 8] {
         let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
-        let (white, black) = self.white_black();
+        let (white, black) = self.white_black_bitboards();
         let w_array = white.as_array();
         let b_array = black.as_array();
 
@@ -184,7 +185,7 @@ impl Position {
         for (i, (bb_1, bb_2)) in std::iter::zip(w_array, b_array).enumerate() {
             for (bb, charset) in std::iter::zip([bb_1, bb_2], [w_charset, b_charset]) {
                 for sq in bb.forward_scan() {
-                    let index = sq.to_sq();
+                    let index = sq.to_square();
                     let (x, y) = (index / 8, index % 8);
                     array[x][y] = charset[i];
                 }
@@ -227,18 +228,16 @@ impl Position {
         tokens.push(board_token);
 
         // Parse side to move
-        match self.stm {
+        match self.side_to_move {
             Color::White => tokens.push("w".to_string()),
             Color::Black => tokens.push("b".to_string()),
         }
 
         // Build castling token
         let mut castling_token = String::new();
-        for (target_sq, c) in std::iter::zip(
-            [square::H1, square::A1, square::H8, square::A8],
-            ['K', 'Q', 'k', 'q'],
-        ) {
-            if self.castling_rights & target_sq != EMPTY_BB {
+        for (target_sq, c) in std::iter::zip([bb::H1, bb::A1, bb::H8, bb::A8], ['K', 'Q', 'k', 'q'])
+        {
+            if self.castling_rights & target_sq != bb::EMPTY {
                 castling_token.push(c)
             }
         }
@@ -248,8 +247,8 @@ impl Position {
         tokens.push(castling_token);
 
         // Push en passant token
-        if self.ep_sq != EMPTY_BB {
-            tokens.push(self.ep_sq.to_algebraic());
+        if self.en_passant != bb::EMPTY {
+            tokens.push(self.en_passant.to_algebraic());
         } else {
             tokens.push("-".to_string())
         }
@@ -301,19 +300,7 @@ impl std::fmt::Display for Position {
 }
 
 impl BBSet {
-    fn new_empty() -> Self {
-        return Self {
-            all: EMPTY_BB,
-            pawn: EMPTY_BB,
-            rook: EMPTY_BB,
-            knight: EMPTY_BB,
-            bishop: EMPTY_BB,
-            queen: EMPTY_BB,
-            king: EMPTY_BB,
-        };
-    }
-
-    pub fn as_array(&self) -> [&BB; 7] {
+    pub fn as_array(&self) -> [&BitBoard; 7] {
         return [
             &self.all,
             &self.pawn,
@@ -381,11 +368,11 @@ impl NNUEPosition {
 }
 
 impl std::ops::Index<PieceType> for BBSet {
-    type Output = BB;
+    type Output = BitBoard;
 
     fn index(&self, index: PieceType) -> &Self::Output {
         match index {
-            PieceType::All => &self.all,
+            PieceType::Any => &self.all,
             PieceType::Pawn => &self.pawn,
             PieceType::Rook => &self.rook,
             PieceType::Knight => &self.knight,
@@ -399,7 +386,7 @@ impl std::ops::Index<PieceType> for BBSet {
 impl std::ops::IndexMut<PieceType> for BBSet {
     fn index_mut(&mut self, index: PieceType) -> &mut Self::Output {
         match index {
-            PieceType::All => &mut self.all,
+            PieceType::Any => &mut self.all,
             PieceType::Pawn => &mut self.pawn,
             PieceType::Rook => &mut self.rook,
             PieceType::Knight => &mut self.knight,
@@ -413,58 +400,56 @@ impl std::ops::IndexMut<PieceType> for BBSet {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use constants::rank::*;
 
     #[test]
     fn test_new_starting_position() {
-        let pos = Position::new_starting_pos();
+        let pos = Position::new_starting_position();
 
         // White pieces
         assert_eq!(pos.us.all, RANK_1 | RANK_2, "w.any");
         assert_eq!(pos.us.pawn, RANK_2, "w.pawn");
-        assert_eq!(pos.us.rook, square::A1 | square::H1, "w.rook");
-        assert_eq!(pos.us.knight, square::B1 | square::G1, "w.knight");
-        assert_eq!(pos.us.bishop, square::C1 | square::F1, "w.bishop");
-        assert_eq!(pos.us.queen, square::D1, "w.queen");
-        assert_eq!(pos.us.king, square::E1, "w.king");
+        assert_eq!(pos.us.rook, bb::A1 | bb::H1, "w.rook");
+        assert_eq!(pos.us.knight, bb::B1 | bb::G1, "w.knight");
+        assert_eq!(pos.us.bishop, bb::C1 | bb::F1, "w.bishop");
+        assert_eq!(pos.us.queen, bb::D1, "w.queen");
+        assert_eq!(pos.us.king, bb::E1, "w.king");
 
         // Black pieces
         assert_eq!(pos.them.all, RANK_7 | RANK_8, "b.any");
         assert_eq!(pos.them.pawn, RANK_7, "b.pawn");
-        assert_eq!(pos.them.rook, square::A8 | square::H8, "b.rook");
-        assert_eq!(pos.them.knight, square::B8 | square::G8, "b.knight");
-        assert_eq!(pos.them.bishop, square::C8 | square::F8, "b.bishop");
-        assert_eq!(pos.them.queen, square::D8, "b.queen");
-        assert_eq!(pos.them.king, square::E8, "b.king");
+        assert_eq!(pos.them.rook, bb::A8 | bb::H8, "b.rook");
+        assert_eq!(pos.them.knight, bb::B8 | bb::G8, "b.knight");
+        assert_eq!(pos.them.bishop, bb::C8 | bb::F8, "b.bishop");
+        assert_eq!(pos.them.queen, bb::D8, "b.queen");
+        assert_eq!(pos.them.king, bb::E8, "b.king");
 
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
         let expected_free = !expected_occ;
-        assert_eq!(pos.occ, expected_occ, "occ");
+        assert_eq!(pos.occupied, expected_occ, "occ");
         assert_eq!(pos.free, expected_free, "free");
 
         // Other token parsing
-        assert!(matches!(pos.stm, Color::White));
-        assert_eq!(
-            pos.castling_rights,
-            square::A1 | square::H1 | square::A8 | square::H8
-        );
-        assert_eq!(pos.ep_sq, EMPTY_BB);
+        assert!(matches!(pos.side_to_move, Color::White));
+        assert_eq!(pos.castling_rights, bb::A1 | bb::H1 | bb::A8 | bb::H8);
+        assert_eq!(pos.en_passant, bb::EMPTY);
         assert_eq!(pos.halfmove_clock, 0);
         assert_eq!(pos.fullmove_clock, 1);
     }
 
     #[test]
     fn test_to_fen() {
-        let pos = Position::from_fen(TPOS3).unwrap();
-        assert_eq!(pos.to_fen(), TPOS3)
+        let pos = Position::from_fen(constants::fen::TEST_3).unwrap();
+        assert_eq!(pos.to_fen(), constants::fen::TEST_3)
     }
 
     #[test]
     fn test_nnue_pos_init() {
+        use bb::*;
         use nnue::Pieces::*;
-        use square::*;
 
-        let pos = Position::new_starting_pos();
+        let pos = Position::new_starting_position();
 
         #[rustfmt::skip]
         let expected_pieces = [
@@ -482,7 +467,7 @@ mod tests {
             A2, B2, C2, D2, E2, F2, G2, H2,
             A7, B7, C7, D7, E7, F7, G7, H7,
             A8, B8, C8, D8, F8, G8, H8,
-        ].map(|x| x.to_sq());
+        ].map(|x| x.to_square());
 
         #[rustfmt::skip]
         let expected_board = [
@@ -498,7 +483,7 @@ mod tests {
 
         let expected_end_ptr = 31;
 
-        let expected_player = if pos.wtm {
+        let expected_player = if pos.white_to_move {
             nnue::Colors::White as usize
         } else {
             nnue::Colors::Black as usize
@@ -515,7 +500,7 @@ mod tests {
     #[test]
     // Run manually and inspect
     fn test_to_board() {
-        let pos = Position::from_fen(TPOS3).unwrap();
+        let pos = Position::from_fen(constants::fen::TEST_3).unwrap();
         print!("{}", pos.to_board())
     }
 }

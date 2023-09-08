@@ -43,8 +43,7 @@ impl HashTable {
         };
     }
 
-    /// Retrieve the stored node count from the table, if it exists. Else,
-    /// return None.
+    /// Retrieve the stored node count from the table, if it exists. Else, return None.
     pub fn probe_perft(&self, key: u64, depth: u8) -> Option<u64> {
         let index = key as usize % self.size;
         let entry = &self.entries[index];
@@ -190,6 +189,7 @@ impl Entry {
         self.write(key, data);
     }
 
+    // Decode search data from an entry
     fn decode_search(&self) -> EntryData {
         let data = self.data();
         return EntryData {

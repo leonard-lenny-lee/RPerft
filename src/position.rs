@@ -1,39 +1,39 @@
 /// Contains the internal representation of a chess position
 use super::*;
+use types::{Color, MoveType, PieceType};
+use uci::RuntimeError;
+
 mod analysis;
 mod parse;
 mod states;
 mod zobrist;
 
-use types::{Color, MoveType, PieceType};
-use uci::RuntimeError;
-
 pub struct Position {
     pub us: BBSet,
     pub them: BBSet,
-    pub occ: BB,
-    pub free: BB,
-    pub castling_rights: BB,
-    pub ep_sq: BB,
+    pub occupied: BitBoard,
+    pub free: BitBoard,
+    pub castling_rights: BitBoard,
+    pub en_passant: BitBoard,
     pub halfmove_clock: u8,
     pub fullmove_clock: u8,
     pub key: u64,
-    pub wtm: bool,
-    pub stm: Color,
+    pub white_to_move: bool,
+    pub side_to_move: Color,
     pub ply: u8,
     pub stack: Vec<StackData>,
     pub nnue_pos: NNUEPosition,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct BBSet {
-    pub all: BB,
-    pub pawn: BB,
-    pub rook: BB,
-    pub knight: BB,
-    pub bishop: BB,
-    pub queen: BB,
-    pub king: BB,
+    pub all: BitBoard,
+    pub pawn: BitBoard,
+    pub rook: BitBoard,
+    pub knight: BitBoard,
+    pub bishop: BitBoard,
+    pub queen: BitBoard,
+    pub king: BitBoard,
 }
 
 #[derive(Clone, Copy)]
@@ -45,16 +45,17 @@ pub struct NNUEPosition {
     pub end_ptr: usize,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct StackData {
     // Move info
-    pub from: BB,
-    pub to: BB,
+    pub from: BitBoard,
+    pub to: BitBoard,
     pub mt: MoveType,
     // Irretrievable info
     pub moved_pt: PieceType,
     pub captured_pt: Option<PieceType>,
-    pub castling_rights: BB,
-    pub ep_sq: BB,
+    pub castling_rights: BitBoard,
+    pub ep_sq: BitBoard,
     pub halfmove_clock: u8,
     pub key: u64,
     pub restore_index: Option<usize>,

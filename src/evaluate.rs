@@ -10,8 +10,8 @@ impl Position {
         globals::NN
             .evaluate(
                 self.nnue_pos.player,
-                self.nnue_pos.pieces(),
-                self.nnue_pos.squares(),
+                self.nnue_pos.pieces,
+                self.nnue_pos.squares,
             )
             .clamp(MIN_EVALUATION, MAX_EVALUATION) as i16
     }

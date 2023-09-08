@@ -63,10 +63,11 @@ pub struct NNUEData {
 * position data structure passed to core subroutines
 *  See @nnue_evaluate for a description of parameters
 */
-struct Position {
+#[derive(Clone, Copy)]
+pub struct Position {
     player: usize,
-    pieces: *const usize,
-    squares: *const usize,
+    pieces: [usize; 32],
+    squares: [usize; 32],
     nnue: [*mut NNUEData; 3],
 }
 
@@ -86,33 +87,24 @@ macro_rules! is_king {
     };
 }
 
-#[rustfmt::skip]
-enum PS {
-    WPawn   =  1,
-    BPawn   =  1 * 64 + 1,
-    WKnight =  2 * 64 + 1,
-    BKnight =  3 * 64 + 1,
-    WBishop =  4 * 64 + 1,
-    BBishop =  5 * 64 + 1,
-    WRook   =  6 * 64 + 1,
-    BRook   =  7 * 64 + 1,
-    WQueen  =  8 * 64 + 1,
-    BQueen  =  9 * 64 + 1,
-    End     = 10 * 64 + 1,
-}
-
-macro_rules! I {
-    ($e:expr) => {
-        $e as usize
-    };
-}
+const PS_W_PAWN: usize = 1;
+const PS_B_PAWN: usize = 1 * 64 + 1;
+const PS_W_KNIGHT: usize = 2 * 64 + 1;
+const PS_B_KNIGHT: usize = 3 * 64 + 1;
+const PS_W_BISHOP: usize = 4 * 64 + 1;
+const PS_B_BISHOP: usize = 5 * 64 + 1;
+const PS_W_ROOK: usize = 6 * 64 + 1;
+const PS_B_ROOK: usize = 7 * 64 + 1;
+const PS_W_QUEEN: usize = 8 * 64 + 1;
+const PS_B_QUEEN: usize = 9 * 64 + 1;
+const PS_END: usize = 10 * 64 + 1;
 
 #[rustfmt::skip]
 const PIECE_TO_INDEX: [[usize; 14]; 2] = [
-    [0, 0, I!(PS::WQueen), I!(PS::WRook), I!(PS::WBishop), I!(PS::WKnight), I!(PS::WPawn),
-        0, I!(PS::BQueen), I!(PS::BRook), I!(PS::BBishop), I!(PS::BKnight), I!(PS::BPawn), 0],
-    [0, 0, I!(PS::BQueen), I!(PS::BRook), I!(PS::BBishop), I!(PS::BKnight), I!(PS::BPawn),
-        0, I!(PS::WQueen), I!(PS::WRook), I!(PS::WBishop), I!(PS::WKnight), I!(PS::WPawn), 0],
+    [0, 0, PS_W_QUEEN, PS_W_ROOK, PS_W_BISHOP, PS_W_KNIGHT, PS_W_PAWN,
+        0, PS_B_QUEEN, PS_B_ROOK, PS_B_BISHOP, PS_B_KNIGHT, PS_B_PAWN, 0],
+    [0, 0, PS_B_QUEEN, PS_B_ROOK, PS_B_BISHOP, PS_B_KNIGHT, PS_B_PAWN,
+        0, PS_W_QUEEN, PS_W_ROOK, PS_W_BISHOP, PS_W_KNIGHT, PS_W_PAWN, 0],
 ];
 
 // Version of evaluation file
@@ -123,7 +115,7 @@ const FV_SCALE: i32 = 16;
 const SHIFT: i32 = 6;
 
 const K_HALF_DIMENSIONS: usize = 256;
-const FT_IN_DIMS: usize = 64 * I!(PS::End); // 64 * 641
+const FT_IN_DIMS: usize = 64 * PS_END; // 64 * 641
 const FT_OUT_DIMS: usize = K_HALF_DIMENSIONS * 2;
 
 const_assert!(K_HALF_DIMENSIONS % 256 == 0);
@@ -177,19 +169,20 @@ fn orient(c: usize, s: usize) -> usize {
 
 #[inline(always)]
 fn make_index(c: usize, s: usize, pc: usize, ksq: usize) -> usize {
-    return orient(c, s) + PIECE_TO_INDEX[c][pc] + I!(PS::End) * ksq;
+    return orient(c, s) + PIECE_TO_INDEX[c][pc] + PS_END * ksq;
 }
 
-unsafe fn half_kp_append_active_indices(pos: &Position, c: usize, active: &mut IndexList) {
-    let mut ksq = *pos.squares.add(c);
+fn half_kp_append_active_indices(pos: &Position, c: usize, active: &mut IndexList) {
+    let mut ksq = pos.squares[c];
     ksq = orient(c, ksq);
-    let mut i = 2;
-    while *pos.pieces.add(i) != 0 {
-        let sq = *pos.squares.add(i);
-        let pc = *pos.pieces.add(i);
+    for i in 2..32 {
+        let sq = pos.squares[i];
+        let pc = pos.pieces[i];
+        if pc == 0 {
+            break;
+        }
         active.values[active.size] = make_index(c, sq, pc, ksq);
         active.size += 1;
-        i += 1;
     }
 }
 
@@ -200,7 +193,7 @@ fn half_kp_append_changed_indices(
     removed: &mut IndexList,
     added: &mut IndexList,
 ) {
-    let mut ksq = unsafe { *pos.squares.add(c) };
+    let mut ksq = pos.squares[c];
     ksq = orient(c, ksq);
     for i in 0..dp.dirty_num {
         let pc = dp.pc[i];
@@ -218,7 +211,7 @@ fn half_kp_append_changed_indices(
     }
 }
 
-unsafe fn append_active_indices(pos: &Position, active: &mut [IndexList; 2]) {
+fn append_active_indices(pos: &Position, active: &mut [IndexList; 2]) {
     for c in 0..2 {
         half_kp_append_active_indices(pos, c, &mut active[c])
     }
@@ -299,7 +292,7 @@ impl NNUE {
      * Returns
      *   Score relative to side to move in approximate centi-pawns
      */
-    pub fn evaluate(&self, player: usize, pieces: *const usize, squares: *const usize) -> i32 {
+    pub fn evaluate(&self, player: usize, pieces: [usize; 32], squares: [usize; 32]) -> i32 {
         let mut nnue = NNUEData::default();
         let mut pos = Position {
             player,
@@ -323,8 +316,8 @@ impl NNUE {
     pub fn evaluate_incremental(
         &self,
         player: usize,
-        pieces: *const usize,
-        squares: *const usize,
+        pieces: [usize; 32],
+        squares: [usize; 32],
         nnue: [*mut NNUEData; 3],
     ) -> i32 {
         assert!(
@@ -559,7 +552,7 @@ impl NNUE {
     // Calculate cumulative value without using difference calculation
     fn refresh_accumulator(&self, pos: &mut Position) {
         let mut active_indices = [IndexList::default(); 2];
-        unsafe { append_active_indices(pos, &mut active_indices) };
+        append_active_indices(pos, &mut active_indices);
 
         let accumulator = unsafe { &mut (*pos.nnue[0]).accumulator };
 

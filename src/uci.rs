@@ -24,7 +24,7 @@ impl MessageHandler {
         if matches!(message, UciMessage::Quit) {
             return Self::Main(message);
         }
-        return Self::Worker(message);
+        Self::Worker(message)
     }
 }
 
@@ -32,26 +32,26 @@ impl Engine {
     /// Match UciMessage and execute command instructed
     pub fn execute_cmd(&mut self, cmd: UciMessage) {
         let r = match cmd {
-            UciMessage::Uci => self.exec_uci(),
+            UciMessage::Uci => self.execute_uci(),
             UciMessage::Debug(_on) => Ok(()), // TODO delegate to setoption
-            UciMessage::IsReady => self.exec_isready(),
+            UciMessage::IsReady => self.execute_isready(),
             // Registration not required, always ignore this command
             UciMessage::Register { .. } => Ok(()),
             UciMessage::Position {
                 startpos,
                 fen,
                 moves,
-            } => self.exec_position(startpos, fen, moves),
+            } => self.execute_position(startpos, fen, moves),
             UciMessage::SetOption { .. } => todo!(),
-            UciMessage::UciNewGame => self.exec_ucinewgame(),
+            UciMessage::UciNewGame => self.execute_ucinewgame(),
             UciMessage::Stop => todo!(),
             UciMessage::PonderHit => todo!(),
             UciMessage::Quit => Ok(()),
             UciMessage::Go {
                 time_control,
                 search_control,
-            } => self.exec_go(time_control, search_control),
-            UciMessage::Unknown(msg, _) => self.exec_unknown(msg),
+            } => self.execute_go(time_control, search_control),
+            UciMessage::Unknown(msg, _) => self.execute_unknown(msg),
             _ => match cmd.direction() {
                 CommunicationDirection::EngineToGui => {
                     Err(RuntimeError::UciCommError { uci_cmd: cmd })
@@ -74,10 +74,13 @@ impl Engine {
 
     /* Command executor methods */
 
-    fn exec_uci(&mut self) -> Result<(), RuntimeError> {
+    /// Handle "uci" commands
+    fn execute_uci(&mut self) -> Result<(), RuntimeError> {
         self.mode = EngineMode::Uci;
-        println!("{}", UciMessage::id_name(ENGINE_NAME).serialize());
-        println!("{}", UciMessage::id_author(AUTHOR_NAME).serialize());
+        let engine_name = UciMessage::id_name(constants::ENGINE_NAME).serialize();
+        let author_name = UciMessage::id_author(constants::AUTHOR_NAME).serialize();
+
+        println!("{engine_name}\n{author_name}",);
 
         // TODO Send configurable option data via "option" commands
         println!(
@@ -91,51 +94,52 @@ impl Engine {
         );
 
         println!("{}", UciMessage::UciOk);
-        return Ok(());
+        Ok(())
     }
 
-    fn exec_isready(&self) -> Result<(), RuntimeError> {
+    /// Execute "isready" commands
+    fn execute_isready(&self) -> Result<(), RuntimeError> {
         // Respond with "readyok"
         println!("{}", UciMessage::ReadyOk);
-        return Ok(());
+        Ok(())
     }
 
-    // Future moves are from a different game
-    fn exec_ucinewgame(&mut self) -> Result<(), RuntimeError> {
+    /// Future moves are from a different game
+    fn execute_ucinewgame(&mut self) -> Result<(), RuntimeError> {
         self.hash_table.clear();
-        return Ok(());
+        Ok(())
     }
 
-    // Modify current game position
-    fn exec_position(
+    // Modify current game position in response to "position" commands
+    fn execute_position(
         &mut self,
         startpos: bool,
         fen: Option<UciFen>,
         moves: Vec<UciMove>,
     ) -> Result<(), RuntimeError> {
         if startpos {
-            self.cur_pos = Position::new_starting_pos();
+            self.current_position = Position::new_starting_position();
         }
 
         // Attempt to parse and load the fen string into the position
         if let Some(f) = fen {
-            self.cur_pos = Position::from_fen(&f.to_string()[..])?
+            self.current_position = Position::from_fen(&f.to_string()[..])?
         }
 
         // Sequentially apply the moves specified to the position
         for ucimove in moves {
             let mut movelist = movelist::UnorderedList::new();
-            movegen::generate_all(&self.cur_pos, &mut movelist);
+            movegen::generate_all(&self.current_position, &mut movelist);
             let mv_algebraic = format!("{ucimove}");
 
             if let Some(mv) = movelist.find(mv_algebraic) {
-                self.cur_pos.make_move(&mv);
+                self.current_position.make_move(&mv);
                 continue;
             }
 
             return Err(RuntimeError::InvalidMoveError {
                 move_algebraic: format!("{ucimove}"),
-                fen_str: self.cur_pos.to_fen(),
+                fen_str: self.current_position.to_fen(),
             });
         }
 
@@ -143,7 +147,7 @@ impl Engine {
     }
 
     // Execute search and calculation commands
-    fn exec_go(
+    fn execute_go(
         &mut self,
         time_control: Option<UciTimeControl>,
         search_control: Option<UciSearchControl>,
@@ -160,7 +164,7 @@ impl Engine {
 
         if let Some(sc) = search_control {
             if let Some(depth) = sc.depth {
-                search::search(&mut self.cur_pos, depth, &mut self.hash_table)
+                search::search(&mut self.current_position, depth, &mut self.hash_table)
             }
         }
 
@@ -168,7 +172,7 @@ impl Engine {
     }
 
     // Check for command patterns not in the UCI protocol, for human-input
-    fn exec_unknown(&mut self, msg: String) -> Result<(), RuntimeError> {
+    fn execute_unknown(&mut self, msg: String) -> Result<(), RuntimeError> {
         // Ignore unknown messages in UCI mode
         if !matches!(self.mode, EngineMode::User) {
             return Ok(());
@@ -178,23 +182,23 @@ impl Engine {
             static ref PERFT_D: Regex = Regex::new(r"^go perft \d+$").unwrap();
         }
 
-        let msg = msg.trim();
+        let message = msg.trim();
 
         // Perft test runner suite
-        if msg == "go perft bench" {
-            search::perft::run_perft_suite(self.num_threads, self.table_size_bytes);
+        if message == "go perft bench" {
+            search::perft::run_perft_benchmark_suite(self.num_threads, self.table_size_bytes);
             return Ok(());
         }
 
         // Display current position board
-        if msg == "d" || msg == "display" {
-            print!("{}", self.cur_pos.to_string());
+        if message == "d" || message == "display" {
+            print!("{}", self.current_position.to_string());
             return Ok(());
         }
 
         // Perft runner on current position
-        if PERFT_D.is_match(msg) {
-            let mut m: Vec<&str> = msg.split(" ").collect();
+        if PERFT_D.is_match(message) {
+            let mut m: Vec<&str> = message.split(" ").collect();
 
             let depth = m
                 .pop()
@@ -203,7 +207,7 @@ impl Engine {
                 .expect("regex matched last token as numerical");
 
             search::perft::perft(
-                &self.cur_pos,
+                &self.current_position,
                 depth,
                 self.num_threads,
                 self.table_size_bytes,
@@ -214,7 +218,7 @@ impl Engine {
 
         // Else, unrecognised command, raise runtime error
         return Err(RuntimeError::ParseStdinError {
-            str: msg.to_string(),
+            str: message.to_string(),
         });
     }
 }
@@ -228,7 +232,7 @@ pub enum RuntimeError {
         uci_cmd: UciMessage,
     },
     ParseFenError,
-    ParseAlgebraicError(String),
+    AlgebraicParseError(String),
     InvalidMoveError {
         move_algebraic: String,
         fen_str: String,
@@ -247,7 +251,7 @@ impl RuntimeError {
             Self::ParseFenError => {
                 format!("Could not parse FEN. Check string.")
             }
-            Self::ParseAlgebraicError(msg) => {
+            Self::AlgebraicParseError(msg) => {
                 format!("Could not parse move: {msg}")
             }
             Self::InvalidMoveError {

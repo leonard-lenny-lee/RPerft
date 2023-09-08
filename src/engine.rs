@@ -6,7 +6,7 @@ use position::Position;
 pub const DEF_TABLE_SIZE_BYTES: usize = 32_000_000;
 
 pub struct Engine {
-    pub cur_pos: Position,
+    pub current_position: Position,
     pub hash_table: HashTable,
     pub num_threads: usize,
     pub table_size_bytes: usize,
@@ -17,7 +17,7 @@ pub struct Engine {
 impl Engine {
     pub fn init() -> Self {
         Self {
-            cur_pos: Position::new_starting_pos(),
+            current_position: Position::new_starting_position(),
             hash_table: HashTable::new(DEF_TABLE_SIZE_BYTES),
             num_threads: num_cpus::get(),
             table_size_bytes: DEF_TABLE_SIZE_BYTES,
