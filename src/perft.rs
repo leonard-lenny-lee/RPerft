@@ -14,33 +14,42 @@ pub fn perft(
 ) -> (u64, f64, f64) {
     let start = std::time::Instant::now();
 
-    let movelist = generate_all(&position);
+    let mut movelist = movelist::MoveVec::new();
+    generate_all(&position, &mut movelist);
 
-    let nodes;
+    let mut nodes = 0;
     if depth == 0 {
         nodes = 1
     } else if depth == 1 {
         nodes = movelist.len() as u64
     } else {
-        let n_jobs = movelist.len();
-        let pool = threadpool::ThreadPool::new(num_threads);
-        let (tx, rx) = std::sync::mpsc::channel();
-        let table = std::sync::Arc::new(HashTable::new(table_size));
+        if num_threads > 1 {
+            let n_jobs = movelist.len();
+            let pool = threadpool::ThreadPool::new(num_threads);
+            let (tx, rx) = std::sync::mpsc::channel();
+            let table = std::sync::Arc::new(HashTable::new(table_size));
 
-        for i in 0..n_jobs {
-            let tx = tx.clone();
-            let mv = movelist[i];
-            let new_position = position.make_move(&mv);
-            let table = table.clone();
-            pool.execute(move || {
-                let node_count = perft_inner(&new_position, depth - 1, &table);
-                tx.send(node_count).unwrap();
-                if verbose {
-                    println!("{}: {}", mv.to_algebraic(), node_count);
-                }
-            })
+            for i in 0..n_jobs {
+                let tx = tx.clone();
+                let mv = movelist[i];
+                let new_position = position.make_move(&mv);
+                let table = table.clone();
+                pool.execute(move || {
+                    let node_count = perft_inner(&new_position, depth - 1, &table);
+                    tx.send(node_count).unwrap();
+                    if verbose {
+                        println!("{}: {}", mv.to_algebraic(), node_count);
+                    }
+                })
+            }
+            nodes = rx.iter().take(n_jobs).fold(0, |a, b| a + b);
+        } else {
+            let table = std::sync::Arc::new(HashTable::new(table_size));
+            for mv in movelist.iter() {
+                let new_position = position.make_move(mv);
+                nodes += perft_inner(&new_position, depth - 1, &table)
+            }
         }
-        nodes = rx.iter().take(n_jobs).fold(0, |a, b| a + b);
     };
 
     let duration = start.elapsed().as_secs_f64();
@@ -60,18 +69,18 @@ fn perft_inner(position: &Position, depth: u8, table: &std::sync::Arc<HashTable>
     if let Some(nodes) = table.fetch(position.key, depth) {
         return nodes;
     }
-    let movelist = generate_all(&position);
-
     if depth == 1 {
-        return movelist.len() as u64;
+        let mut movelist = movelist::MoveCounter::default();
+        generate_all(position, &mut movelist);
+        return movelist.count as u64;
     }
-
+    let mut movelist = movelist::MoveVec::new();
+    generate_all(&position, &mut movelist);
     let mut nodes = 0;
     for mv in movelist.iter() {
         let new_position = position.make_move(mv);
         nodes += perft_inner(&new_position, depth - 1, table);
     }
-
     table.store(position.key, depth, nodes);
     return nodes;
 }
@@ -89,22 +98,22 @@ pub fn run_perft_benchmark_suite(num_threads: usize, table_size: usize) {
         results.push((i + 1, nodes, duration, nodes_per_second));
     }
     // Report results
-    println!("+{}+", "-".repeat(34));
+    println!("+{}+", "-".repeat(35));
     println!(
-        "|{:>3} |{:>11} |{:>6} |{:>7} |",
+        "|{:>3} |{:>11} |{:>6} |{:>8} |",
         "#", "Nodes", "sec", "MN/s"
     );
-    println!("+{}+", "-".repeat(34));
+    println!("+{}+", "-".repeat(35));
     for (n, nodes, duration, nodes_per_second) in results {
         println!(
-            "|{:>3} |{:>11} |{:>6} |{:>7} |",
+            "|{:>3} |{:>11} |{:>6} |{:>8} |",
             n,
             nodes,
             format!("{:.2}", duration),
             format!("{:.2}", nodes_per_second)
         )
     }
-    println!("+{}+", "-".repeat(34))
+    println!("+{}+", "-".repeat(35))
 }
 
 #[cfg(test)]

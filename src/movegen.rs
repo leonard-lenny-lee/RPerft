@@ -7,18 +7,16 @@ use types::{Axis, GeneratorType, MoveType, Piece};
 mod tests;
 
 /// Generate all legal moves in a position
-pub fn generate_all(position: &Position) -> MoveList {
-    let mut movelist = MoveList::new();
+pub fn generate_all<T: MoveList>(position: &Position, movelist: &mut T) {
     let checkers = position.opponent_checkers();
     if checkers.pop_count() == 0 {
-        generate(GeneratorType::NonEvasions, position, &mut movelist);
+        generate(GeneratorType::NonEvasions, position, movelist);
     } else {
-        generate(GeneratorType::Evasions(checkers), position, &mut movelist)
+        generate(GeneratorType::Evasions(checkers), position, movelist)
     }
-    movelist
 }
 
-pub fn generate(gt: GeneratorType, position: &Position, movelist: &mut MoveList) {
+pub fn generate<T: MoveList>(gt: GeneratorType, position: &Position, movelist: &mut T) {
     let targets = match gt {
         GeneratorType::NonEvasions => {
             // Castling is only allowed when not in check
@@ -48,9 +46,9 @@ pub fn generate(gt: GeneratorType, position: &Position, movelist: &mut MoveList)
 }
 
 #[inline(always)]
-fn generate_king_moves(
+fn generate_king_moves<T: MoveList>(
     position: &Position,
-    movelist: &mut MoveList,
+    movelist: &mut T,
     generator_type: GeneratorType,
 ) {
     let from = position.us.king;
@@ -73,9 +71,9 @@ fn generate_king_moves(
 }
 
 #[inline(always)]
-fn generate_pawn_moves(
+fn generate_pawn_moves<T: MoveList>(
     position: &Position,
-    movelist: &mut MoveList,
+    movelist: &mut T,
     pinned: BitBoard,
     targets: BitBoard,
 ) {
@@ -107,7 +105,7 @@ fn generate_pawn_moves(
         movelist.add_quiet(from, to);
     }
     for (from, to) in std::iter::zip(position.back_two(bb_2), bb_2) {
-        movelist.add(from, to, MoveType::DoublePawnPush);
+        movelist.add_double_pawn_push(from, to);
     }
 
     // Promotions
@@ -174,10 +172,10 @@ fn generate_pawn_moves(
 }
 
 #[inline(always)]
-fn generate_moves(
+fn generate_moves<T: MoveList>(
     piece_type: Piece,
     position: &Position,
-    movelist: &mut MoveList,
+    movelist: &mut T,
     pinned: BitBoard,
     targets: BitBoard,
 ) {
@@ -216,7 +214,7 @@ fn generate_moves(
 }
 
 #[inline(always)]
-fn generate_castles(position: &Position, movelist: &mut MoveList) {
+fn generate_castles<T: MoveList>(position: &Position, movelist: &mut T) {
     let from = position.us.king;
     let unsafe_squares = position.opponent_attack_squares();
 

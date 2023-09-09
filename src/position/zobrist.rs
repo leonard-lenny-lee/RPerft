@@ -326,7 +326,7 @@ const HASH_KEYS: [u64; 781] = [
 #[cfg(test)]
 mod test {
     use super::*;
-    use movelist::MoveList;
+    use movelist::{MoveList, MoveVec};
     use test_case::test_case;
     use types::MoveType;
 
@@ -360,13 +360,9 @@ mod test {
     fn test_hash_update_quiet(startpos: &str, from: usize, to: usize, expected: &str) {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = MoveList::new();
-        movelist.add(
-            BitBoard::from_square(from),
-            BitBoard::from_square(to),
-            MoveType::Quiet,
-        );
-        let mv = movelist.moves.pop().unwrap();
+        let mut movelist = MoveVec::new();
+        movelist.add_quiet(BitBoard::from_square(from), BitBoard::from_square(to));
+        let mv = movelist.0.pop().unwrap();
         // Apply move
         let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
@@ -390,13 +386,9 @@ mod test {
     fn test_hash_update_double_pawn_push(startpos: &str, from: usize, to: usize, expected: &str) {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = MoveList::new();
-        movelist.add(
-            BitBoard::from_square(from),
-            BitBoard::from_square(to),
-            MoveType::DoublePawnPush,
-        );
-        let mv = movelist.moves.pop().unwrap();
+        let mut movelist = MoveVec::new();
+        movelist.add_double_pawn_push(BitBoard::from_square(from), BitBoard::from_square(to));
+        let mv = movelist.0.pop().unwrap();
         let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
         assert_eq!(new_position.key, expected_pos.key)
@@ -413,13 +405,13 @@ mod test {
     fn test_hash_update_castling(startpos: &str, from: usize, to: usize, expected: &str) {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = MoveList::new();
-        movelist.add(
+        let mut movelist = MoveVec::new();
+        movelist.add_castle(
             BitBoard::from_square(from),
             BitBoard::from_square(to),
             MoveType::ShortCastle,
         );
-        let mv = movelist.moves.pop().unwrap();
+        let mv = movelist.0.pop().unwrap();
         // Apply move
         let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
@@ -433,13 +425,9 @@ mod test {
     fn test_hash_update_en_passant(startpos: &str, from: usize, to: usize, expected: &str) {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = MoveList::new();
-        movelist.add(
-            BitBoard::from_square(from),
-            BitBoard::from_square(to),
-            MoveType::EnPassant,
-        );
-        let mv = movelist.moves.pop().unwrap();
+        let mut movelist = MoveVec::new();
+        movelist.add_ep(BitBoard::from_square(from), BitBoard::from_square(to));
+        let mv = movelist.0.pop().unwrap();
         // Apply move
         let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();

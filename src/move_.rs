@@ -47,54 +47,30 @@ impl Move {
 
     /// Decode the target into a one bit bitmask
     pub fn to(&self) -> BitBoard {
-        const TARGET_BITS: u16 = 0x0fc0;
-        BitBoard::from_square(((self.0 & TARGET_BITS) >> 6).into())
+        BitBoard::from_square(((self.0 & 0x0fc0) >> 6).into())
     }
 
     /// Decode the source into a one bit bitmask
     pub fn from(&self) -> BitBoard {
-        const SOURCE_BITS: u16 = 0x003f;
-        BitBoard::from_square((self.0 & SOURCE_BITS).into())
+        BitBoard::from_square((self.0 & 0x003f).into())
     }
 
     /// Decode the type of move
     pub fn movetype(&self) -> MoveType {
-        use MoveType::*;
-        const FLAG_BITS: u16 = 0xf000;
-
-        match self.0 & FLAG_BITS {
-            0x0000 => Quiet,
-            0x1000 => DoublePawnPush,
-            0x2000 => ShortCastle,
-            0x3000 => LongCastle,
-            0x4000 => Capture,
-            0x5000 => EnPassant,
-            0x8000 => KnightPromotion,
-            0x9000 => BishopPromotion,
-            0xa000 => RookPromotion,
-            0xb000 => QueenPromotion,
-            0xc000 => KnightPromotionCapture,
-            0xd000 => BishopPromotionCapture,
-            0xe000 => RookPromotionCapture,
-            0xf000 => QueenPromotionCapture,
-            _ => panic!("invalid bitflag"),
+        unsafe {
+            let flag = self.0 & 0xf000;
+            std::mem::transmute::<u16, MoveType>(flag)
         }
-    }
-
-    pub fn is_quiet(&self) -> bool {
-        self.0 & MoveType::Quiet as u16 == 0
     }
 
     /// Decode if the move encodes a capture of any sort
     pub fn is_capture(&self) -> bool {
-        const CAPTURE_FLAG: u16 = 0x4000;
-        return self.0 & CAPTURE_FLAG != 0;
+        return self.0 & 0x4000 != 0;
     }
 
     /// Decode if the move encodes a promotion of any sort
     pub fn is_promotion(&self) -> bool {
-        const PROMO_FLAG: u16 = 0x8000;
-        return self.0 & PROMO_FLAG != 0;
+        return self.0 & 0x8000 != 0;
     }
 
     /// Is the move a null move
@@ -103,16 +79,10 @@ impl Move {
     }
 
     /// What kind of promotion is encoded
-    pub fn promotion_piecetype(&self) -> Option<Piece> {
-        const PT_FLAG: u16 = 0x3000;
+    pub fn promotion_piecetype(&self) -> Piece {
         debug_assert!(self.is_promotion());
-        match self.0 & PT_FLAG {
-            0x0000 => Some(Piece::Knight),
-            0x1000 => Some(Piece::Bishop),
-            0x2000 => Some(Piece::Rook),
-            0x3000 => Some(Piece::Queen),
-            _ => None,
-        }
+        const MAP: [Piece; 4] = [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen];
+        MAP[((self.0 & 0x3000) >> 12) as usize]
     }
 
     pub fn to_algebraic(&self) -> String {
@@ -120,7 +90,7 @@ impl Move {
         let to = self.to().to_algebraic();
 
         let promo_pt = if self.is_promotion() {
-            match self.promotion_piecetype().expect("is_promotion check") {
+            match self.promotion_piecetype() {
                 Piece::Rook => "r",
                 Piece::Knight => "n",
                 Piece::Bishop => "b",

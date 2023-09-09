@@ -4,15 +4,15 @@ use super::*;
 use constants::fen::*;
 use test_case::test_case;
 
-fn setup(fen: &str) -> (Position, movelist::MoveList) {
-    (Position::from_fen(fen).unwrap(), movelist::MoveList::new())
+fn setup(fen: &str) -> (Position, movelist::MoveVec) {
+    (Position::from_fen(fen).unwrap(), movelist::MoveVec::new())
 }
 
 #[test_case(START, 16; "starting")]
 #[test_case(TEST_2, 8; "position_two")]
 fn test_pawn_movegen(fen: &str, expected_nodes: usize) {
-    let position = Position::from_fen(fen).unwrap();
-    let movelist = generate_all(&position);
+    let (position, mut movelist) = setup(fen);
+    generate_all(&position, &mut movelist);
     let pawnmoves: Vec<_> = movelist
         .iter()
         .filter(|mv| matches!(position.us.piecetype_at(mv.from()), Some(Piece::Pawn)))
@@ -23,8 +23,8 @@ fn test_pawn_movegen(fen: &str, expected_nodes: usize) {
 #[test_case(START, 4; "starting")]
 #[test_case(TEST_2, 11; "position_two")]
 fn test_knight_movegen(fen: &str, expected_nodes: usize) {
-    let position = Position::from_fen(fen).unwrap();
-    let movelist = generate_all(&position);
+    let (position, mut movelist) = setup(fen);
+    generate_all(&position, &mut movelist);
     let knightmoves: Vec<_> = movelist
         .iter()
         .filter(|mv| matches!(position.us.piecetype_at(mv.from()), Some(Piece::Knight)))
@@ -53,8 +53,8 @@ fn test_castling_movegen(fen: &str, expected_nodes: usize) {
 #[test_case(TEST_3, 14, 1; "position_three")]
 #[test_case(TEST_4, 6, 0; "position_four")]
 fn test_movegen(fen: &str, expected_nodes: i32, expected_captures: usize) {
-    let position = Position::from_fen(fen).unwrap();
-    let movelist = generate_all(&position);
+    let (position, mut movelist) = setup(fen);
+    generate_all(&position, &mut movelist);
     let captures: Vec<_> = movelist.iter().filter(|x| x.is_capture()).collect();
     assert_eq!(expected_nodes, movelist.len() as i32, "nodes");
     assert_eq!(expected_captures, captures.len(), "captures")

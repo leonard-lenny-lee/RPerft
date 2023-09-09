@@ -56,7 +56,7 @@ impl position::Position {
 
         // Promotions
         if mv.is_promotion() {
-            let promo_pt = mv.promotion_piecetype().expect("must encode pt");
+            let promo_pt = mv.promotion_piecetype();
             new_position.us[promo_pt] ^= to;
             new_position.us.pawn ^= to;
             new_position.square_key_update(Pawn, to, new_position.white_to_move);
