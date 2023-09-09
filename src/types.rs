@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum PieceType {
+pub enum Piece {
     #[default]
     Any = 0,
     Pawn,
@@ -12,13 +12,13 @@ pub enum PieceType {
     King,
 }
 
-pub const PIECES: [PieceType; 6] = [
-    PieceType::Pawn,
-    PieceType::Rook,
-    PieceType::Knight,
-    PieceType::Bishop,
-    PieceType::Queen,
-    PieceType::King,
+pub const PIECES: [Piece; 6] = [
+    Piece::Pawn,
+    Piece::Rook,
+    Piece::Knight,
+    Piece::Bishop,
+    Piece::Queen,
+    Piece::King,
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -27,30 +27,9 @@ pub enum Color {
     Black,
 }
 
-impl PieceType {
+impl Piece {
     pub fn is_slider(&self) -> bool {
         return matches!(self, Self::Bishop | Self::Rook | Self::Queen);
-    }
-
-    pub fn to_uci(&self) -> v_uci::UciPiece {
-        use v_uci::UciPiece;
-
-        match self {
-            PieceType::Pawn => UciPiece::Pawn,
-            PieceType::Rook => UciPiece::Rook,
-            PieceType::Knight => UciPiece::Knight,
-            PieceType::Bishop => UciPiece::Bishop,
-            PieceType::Queen => UciPiece::Queen,
-            PieceType::King => UciPiece::King,
-            _ => panic!("invalid pt for to_uci"),
-        }
-    }
-
-    // Convert to NNUE piece code
-    pub fn to_nnue_pc(&self) -> usize {
-        use nnue::Pieces::*;
-        const MAP: [nnue::Pieces; 7] = [Blank, WPawn, WRook, WKnight, WBishop, WQueen, WKing];
-        return MAP[*self as usize] as usize;
     }
 }
 
@@ -100,11 +79,4 @@ pub enum Axis {
     File,
     Diagonal,
     AntiDiagonal,
-}
-
-#[derive(Clone, Copy)]
-pub enum NodeType {
-    PV,  // Score is Exact
-    Cut, // Score is Lower Bound
-    All, // Score is Upper Bound
 }

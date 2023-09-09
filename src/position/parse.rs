@@ -2,11 +2,11 @@
 /// and serialize the position into other formats.
 use super::*;
 use constants::bb;
-use types::PieceType;
+use types::Piece;
 
 impl Position {
-    /// Parse a FEN striing into a position representation
-    pub fn from_fen(fen: &str) -> Result<Self, RuntimeError> {
+    /// Parse a FEN string into a position representation
+    pub fn from_fen(fen: &str) -> Result<Self, ()> {
         let tokens: Vec<&str> = fen.trim().split(" ").collect();
 
         /* FEN strings contain 6 tokens representing
@@ -18,7 +18,7 @@ impl Position {
             6. Fullmove clock
         */
         if tokens.len() != 6 {
-            return Err(RuntimeError::ParseFenError);
+            return Err(());
         }
 
         // Fill BBSet for white and black. Set 'us' as white for now
@@ -27,7 +27,7 @@ impl Position {
         let mut board_tokens: Vec<&str> = tokens[0].split("/").collect();
 
         if board_tokens.len() != 8 {
-            return Err(RuntimeError::ParseFenError);
+            return Err(());
         }
 
         // Reverse vector so index 0 is at square A1
@@ -37,7 +37,7 @@ impl Position {
 
         for c in board.chars() {
             if sq >= 64 {
-                return Err(RuntimeError::ParseFenError);
+                return Err(());
             }
             let mask = BitBoard::from_square(sq);
 
@@ -52,7 +52,7 @@ impl Position {
                     'b' | 'B' => bbset.bishop |= mask,
                     'q' | 'Q' => bbset.queen |= mask,
                     'k' | 'K' => bbset.king |= mask,
-                    _ => return Err(RuntimeError::ParseFenError),
+                    _ => return Err(()),
                 }
                 sq += 1;
             }
@@ -63,13 +63,13 @@ impl Position {
             }
             // Non-alphanumeric characters are invalid
             else {
-                return Err(RuntimeError::ParseFenError);
+                return Err(());
             }
         }
 
         // All 64 squares must be accounted for
         if sq != 64 {
-            return Err(RuntimeError::ParseFenError);
+            return Err(());
         }
 
         let occupied = us.all | them.all;
@@ -79,7 +79,7 @@ impl Position {
         let (white_to_move, side_to_move) = match tokens[1] {
             "w" => (true, Color::White),
             "b" => (false, Color::Black),
-            _ => return Err(RuntimeError::ParseFenError),
+            _ => return Err(()),
         };
 
         // Set castling rights
@@ -91,7 +91,7 @@ impl Position {
                 'Q' => castling_rights |= bb::A1,
                 'q' => castling_rights |= bb::A8,
                 '-' => (),
-                _ => return Err(RuntimeError::ParseFenError),
+                _ => return Err(()),
             }
         }
 
@@ -101,20 +101,20 @@ impl Position {
         } else {
             match BitBoard::from_algebraic(tokens[3]) {
                 Ok(bb) => bb,
-                Err(_) => return Err(RuntimeError::ParseFenError),
+                Err(_) => return Err(()),
             }
         };
 
         // Set halfmove clock
         let halfmove_clock = match tokens[4].parse::<u8>() {
             Ok(val) => val,
-            Err(_) => return Err(RuntimeError::ParseFenError),
+            Err(_) => return Err(()),
         };
 
         // Set fullmove clock
         let fullmove_clock = match tokens[5].parse::<u8>() {
             Ok(val) => val,
-            Err(_) => return Err(RuntimeError::ParseFenError),
+            Err(_) => return Err(()),
         };
 
         // Swap us/them pointers if black to move
@@ -135,8 +135,6 @@ impl Position {
             white_to_move,
             side_to_move,
             ply: 0,
-            stack: Box::new([StackData::default(); constants::MAX_DEPTH]),
-            nnue_pos: NNUEPosition::init(board, side_to_move),
         };
 
         // Initialize Zobrist key
@@ -294,86 +292,32 @@ impl BBSet {
     }
 }
 
-impl NNUEPosition {
-    pub fn pieces(&self) -> *const usize {
-        return self.pieces.as_ptr();
-    }
-
-    pub fn squares(&self) -> *const usize {
-        return self.squares.as_ptr();
-    }
-
-    fn init(token: String, stm: Color) -> NNUEPosition {
-        const PIECE_NAME: &str = "_KQRBNPkqrbnp_";
-        const NUMBERS: &str = "12345678";
-
-        let mut pieces = [0; 32];
-        let mut squares = [64; 32];
-        let mut board = [32; 64];
-
-        let mut sq = 0;
-        let mut index = 2;
-
-        for c in token.chars() {
-            if let Some(pc) = PIECE_NAME.find(c) {
-                if pc == 1 {
-                    pieces[0] = pc;
-                    squares[0] = sq;
-                    board[sq] = 0;
-                } else if pc == 7 {
-                    pieces[1] = pc;
-                    squares[1] = sq;
-                    board[sq] = 1;
-                } else {
-                    pieces[index] = pc;
-                    squares[index] = sq;
-                    board[sq] = index;
-                    index += 1;
-                }
-                sq += 1;
-            } else if let Some(_) = NUMBERS.find(c) {
-                sq += c.to_digit(10).expect("is number") as usize;
-            } else {
-                panic!("fen check error")
-            }
-        }
-
-        return NNUEPosition {
-            player: stm as usize,
-            pieces,
-            squares,
-            board,
-            end_ptr: index - 1,
-        };
-    }
-}
-
-impl std::ops::Index<PieceType> for BBSet {
+impl std::ops::Index<Piece> for BBSet {
     type Output = BitBoard;
 
-    fn index(&self, index: PieceType) -> &Self::Output {
+    fn index(&self, index: Piece) -> &Self::Output {
         match index {
-            PieceType::Any => &self.all,
-            PieceType::Pawn => &self.pawn,
-            PieceType::Rook => &self.rook,
-            PieceType::Knight => &self.knight,
-            PieceType::Bishop => &self.bishop,
-            PieceType::Queen => &self.queen,
-            PieceType::King => &self.king,
+            Piece::Any => &self.all,
+            Piece::Pawn => &self.pawn,
+            Piece::Rook => &self.rook,
+            Piece::Knight => &self.knight,
+            Piece::Bishop => &self.bishop,
+            Piece::Queen => &self.queen,
+            Piece::King => &self.king,
         }
     }
 }
 
-impl std::ops::IndexMut<PieceType> for BBSet {
-    fn index_mut(&mut self, index: PieceType) -> &mut Self::Output {
+impl std::ops::IndexMut<Piece> for BBSet {
+    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
         match index {
-            PieceType::Any => &mut self.all,
-            PieceType::Pawn => &mut self.pawn,
-            PieceType::Rook => &mut self.rook,
-            PieceType::Knight => &mut self.knight,
-            PieceType::Bishop => &mut self.bishop,
-            PieceType::Queen => &mut self.queen,
-            PieceType::King => &mut self.king,
+            Piece::Any => &mut self.all,
+            Piece::Pawn => &mut self.pawn,
+            Piece::Rook => &mut self.rook,
+            Piece::Knight => &mut self.knight,
+            Piece::Bishop => &mut self.bishop,
+            Piece::Queen => &mut self.queen,
+            Piece::King => &mut self.king,
         }
     }
 }
@@ -423,58 +367,6 @@ mod tests {
     fn test_to_fen() {
         let pos = Position::from_fen(constants::fen::TEST_3).unwrap();
         assert_eq!(pos.to_fen(), constants::fen::TEST_3)
-    }
-
-    #[test]
-    fn test_nnue_pos_init() {
-        use bb::*;
-        use nnue::Pieces::*;
-
-        let pos = Position::new_starting_position();
-
-        #[rustfmt::skip]
-        let expected_pieces = [
-            WKing, BKing,
-            WRook, WKnight, WBishop, WQueen, WBishop, WKnight, WRook,
-            WPawn, WPawn, WPawn, WPawn, WPawn, WPawn, WPawn, WPawn,
-            BPawn, BPawn, BPawn, BPawn, BPawn, BPawn, BPawn, BPawn,
-            BRook, BKnight, BBishop, BQueen, BBishop, BKnight, BRook,
-        ].map(|x| x as usize);
-
-        #[rustfmt::skip]
-        let expected_squares = [
-            E1, E8,
-            A1, B1, C1, D1, F1, G1, H1,
-            A2, B2, C2, D2, E2, F2, G2, H2,
-            A7, B7, C7, D7, E7, F7, G7, H7,
-            A8, B8, C8, D8, F8, G8, H8,
-        ].map(|x| x.to_square());
-
-        #[rustfmt::skip]
-        let expected_board = [
-             2,  3,  4,  5,  0,  6,  7,  8,
-             9, 10, 11, 12, 13, 14, 15, 16,
-            32, 32, 32, 32, 32, 32, 32, 32,
-            32, 32, 32, 32, 32, 32, 32, 32,
-            32, 32, 32, 32, 32, 32, 32, 32,
-            32, 32, 32, 32, 32, 32, 32, 32,
-            17, 18, 19, 20, 21, 22, 23, 24,
-            25, 26, 27, 28,  1, 29, 30, 31,
-        ];
-
-        let expected_end_ptr = 31;
-
-        let expected_player = if pos.white_to_move {
-            nnue::Colors::White as usize
-        } else {
-            nnue::Colors::Black as usize
-        };
-
-        assert_eq!(expected_pieces, pos.nnue_pos.pieces, "piece failure");
-        assert_eq!(expected_squares, pos.nnue_pos.squares, "square failure");
-        assert_eq!(expected_board, pos.nnue_pos.board, "board failure");
-        assert_eq!(expected_end_ptr, pos.nnue_pos.end_ptr, "pointer failure");
-        assert_eq!(expected_player, pos.nnue_pos.player, "player failutre")
     }
 
     #[ignore]

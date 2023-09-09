@@ -7,14 +7,12 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lazy_static = "1.4.0"
-regex = "1.7.0"
-log = "0.4.17"
-env_logger = "0.10.0"
-threadpool = "1.8.1"
-num_cpus = "1.15.0"
-vampirc-uci = "0.11"
-static_assertions = "1.1.0"
+lazy_static = ">=1.4.0"
+regex = ">=1.7.0"
+log = ">=0.4.17"
+env_logger = ">=0.10.0"
+threadpool = ">=1.8.1"
+num_cpus = ">=1.15.0"
 
 [dev-dependencies]
 test-case = "2.2.2"

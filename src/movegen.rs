@@ -1,23 +1,24 @@
 use super::*;
 use movelist::MoveList;
 use position::Position;
-use types::{Axis, GeneratorType, MoveType, PieceType};
+use types::{Axis, GeneratorType, MoveType, Piece};
 
 #[cfg(test)]
 mod tests;
 
 /// Generate all legal moves in a position
-pub fn generate_all<T: MoveList>(position: &Position, movelist: &mut T) {
+pub fn generate_all(position: &Position) -> MoveList {
+    let mut movelist = MoveList::new();
     let checkers = position.opponent_checkers();
-
     if checkers.pop_count() == 0 {
-        generate(GeneratorType::NonEvasions, position, movelist);
+        generate(GeneratorType::NonEvasions, position, &mut movelist);
     } else {
-        generate(GeneratorType::Evasions(checkers), position, movelist)
+        generate(GeneratorType::Evasions(checkers), position, &mut movelist)
     }
+    movelist
 }
 
-pub fn generate<T: MoveList>(gt: GeneratorType, position: &Position, movelist: &mut T) {
+pub fn generate(gt: GeneratorType, position: &Position, movelist: &mut MoveList) {
     let targets = match gt {
         GeneratorType::NonEvasions => {
             // Castling is only allowed when not in check
@@ -25,7 +26,6 @@ pub fn generate<T: MoveList>(gt: GeneratorType, position: &Position, movelist: &
             !position.us.all
         }
         GeneratorType::Evasions(checker) => {
-            debug_assert_ne!(checker.pop_count(), 0);
             if checker.pop_count() > 1 {
                 // Only king moves are legal in double check
                 generate_king_moves(position, movelist, gt);
@@ -38,19 +38,19 @@ pub fn generate<T: MoveList>(gt: GeneratorType, position: &Position, movelist: &
 
     let pinned = position.our_pinned_pieces();
 
-    generate_moves(PieceType::Rook, position, movelist, pinned, targets);
-    generate_moves(PieceType::Knight, position, movelist, pinned, targets);
-    generate_moves(PieceType::Bishop, position, movelist, pinned, targets);
-    generate_moves(PieceType::Queen, position, movelist, pinned, targets);
+    generate_moves(Piece::Rook, position, movelist, pinned, targets);
+    generate_moves(Piece::Knight, position, movelist, pinned, targets);
+    generate_moves(Piece::Bishop, position, movelist, pinned, targets);
+    generate_moves(Piece::Queen, position, movelist, pinned, targets);
 
     generate_pawn_moves(position, movelist, pinned, targets);
     generate_king_moves(position, movelist, gt);
 }
 
 #[inline(always)]
-fn generate_king_moves<T: MoveList>(
+fn generate_king_moves(
     position: &Position,
-    movelist: &mut T,
+    movelist: &mut MoveList,
     generator_type: GeneratorType,
 ) {
     let from = position.us.king;
@@ -64,18 +64,18 @@ fn generate_king_moves<T: MoveList>(
     let quiet_targets = targets & position.free;
     // Add quiet moves
     for to in targets & quiet_targets {
-        movelist.add(from, to, MoveType::Quiet, position);
+        movelist.add_quiet(from, to);
     }
     // Add captures
     for to in targets ^ quiet_targets {
-        movelist.add(from, to, MoveType::Capture, position);
+        movelist.add_capture(from, to);
     }
 }
 
 #[inline(always)]
-fn generate_pawn_moves<T: MoveList>(
+fn generate_pawn_moves(
     position: &Position,
-    movelist: &mut T,
+    movelist: &mut MoveList,
     pinned: BitBoard,
     targets: BitBoard,
 ) {
@@ -104,10 +104,10 @@ fn generate_pawn_moves<T: MoveList>(
     bb_2 &= targets;
 
     for (from, to) in std::iter::zip(position.back_one(bb_1), bb_1) {
-        movelist.add(from, to, MoveType::Quiet, position);
+        movelist.add_quiet(from, to);
     }
     for (from, to) in std::iter::zip(position.back_two(bb_2), bb_2) {
-        movelist.add(from, to, MoveType::DoublePawnPush, position);
+        movelist.add(from, to, MoveType::DoublePawnPush);
     }
 
     // Promotions
@@ -118,13 +118,13 @@ fn generate_pawn_moves<T: MoveList>(
         position.capture_right(pawns_on_7th_rank & !no_right_capture) & position.occupied & targets;
 
     for (from, to) in std::iter::zip(position.back_one(bb_1), bb_1) {
-        movelist.add_promotions(from, to, position);
+        movelist.add_promotions(from, to);
     }
     for (from, to) in std::iter::zip(position.capture_left_rev(bb_2), bb_2) {
-        movelist.add_promotion_captures(from, to, position)
+        movelist.add_promotion_captures(from, to)
     }
     for (from, to) in std::iter::zip(position.capture_right_rev(bb_3), bb_3) {
-        movelist.add_promotion_captures(from, to, position)
+        movelist.add_promotion_captures(from, to)
     }
 
     // Captures
@@ -136,10 +136,10 @@ fn generate_pawn_moves<T: MoveList>(
         & targets;
 
     for (from, to) in std::iter::zip(position.capture_left_rev(bb_1), bb_1) {
-        movelist.add(from, to, MoveType::Capture, position);
+        movelist.add_capture(from, to);
     }
     for (from, to) in std::iter::zip(position.capture_right_rev(bb_2), bb_2) {
-        movelist.add(from, to, MoveType::Capture, position);
+        movelist.add_capture(from, to);
     }
 
     // Enpassant
@@ -169,31 +169,31 @@ fn generate_pawn_moves<T: MoveList>(
                 continue;
             }
         }
-        movelist.add(from, position.en_passant, MoveType::EnPassant, position)
+        movelist.add_ep(from, position.en_passant);
     }
 }
 
-type AttackGenerator = fn(&BitBoard, BitBoard) -> BitBoard;
-
-const ATTACK_GENERATORS: [AttackGenerator; 4] = [
-    BitBoard::magic_rook_attacks,
-    BitBoard::lookup_knight_attacks_,
-    BitBoard::magic_bishop_attacks,
-    BitBoard::magic_queen_attacks,
-];
-
 #[inline(always)]
-fn generate_moves<T: MoveList>(
-    piece_type: PieceType,
+fn generate_moves(
+    piece_type: Piece,
     position: &Position,
-    movelist: &mut T,
+    movelist: &mut MoveList,
     pinned: BitBoard,
     targets: BitBoard,
 ) {
     debug_assert!(matches!(
         piece_type,
-        PieceType::Rook | PieceType::Knight | PieceType::Bishop | PieceType::Queen
+        Piece::Rook | Piece::Knight | Piece::Bishop | Piece::Queen
     ));
+
+    type AttackGenerator = fn(&BitBoard, BitBoard) -> BitBoard;
+
+    const ATTACK_GENERATORS: [AttackGenerator; 4] = [
+        BitBoard::magic_rook_attacks,
+        BitBoard::lookup_knight_attacks_,
+        BitBoard::magic_bishop_attacks,
+        BitBoard::magic_queen_attacks,
+    ];
 
     let attack_generator = ATTACK_GENERATORS[piece_type as usize - 2];
 
@@ -206,17 +206,17 @@ fn generate_moves<T: MoveList>(
         // Add quiet moves
         let quiet = targets & position.free;
         for to in quiet {
-            movelist.add(from, to, MoveType::Quiet, position);
+            movelist.add_quiet(from, to);
         }
         // Add captures
         for to in targets ^ quiet {
-            movelist.add(from, to, MoveType::Capture, position);
+            movelist.add_capture(from, to);
         }
     }
 }
 
 #[inline(always)]
-fn generate_castles<T: MoveList>(position: &Position, movelist: &mut T) {
+fn generate_castles(position: &Position, movelist: &mut MoveList) {
     let from = position.us.king;
     let unsafe_squares = position.opponent_attack_squares();
 
@@ -224,13 +224,13 @@ fn generate_castles<T: MoveList>(position: &Position, movelist: &mut T) {
         && (position.short_castle_mask() & position.occupied).is_empty()
         && (position.short_castle_mask() & unsafe_squares).is_empty()
     {
-        movelist.add(from, from.east_two(), MoveType::ShortCastle, position);
+        movelist.add_castle(from, from.east_two(), MoveType::ShortCastle);
     }
 
     if (position.castling_rights & position.queenside_rook_starting_square()).is_not_empty()
         && (position.queenside_castle_free_mask() & position.occupied).is_empty()
         && (position.queenside_castle_safety_mask() & unsafe_squares).is_empty()
     {
-        movelist.add(from, from.west_two(), MoveType::LongCastle, position);
+        movelist.add_castle(from, from.west_two(), MoveType::LongCastle);
     }
 }

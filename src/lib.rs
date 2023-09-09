@@ -1,25 +1,18 @@
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate static_assertions;
-extern crate vampirc_uci as v_uci;
 
-mod bitboard;
+pub mod bitboard;
 #[allow(dead_code)]
-mod constants;
-mod evaluate;
-mod globals;
-mod hash;
-mod makemove;
-mod movegen;
-mod movelist;
-#[allow(non_camel_case_types, dead_code)]
-mod nnue;
-mod position;
-mod search;
-mod types;
+pub mod constants;
+pub mod hash;
+pub mod makemove;
+pub mod move_;
+pub mod movegen;
+pub mod movelist;
+pub mod perft;
+pub mod position;
+pub mod types;
 
-pub mod engine;
-pub mod uci;
+pub mod cli;
 
 use bitboard::BitBoard;

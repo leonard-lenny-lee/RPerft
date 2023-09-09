@@ -3,7 +3,7 @@
 use super::*;
 use constants::bb;
 use position::Position;
-use types::PieceType;
+use types::Piece;
 
 impl Position {
     /// Generate a Zobrist key, call during position initialization and use update methods during .makemove
@@ -83,20 +83,14 @@ impl Position {
     }
 
     /// Update at both source and target squares for the piece
-    pub fn move_key_update(
-        &mut self,
-        moved_pt: PieceType,
-        from: BitBoard,
-        to: BitBoard,
-        wtm: bool,
-    ) {
+    pub fn move_key_update(&mut self, moved_pt: Piece, from: BitBoard, to: BitBoard, wtm: bool) {
         let idx = PIECETYPE_TO_KEY_INDEX_MAP[moved_pt as usize] * 2 + wtm as usize;
         self.key ^= HASH_KEYS[64 * idx + from.to_square()];
         self.key ^= HASH_KEYS[64 * idx + to.to_square()];
     }
 
     /// Update hash for a single bitflip
-    pub fn square_key_update(&mut self, pt: PieceType, sq: BitBoard, wtm: bool) {
+    pub fn square_key_update(&mut self, pt: Piece, sq: BitBoard, wtm: bool) {
         let idx = PIECETYPE_TO_KEY_INDEX_MAP[pt as usize] * 2 + wtm as usize;
         self.key ^= HASH_KEYS[64 * idx + sq.to_square()];
     }
@@ -107,8 +101,7 @@ impl Position {
     }
 
     /// Update hash for an update to castling rights
-    pub fn castling_key_update(&mut self) {
-        let prev = self.peek_stack().castling_rights;
+    pub fn castling_key_update(&mut self, prev: BitBoard) {
         let mut diff = self.castling_rights ^ prev;
         while diff.is_not_empty() {
             match diff.pop_ls1b_index() {
@@ -119,10 +112,6 @@ impl Position {
                 _ => panic!("Unrecognised bit in castling rights"),
             }
         }
-    }
-
-    fn peek_stack(&self) -> &position::StackData {
-        &self.stack[self.ply as usize - 1]
     }
 }
 
@@ -337,8 +326,9 @@ const HASH_KEYS: [u64; 781] = [
 #[cfg(test)]
 mod test {
     use super::*;
-    use movelist::{MoveList, UnorderedList};
+    use movelist::MoveList;
     use test_case::test_case;
+    use types::MoveType;
 
     #[test_case("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 0x463b96181691fc9c; "1")]
     #[test_case("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1", 0x823c9b50fd114196; "2")]
@@ -368,20 +358,19 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R4K1R b kq - 1 1";
         "loss of castling")]
     fn test_hash_update_quiet(startpos: &str, from: usize, to: usize, expected: &str) {
-        let mut pos = Position::from_fen(startpos).unwrap();
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = UnorderedList::new();
+        let mut movelist = MoveList::new();
         movelist.add(
             BitBoard::from_square(from),
             BitBoard::from_square(to),
             MoveType::Quiet,
-            &pos,
         );
-        let mv = movelist.pop().unwrap();
+        let mv = movelist.moves.pop().unwrap();
         // Apply move
-        pos.make_move(&mv);
+        let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(pos.key, expected_pos.key)
+        assert_eq!(new_position.key, expected_pos.key)
     }
 
     #[test_case(constants::fen::TEST_2, 8, 24,
@@ -399,19 +388,18 @@ mod test {
         "r3k2r/p2pqpb1/bn2pnp1/2pPN3/Pp2P3/2N2Q1p/1PPBBPPP/R3K2R w KQkq c6 0 2";
         "eps transfer")]
     fn test_hash_update_double_pawn_push(startpos: &str, from: usize, to: usize, expected: &str) {
-        let mut pos = Position::from_fen(startpos).unwrap();
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = UnorderedList::new();
+        let mut movelist = MoveList::new();
         movelist.add(
             BitBoard::from_square(from),
             BitBoard::from_square(to),
             MoveType::DoublePawnPush,
-            &pos,
         );
-        let mv = movelist.pop().unwrap();
-        pos.make_move(&mv);
+        let mv = movelist.moves.pop().unwrap();
+        let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(pos.key, expected_pos.key)
+        assert_eq!(new_position.key, expected_pos.key)
     }
 
     #[test_case(
@@ -423,20 +411,19 @@ mod test {
         "r4rk1/p2pqpb1/bn2Pn2/2p1N1p1/1p2P3/1PN2Q1p/P1PBBPPP/R4RK1 w - - 2 4";
         "black")]
     fn test_hash_update_castling(startpos: &str, from: usize, to: usize, expected: &str) {
-        let mut pos = Position::from_fen(startpos).unwrap();
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = UnorderedList::new();
+        let mut movelist = MoveList::new();
         movelist.add(
             BitBoard::from_square(from),
             BitBoard::from_square(to),
             MoveType::ShortCastle,
-            &pos,
         );
-        let mv = movelist.pop().unwrap();
+        let mv = movelist.moves.pop().unwrap();
         // Apply move
-        pos.make_move(&mv);
+        let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(pos.key, expected_pos.key)
+        assert_eq!(new_position.key, expected_pos.key)
     }
 
     #[test_case(
@@ -444,19 +431,18 @@ mod test {
         "r3k2r/p1ppqpb1/bn2pnp1/3PN3/4P3/p1N2Q1p/1PPBBPPP/R3K2R w KQkq - 0 2";
         "black")]
     fn test_hash_update_en_passant(startpos: &str, from: usize, to: usize, expected: &str) {
-        let mut pos = Position::from_fen(startpos).unwrap();
+        let pos = Position::from_fen(startpos).unwrap();
         // Specify move
-        let mut movelist = UnorderedList::new();
+        let mut movelist = MoveList::new();
         movelist.add(
             BitBoard::from_square(from),
             BitBoard::from_square(to),
             MoveType::EnPassant,
-            &pos,
         );
-        let mv = movelist.pop().unwrap();
+        let mv = movelist.moves.pop().unwrap();
         // Apply move
-        pos.make_move(&mv);
+        let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();
-        assert_eq!(pos.key, expected_pos.key)
+        assert_eq!(new_position.key, expected_pos.key)
     }
 }

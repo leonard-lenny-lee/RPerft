@@ -2,14 +2,8 @@
 /// other parts of the program.
 use super::*;
 
-pub const ENGINE_NAME: &str = "cRusty";
-pub const AUTHOR_NAME: &str = "LeonardL";
-
-pub const NNUE_FILE: &str = "nn-04cf2b4ed1da.nnue";
-
-// Search parameters
 pub const MAX_DEPTH: usize = 50;
-pub const INFINITE: i16 = 30000;
+pub const DEFAULT_TABLE_SIZE_BYTES: usize = 32_000_000;
 
 // Standard chess positions useful for testing
 pub mod fen {

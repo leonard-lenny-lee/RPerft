@@ -22,7 +22,7 @@ enum TableType {
 }
 
 struct MagicTable {
-    tables: [[BitBoard; 4096]; 64],
+    tables: Box<[[BitBoard; 4096]; 64]>,
     table_type: TableType,
     magic_factors: &'static [u64; 64],
     masks: &'static [u64; 64],
@@ -33,14 +33,14 @@ impl MagicTable {
     fn new(table_type: TableType) -> Self {
         let mut table = match table_type {
             TableType::Rook => Self {
-                tables: [[BitBoard(0); 4096]; 64],
+                tables: Box::new([[BitBoard(0); 4096]; 64]),
                 table_type,
                 magic_factors: &keys::ROOK_MAGICS,
                 masks: &keys::ROOK_MASKS,
                 shifts: &keys::ROOK_SHIFTS,
             },
             TableType::Bishop => Self {
-                tables: [[BitBoard(0); 4096]; 64],
+                tables: Box::new([[BitBoard(0); 4096]; 64]),
                 table_type,
                 magic_factors: &keys::BISHOP_MAGICS,
                 masks: &keys::BISHOP_MASKS,

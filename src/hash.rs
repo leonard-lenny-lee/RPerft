@@ -1,23 +1,5 @@
 /// Hash Table implementation for transpositions
-use super::*;
-use movelist::Move;
 use std::sync::atomic::{AtomicU64, Ordering};
-use types::NodeType;
-
-pub enum Probe {
-    Read(EntryData),
-    ReadWrite(EntryData),
-    Write,
-    Ignore,
-}
-
-pub struct EntryData {
-    depth: u8,
-    age: u8,
-    pub node_type: NodeType,
-    pub best_move: Move,
-    pub score: i16,
-}
 
 pub struct HashTable {
     entries: Box<[Entry]>,
@@ -44,12 +26,12 @@ impl HashTable {
     }
 
     /// Retrieve the stored node count from the table, if it exists. Else, return None.
-    pub fn probe_perft(&self, key: u64, depth: u8) -> Option<u64> {
+    pub fn fetch(&self, key: u64, depth: u8) -> Option<u64> {
         let index = key as usize % self.size;
         let entry = &self.entries[index];
         let entry_key = entry.key();
         if key == entry_key {
-            let (entry_depth, node_count) = entry.decode_perft();
+            let (entry_depth, node_count) = entry.decode();
             if depth == entry_depth {
                 return Some(node_count);
             }
@@ -57,60 +39,11 @@ impl HashTable {
         return None;
     }
 
-    /// Implementation of the hash table replacement strategy
-    pub fn probe_search(&self, key: u64, depth: u8) -> Probe {
-        let index = key as usize % self.size;
-        let entry = &self.entries[index];
-        let (entry_key, entry_data) = (entry.key(), entry.decode_search());
-
-        if entry_key == key {
-            // *KEY MATCH
-            if entry_data.depth >= depth {
-                // Read only from higher depth searches
-                return Probe::Read(entry_data);
-            } else {
-                // Read and overwrite from lower depth searches
-                return Probe::ReadWrite(entry_data);
-            }
-        } else {
-            // *KEY MISMATCH
-            if self.age >= entry_data.age {
-                // Overwrite old entries
-                return Probe::Write;
-            }
-            // Else
-            if entry_data.depth >= depth {
-                // Keep searches at higher depth
-                return Probe::Ignore;
-            }
-            // Do not overwrite PV nodes
-            if let NodeType::PV = entry_data.node_type {
-                return Probe::Ignore;
-            }
-            // Overwrite newer searches if it comes from a lower depth
-            return Probe::Write;
-        }
-    }
-
     /// Write a perft entry into the hash table
-    pub fn write_perft(&self, key: u64, depth: u8, node_count: u64) {
+    pub fn store(&self, key: u64, depth: u8, node_count: u64) {
         let idx = key as usize % self.size;
         let entry = &self.entries[idx];
-        entry.encode_perft(key, depth, node_count)
-    }
-
-    /// Write a search entry into the hash table
-    pub fn write_search(
-        &self,
-        key: u64,
-        depth: u8,
-        best_move: Move,
-        score: i16,
-        node_type: NodeType,
-    ) {
-        let idx = key as usize % self.size;
-        let entry = &self.entries[idx];
-        entry.encode_search(key, depth, self.age, best_move, score, node_type);
+        entry.encode(key, depth, node_count)
     }
 
     /// Clear all hash entries
@@ -148,57 +81,17 @@ impl Entry {
         self.data.store(data, Ordering::Relaxed);
     }
 
-    // Only depth and node count needs to be stored for perft entries
-    fn encode_perft(&self, key: u64, depth: u8, count: u64) {
+    // Store depth and node count
+    fn encode(&self, key: u64, depth: u8, count: u64) {
         // Upper 56 bits store node count, lowest 8 bits store depth
         let data = depth as u64 | (count << 8);
         self.write(key, data);
     }
 
-    fn decode_perft(&self) -> (u8, u64) {
+    // Return depth and node count as a tuple
+    fn decode(&self) -> (u8, u64) {
         let data = self.data();
         return (data as u8, data >> 8);
-    }
-
-    // Encode and store a search entry according to the scheme
-    fn encode_search(
-        &self,
-        key: u64,
-        depth: u8,
-        age: u8,
-        best_move: Move,
-        score: i16,
-        node_type: NodeType,
-    ) {
-        /*
-            +-------+------------+------+
-            |  Bits |      Field | Type |
-            +-------+------------+------+
-            |   0-7 |      depth |   u8 |
-            |  8-15 |        age |   u8 |
-            | 16-23 |   nodetype |   u8 |
-            | 24-39 |   bestmove |  u16 |
-            | 40-55 |      score |  i16 |
-            +-------+------------+------+
-        */
-        let data = depth as u64
-            | (age as u64) << 8
-            | (node_type as u64) << 16
-            | (best_move.0 as u64) << 24
-            | (score as u64) << 40;
-        self.write(key, data);
-    }
-
-    // Decode search data from an entry
-    fn decode_search(&self) -> EntryData {
-        let data = self.data();
-        return EntryData {
-            depth: data as u8,
-            age: (data >> 8) as u8,
-            node_type: NodeType::from_u8((data >> 16) as u8),
-            best_move: Move::from_uint16((data >> 24) as u16),
-            score: (data >> 40) as i16,
-        };
     }
 
     fn new_empty() -> Self {
@@ -206,16 +99,5 @@ impl Entry {
             key: AtomicU64::new(0),
             data: AtomicU64::new(0),
         };
-    }
-}
-
-impl NodeType {
-    // Use only to load from HashTable entry
-    fn from_u8(val: u8) -> Self {
-        match val {
-            0 => Self::PV,
-            1 => Self::Cut,
-            _ => Self::All,
-        }
     }
 }

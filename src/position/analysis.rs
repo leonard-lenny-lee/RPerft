@@ -1,6 +1,6 @@
 /// Module containing methods to extract information from a position
 use super::*;
-use types::{Axis, PieceType};
+use types::{Axis, Piece};
 
 impl Position {
     /// Return a bitboard with all squares the opponent pieces are attacking
@@ -60,9 +60,9 @@ impl Position {
     }
 
     /// Check that in the position, we cannot capture their king. If so, it's an illegal position
-    pub fn check_legal(&self) -> Result<(), RuntimeError> {
+    pub fn check_legal(&self) -> Result<(), ()> {
         if (self.our_attack_squares() & self.them.king).is_not_empty() {
-            Err(RuntimeError::ParseFenError)
+            Err(())
         } else {
             Ok(())
         }
@@ -71,7 +71,7 @@ impl Position {
 
 impl BBSet {
     /// Identify the piece type at a given bitboard
-    pub fn piecetype_at(&self, bb: BitBoard) -> Option<PieceType> {
+    pub fn piecetype_at(&self, bb: BitBoard) -> Option<Piece> {
         for pt in types::PIECES.iter() {
             if (self[*pt] & bb).is_not_empty() {
                 return Some(*pt);

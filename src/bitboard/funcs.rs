@@ -508,17 +508,13 @@ impl BitBoard {
     }
 
     /// Convert from algebraic notation e.g. a5 to a one bit bitboard
-    pub fn from_algebraic(algebraic: &str) -> Result<BitBoard, uci::RuntimeError> {
+    pub fn from_algebraic(algebraic: &str) -> Result<BitBoard, ()> {
         let chars: Vec<char> = algebraic.chars().collect();
         if chars.len() != 2 {
-            return Err(uci::RuntimeError::AlgebraicParseError(
-                algebraic.to_string(),
-            ));
+            return Err(());
         }
         if !chars[0].is_alphabetic() || !chars[1].is_numeric() {
-            return Err(uci::RuntimeError::AlgebraicParseError(
-                algebraic.to_string(),
-            ));
+            return Err(());
         }
         let file = chars[0].to_ascii_lowercase() as u8 - ascii::LOWER_A as u8;
         let rank = chars[1] as u8 - ascii::ZERO as u8;
@@ -526,9 +522,7 @@ impl BitBoard {
             let square_index = file + (rank - 1) * 8;
             Ok(BitBoard(1 << square_index))
         } else {
-            Err(uci::RuntimeError::AlgebraicParseError(
-                algebraic.to_string(),
-            ))
+            Err(())
         }
     }
 
@@ -566,17 +560,6 @@ impl BitBoard {
         out.push_str("|\n   --- --- --- --- --- --- --- ---");
         out.push_str(" \n    a   b   c   d   e   f   g   h ");
         out
-    }
-
-    /// Convert to the UciSquare struct in the vampirc_uci crate
-    pub fn to_uci_square(&self) -> v_uci::UciSquare {
-        debug_assert_eq!(self.pop_count(), 1);
-
-        let sq = self.to_square() as u8;
-        let file = (sq % 8 + ascii::LOWER_A as u8) as char;
-        let rank = (sq / 8 + 1) as u8;
-
-        return v_uci::UciSquare { file, rank };
     }
 }
 
@@ -772,12 +755,5 @@ mod tests {
         let bb = BitBoard(0x8040201);
         let result = bb.flip_vertical();
         assert_eq!(result, BitBoard(0x102040800000000))
-    }
-
-    #[test]
-    fn test_to_uci_sq() {
-        let result = bb::F5.to_uci_square();
-        assert_eq!(result.file, 'f');
-        assert_eq!(result.rank, 5)
     }
 }
