@@ -1,7 +1,6 @@
 use super::*;
 
 use std::cmp::Ordering;
-use std::iter::zip;
 
 use movelist::MoveList;
 use position::Position;
@@ -47,13 +46,15 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T) {
     let from = pos.us.king;
     let targets = from.king_attacks_lu() & !pos.us.all & !pos.unsafe_sq();
     let quiet_targets = targets & pos.free;
-    for to in targets & quiet_targets {
-        movelist.add_quiet(from, to);
-    }
-    // Add captures
-    for to in targets ^ quiet_targets {
-        movelist.add_capture(from, to);
-    }
+    movelist.add_quiets(from, targets & quiet_targets);
+    movelist.add_captures(from, targets ^ quiet_targets);
+    // for to in targets & quiet_targets {
+    //     movelist.add_quiets(from, to);
+    // }
+    // // Add captures
+    // for to in targets ^ quiet_targets {
+    //     movelist.add_captures(from, to);
+    // }
 }
 
 #[inline(always)]
@@ -90,47 +91,33 @@ fn generate_pawn_moves<T: MoveList>(
     bb_1 &= filter;
     bb_2 &= filter;
 
-    for (from, to) in zip(pos.back_one(bb_1), bb_1) {
-        movelist.add_quiet(from, to);
-    }
-    for (from, to) in zip(pos.back_two(bb_2), bb_2) {
-        movelist.add_double_pawn_push(from, to);
-    }
+    movelist.add_pawn_pushes(pos.back_one(bb_1), bb_1);
+    movelist.add_double_pawn_pushes(pos.back_two(bb_2), bb_2);
 
     // Add promotions
     let bb_1 = pos.push_one(on_7 & !no_push) & pos.free & filter;
     let bb_2 = pos.l_cap(on_7 & !no_left) & pos.occ & filter;
     let bb_3 = pos.r_cap(on_7 & !no_right) & pos.occ & filter;
 
-    for (from, to) in zip(pos.back_one(bb_1), bb_1) {
-        movelist.add_promos(from, to);
-    }
-    for (from, to) in zip(pos.l_cap_back(bb_2), bb_2) {
-        movelist.add_promo_captures(from, to)
-    }
-    for (from, to) in zip(pos.r_cap_back(bb_3), bb_3) {
-        movelist.add_promo_captures(from, to)
-    }
+    movelist.add_promos(pos.back_one(bb_1), bb_1);
+    movelist.add_promo_captures(pos.l_cap_back(bb_2), bb_2);
+    movelist.add_promo_captures(pos.r_cap_back(bb_3), bb_3);
 
     // Add captures
     let bb_1 = pos.l_cap(not_on_7 & !no_left) & pos.occ & filter;
     let bb_2 = pos.r_cap(not_on_7 & !no_right) & pos.occ & filter;
 
-    for (from, to) in zip(pos.l_cap_back(bb_1), bb_1) {
-        movelist.add_capture(from, to);
-    }
-    for (from, to) in zip(pos.r_cap_back(bb_2), bb_2) {
-        movelist.add_capture(from, to);
-    }
+    movelist.add_pawn_captures(pos.l_cap_back(bb_1), bb_1);
+    movelist.add_pawn_captures(pos.r_cap_back(bb_2), bb_2);
 
     // Enpassant
     if pos.ep_sq.is_empty() {
         return;
     };
 
-    let ep_capture = pos.back_one(pos.ep_sq);
+    let ep_capture_sq = pos.back_one(pos.ep_sq);
 
-    if ((ep_capture | pos.ep_sq) & filter).is_empty() {
+    if ((ep_capture_sq | pos.ep_sq) & filter).is_empty() {
         return;
     };
 
@@ -144,7 +131,7 @@ fn generate_pawn_moves<T: MoveList>(
             continue;
         }
         // Check if removing the captured pawn and ep pawn from their squares will reveal a check
-        let occ = pos.occ & !(from | ep_capture);
+        let occ = pos.occ & !(from | ep_capture_sq);
         let king_ray = pos.us.king.hq_rank_attacks(occ);
         if (king_ray & (pos.them.rook | pos.them.queen)).is_not_empty() {
             continue;
@@ -178,12 +165,8 @@ fn generate_moves<T: MoveList>(
         if (from & pinned).is_not_empty() {
             targets &= pos.us.king.between_mask(from)
         }
-        for to in targets & pos.free {
-            movelist.add_quiet(from, to);
-        }
-        for to in targets & pos.occ {
-            movelist.add_capture(from, to);
-        }
+        movelist.add_quiets(from, targets & pos.free);
+        movelist.add_captures(from, targets & pos.occ);
     }
 }
 

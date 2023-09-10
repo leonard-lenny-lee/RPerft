@@ -1,31 +1,56 @@
 use super::*;
 
+use std::iter::zip;
+
 use mv::Move;
 use types::MoveT;
 
 pub trait MoveList {
-    fn add_quiet(&mut self, from: BitBoard, to: BitBoard);
-    fn add_double_pawn_push(&mut self, from: BitBoard, to: BitBoard);
-    fn add_capture(&mut self, from: BitBoard, to: BitBoard);
+    // Piece move adders
+    fn add_quiets(&mut self, src: BitBoard, targets: BitBoard);
+    fn add_captures(&mut self, src: BitBoard, targets: BitBoard);
+
+    // Pawn move adders
+    fn add_pawn_pushes(&mut self, srcs: BitBoard, targets: BitBoard);
+    fn add_double_pawn_pushes(&mut self, srcs: BitBoard, targets: BitBoard);
+    fn add_pawn_captures(&mut self, srcs: BitBoard, targets: BitBoard);
     fn add_ep(&mut self, from: BitBoard, to: BitBoard);
     fn add_castle(&mut self, from: BitBoard, to: BitBoard, mt: MoveT);
-    fn add_promos(&mut self, from: BitBoard, to: BitBoard);
-    fn add_promo_captures(&mut self, from: BitBoard, to: BitBoard);
+    fn add_promos(&mut self, srcs: BitBoard, targets: BitBoard);
+    fn add_promo_captures(&mut self, srcs: BitBoard, targets: BitBoard);
 }
 
 pub struct MoveVec(pub Vec<Move>);
 
 impl MoveList for MoveVec {
-    fn add_quiet(&mut self, from: BitBoard, to: BitBoard) {
-        self.add(from, to, MoveT::Quiet);
+    fn add_quiets(&mut self, src: BitBoard, targets: BitBoard) {
+        for to in targets {
+            self.add(src, to, MoveT::Quiet);
+        }
     }
 
-    fn add_double_pawn_push(&mut self, from: BitBoard, to: BitBoard) {
-        self.add(from, to, MoveT::DoublePawnPush)
+    fn add_captures(&mut self, src: BitBoard, targets: BitBoard) {
+        for to in targets {
+            self.add(src, to, MoveT::Capture);
+        }
     }
 
-    fn add_capture(&mut self, from: BitBoard, to: BitBoard) {
-        self.add(from, to, MoveT::Capture);
+    fn add_pawn_pushes(&mut self, srcs: BitBoard, targets: BitBoard) {
+        for (from, to) in zip(srcs, targets) {
+            self.add(from, to, MoveT::Quiet);
+        }
+    }
+
+    fn add_double_pawn_pushes(&mut self, srcs: BitBoard, targets: BitBoard) {
+        for (from, to) in zip(srcs, targets) {
+            self.add(from, to, MoveT::DoublePawnPush);
+        }
+    }
+
+    fn add_pawn_captures(&mut self, srcs: BitBoard, targets: BitBoard) {
+        for (from, to) in zip(srcs, targets) {
+            self.add(from, to, MoveT::Capture);
+        }
     }
 
     fn add_ep(&mut self, from: BitBoard, to: BitBoard) {
@@ -36,15 +61,19 @@ impl MoveList for MoveVec {
         self.add(from, to, mt);
     }
 
-    fn add_promos(&mut self, from: BitBoard, to: BitBoard) {
-        for mt in types::PROMOTION_MOVE_TYPES {
-            self.add(from, to, mt);
+    fn add_promos(&mut self, srcs: BitBoard, targets: BitBoard) {
+        for (from, to) in zip(srcs, targets) {
+            for mt in types::PROMOTION_MOVE_TYPES {
+                self.add(from, to, mt);
+            }
         }
     }
 
-    fn add_promo_captures(&mut self, from: BitBoard, to: BitBoard) {
-        for mt in types::PROMOTION_CAPTURE_MOVE_TYPES {
-            self.add(from, to, mt);
+    fn add_promo_captures(&mut self, srcs: BitBoard, targets: BitBoard) {
+        for (from, to) in zip(srcs, targets) {
+            for mt in types::PROMOTION_CAPTURE_MOVE_TYPES {
+                self.add(from, to, mt);
+            }
         }
     }
 }
@@ -86,17 +115,28 @@ pub struct MoveCounter {
 }
 
 impl MoveList for MoveCounter {
-    fn add_quiet(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 1;
+    fn add_quiets(&mut self, _src: BitBoard, targets: BitBoard) {
+        self.count += targets.pop_count() as u32;
     }
 
-    fn add_double_pawn_push(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 1;
+    fn add_captures(&mut self, _src: BitBoard, targets: BitBoard) {
+        let n = targets.pop_count() as u32;
+        self.count += n;
+        self.captures += n;
     }
 
-    fn add_capture(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 1;
-        self.captures += 1;
+    fn add_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
+        self.count += targets.pop_count() as u32;
+    }
+
+    fn add_double_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
+        self.count += targets.pop_count() as u32;
+    }
+
+    fn add_pawn_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
+        let n = targets.pop_count() as u32;
+        self.count += n;
+        self.captures += n;
     }
 
     fn add_ep(&mut self, _from: BitBoard, _to: BitBoard) {
@@ -109,14 +149,16 @@ impl MoveList for MoveCounter {
         self.castles += 1;
     }
 
-    fn add_promos(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 4;
-        self.promotions += 4;
+    fn add_promos(&mut self, _srcs: BitBoard, targets: BitBoard) {
+        let n = targets.pop_count() as u32 * 4;
+        self.count += n;
+        self.promotions += n;
     }
 
-    fn add_promo_captures(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 4;
-        self.promotions += 4;
-        self.captures += 4;
+    fn add_promo_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
+        let n = targets.pop_count() as u32 * 4;
+        self.count += n;
+        self.promotions += n;
+        self.captures += n;
     }
 }

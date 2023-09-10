@@ -357,7 +357,7 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = MoveVec::new();
-        movelist.add_quiet(BitBoard::from_sq(from), BitBoard::from_sq(to));
+        movelist.add_quiets(BitBoard::from_sq(from), BitBoard::from_sq(to));
         let mv = movelist.0.pop().unwrap();
         // Apply move
         let new_position = pos.make_move(&mv);
@@ -383,7 +383,7 @@ mod test {
         let pos = Position::from_fen(startpos).unwrap();
         // Specify move
         let mut movelist = MoveVec::new();
-        movelist.add_double_pawn_push(BitBoard::from_sq(from), BitBoard::from_sq(to));
+        movelist.add_double_pawn_pushes(BitBoard::from_sq(from), BitBoard::from_sq(to));
         let mv = movelist.0.pop().unwrap();
         let new_position = pos.make_move(&mv);
         let expected_pos = Position::from_fen(expected).unwrap();

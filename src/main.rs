@@ -35,19 +35,28 @@ fn main() {
         .default_value("32000000")
         .value_name("N_BYTES")
         .value_parser(value_parser!(usize))
-        .help("Size of the cache in bytes");
+        .help(
+            "Size of the cache in bytes. \n\
+             If set to 0, caching is disabled",
+        )
+        .next_line_help(true);
 
     let threads_args = Arg::new("threads")
         .short('t')
         .long("threads")
-        .default_value("0")
+        .default_value("8")
         .value_name("N_THREADS")
         .value_parser(value_parser!(usize))
-        .help("Number of threads to use in search. If set to 0, uses all available threads");
+        .help(
+            "Number of threads to use in search.\n\
+            If set to 0, uses all available CPU cores.\n\
+            If set to 1, multithreading is disabled",
+        )
+        .next_line_help(true);
 
     let matches = Command::new("RPerft")
-        .version("0.1.0")
-        .author("Leonard L.")
+        .version(VERSION)
+        .author(AUTHOR)
         .about("Reasonably fast move generator")
         .arg(fen_arg)
         .arg(depth_arg)
@@ -57,8 +66,9 @@ fn main() {
 
     let fen = matches.get_one::<String>("fen").expect("default arg");
     let depth = matches.get_one::<u8>("depth").expect("default arg");
-    let cache_size_bytes = matches.get_one::<usize>("cache").expect("default arg");
-    let n_threads = matches.get_one::<usize>("threads").expect("default arg");
+    let cache_size = matches.get_one::<usize>("cache").expect("default arg");
+    let num_threads = matches.get_one::<usize>("threads").expect("default arg");
 
-    println!("{fen} {depth} {cache_size_bytes} {n_threads}");
+    println!("{fen} {depth} {cache_size} {num_threads}");
+    rperft::perft::run_perft_benchmark_suite(*num_threads, *cache_size);
 }
