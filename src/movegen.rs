@@ -1,66 +1,52 @@
 use super::*;
+
+use std::cmp::Ordering;
+use std::iter::zip;
+
 use movelist::MoveList;
 use position::Position;
-use types::{Axis, GeneratorType, MoveType, Piece};
-
-#[cfg(test)]
-mod tests;
+use types::{MoveT, Piece};
 
 /// Generate all legal moves in a position
-pub fn generate_all<T: MoveList>(position: &Position, movelist: &mut T) {
-    let checkers = position.opponent_checkers();
-    if checkers.pop_count() == 0 {
-        generate(GeneratorType::NonEvasions, position, movelist);
-    } else {
-        generate(GeneratorType::Evasions(checkers), position, movelist)
+pub fn generate_all<T: MoveList>(pos: &Position, movelist: &mut T) {
+    let checkers = pos.checkers();
+    let n_checkers = checkers.pop_count();
+    let filter;
+
+    match n_checkers.cmp(&1) {
+        Ordering::Greater => {
+            // In double check, only king moves are valid
+            generate_king_moves(pos, movelist);
+            return;
+        }
+        Ordering::Equal => {
+            // In single check, the only valid moves are to capture the checker or block
+            filter = pos.us.king.between_bb(checkers);
+        }
+        Ordering::Less => {
+            // Not in check so all squares that are not occupied by our pieces are valid targets
+            filter = !pos.us.all;
+            // Castling is allowed only when not in check
+            generate_castles(pos, movelist);
+        }
     }
-}
 
-pub fn generate<T: MoveList>(gt: GeneratorType, position: &Position, movelist: &mut T) {
-    let targets = match gt {
-        GeneratorType::NonEvasions => {
-            // Castling is only allowed when not in check
-            generate_castles(position, movelist);
-            !position.us.all
-        }
-        GeneratorType::Evasions(checker) => {
-            if checker.pop_count() > 1 {
-                // Only king moves are legal in double check
-                generate_king_moves(position, movelist, gt);
-                return;
-            }
-            !position.us.all & position.us.king.between_bb(checker)
-        }
-        GeneratorType::Captures => position.them.all,
-    };
+    let pinned = pos.pinned();
 
-    let pinned = position.our_pinned_pieces();
+    generate_moves(Piece::Rook, pos, movelist, pinned, filter);
+    generate_moves(Piece::Knight, pos, movelist, pinned, filter);
+    generate_moves(Piece::Bishop, pos, movelist, pinned, filter);
+    generate_moves(Piece::Queen, pos, movelist, pinned, filter);
 
-    generate_moves(Piece::Rook, position, movelist, pinned, targets);
-    generate_moves(Piece::Knight, position, movelist, pinned, targets);
-    generate_moves(Piece::Bishop, position, movelist, pinned, targets);
-    generate_moves(Piece::Queen, position, movelist, pinned, targets);
-
-    generate_pawn_moves(position, movelist, pinned, targets);
-    generate_king_moves(position, movelist, gt);
+    generate_pawn_moves(pos, movelist, pinned, filter);
+    generate_king_moves(pos, movelist);
 }
 
 #[inline(always)]
-fn generate_king_moves<T: MoveList>(
-    position: &Position,
-    movelist: &mut T,
-    generator_type: GeneratorType,
-) {
-    let from = position.us.king;
-    let mut targets =
-        from.lookup_king_attacks() & !position.us.all & !position.opponent_attack_squares();
-
-    if let GeneratorType::Captures = generator_type {
-        targets &= position.them.all;
-    }
-
-    let quiet_targets = targets & position.free;
-    // Add quiet moves
+fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T) {
+    let from = pos.us.king;
+    let targets = from.king_attacks_lu() & !pos.us.all & !pos.unsafe_sq();
+    let quiet_targets = targets & pos.free;
     for to in targets & quiet_targets {
         movelist.add_quiet(from, to);
     }
@@ -72,163 +58,255 @@ fn generate_king_moves<T: MoveList>(
 
 #[inline(always)]
 fn generate_pawn_moves<T: MoveList>(
-    position: &Position,
+    pos: &Position,
     movelist: &mut T,
     pinned: BitBoard,
-    targets: BitBoard,
+    filter: BitBoard,
 ) {
     // Filter pawns according to if they are pinned and the pin direction
-    let pinned = position.us.pawn & pinned;
+    let pinned = pos.us.pawn & pinned;
 
-    // Pawns pinned along a rank cannot move
-    let pawns = position.us.pawn ^ (pinned & position.us.king.lookup_rank_mask());
+    // Pawns pinned along a rank cannot move as they can only move forward or diagonally
+    let pawns = pos.us.pawn ^ (pinned & pos.us.king.rank_mask_lu());
 
-    let push_only = pinned & position.us.king.lookup_file_mask();
-    let left_capture_only = pinned & position.left_capture_axis(position.us.king);
-    let right_capture_only = pinned & position.right_capture_axis(position.us.king);
+    // Pawns pinned along a file or diagonal can only move along those axes
+    let push_only = pinned & pos.us.king.file_mask_lu();
+    let left_only = pinned & pos.l_cap_axis(pos.us.king);
+    let right_only = pinned & pos.r_cap_axis(pos.us.king);
 
-    let no_push = left_capture_only | right_capture_only;
-    let no_left_capture = right_capture_only | push_only;
-    let no_right_capture = left_capture_only | push_only;
+    // Separate pawns according to direction of movement
+    let no_push = left_only | right_only;
+    let no_left = right_only | push_only;
+    let no_right = left_only | push_only;
 
-    let pawns_on_7th_rank = pawns & position.rank_7();
-    let pawns_not_on_7th_rank = pawns ^ pawns_on_7th_rank;
+    // Separate pawns on whether they can promote
+    let on_7 = pawns & pos.rank_7();
+    let not_on_7 = pawns ^ on_7;
 
-    // Single and double pushes
-    let mut bb_1 = position.forward_one(pawns_not_on_7th_rank & !no_push) & position.free;
-    let mut bb_2 = position.forward_one(bb_1 & position.rank_3()) & position.free;
+    // Add single and double pushes
+    let mut bb_1 = pos.push_one(not_on_7 & !no_push) & pos.free;
+    let mut bb_2 = pos.push_one(bb_1 & pos.rank_3()) & pos.free;
 
-    bb_1 &= targets;
-    bb_2 &= targets;
+    bb_1 &= filter;
+    bb_2 &= filter;
 
-    for (from, to) in std::iter::zip(position.back_one(bb_1), bb_1) {
+    for (from, to) in zip(pos.back_one(bb_1), bb_1) {
         movelist.add_quiet(from, to);
     }
-    for (from, to) in std::iter::zip(position.back_two(bb_2), bb_2) {
+    for (from, to) in zip(pos.back_two(bb_2), bb_2) {
         movelist.add_double_pawn_push(from, to);
     }
 
-    // Promotions
-    let bb_1 = position.forward_one(pawns_on_7th_rank & !no_push) & position.free & targets;
-    let bb_2 =
-        position.capture_left(pawns_on_7th_rank & !no_left_capture) & position.occupied & targets;
-    let bb_3 =
-        position.capture_right(pawns_on_7th_rank & !no_right_capture) & position.occupied & targets;
+    // Add promotions
+    let bb_1 = pos.push_one(on_7 & !no_push) & pos.free & filter;
+    let bb_2 = pos.l_cap(on_7 & !no_left) & pos.occ & filter;
+    let bb_3 = pos.r_cap(on_7 & !no_right) & pos.occ & filter;
 
-    for (from, to) in std::iter::zip(position.back_one(bb_1), bb_1) {
-        movelist.add_promotions(from, to);
+    for (from, to) in zip(pos.back_one(bb_1), bb_1) {
+        movelist.add_promos(from, to);
     }
-    for (from, to) in std::iter::zip(position.capture_left_rev(bb_2), bb_2) {
-        movelist.add_promotion_captures(from, to)
+    for (from, to) in zip(pos.l_cap_back(bb_2), bb_2) {
+        movelist.add_promo_captures(from, to)
     }
-    for (from, to) in std::iter::zip(position.capture_right_rev(bb_3), bb_3) {
-        movelist.add_promotion_captures(from, to)
+    for (from, to) in zip(pos.r_cap_back(bb_3), bb_3) {
+        movelist.add_promo_captures(from, to)
     }
 
-    // Captures
-    let bb_1 = position.capture_left(pawns_not_on_7th_rank & !no_left_capture)
-        & position.occupied
-        & targets;
-    let bb_2 = position.capture_right(pawns_not_on_7th_rank & !no_right_capture)
-        & position.occupied
-        & targets;
+    // Add captures
+    let bb_1 = pos.l_cap(not_on_7 & !no_left) & pos.occ & filter;
+    let bb_2 = pos.r_cap(not_on_7 & !no_right) & pos.occ & filter;
 
-    for (from, to) in std::iter::zip(position.capture_left_rev(bb_1), bb_1) {
+    for (from, to) in zip(pos.l_cap_back(bb_1), bb_1) {
         movelist.add_capture(from, to);
     }
-    for (from, to) in std::iter::zip(position.capture_right_rev(bb_2), bb_2) {
+    for (from, to) in zip(pos.r_cap_back(bb_2), bb_2) {
         movelist.add_capture(from, to);
     }
 
     // Enpassant
-    if position.en_passant.is_empty() {
+    if pos.ep_sq.is_empty() {
         return;
     };
 
-    let en_passant_capture_square = position.back_one(position.en_passant);
+    let ep_capture = pos.back_one(pos.ep_sq);
 
-    if ((en_passant_capture_square | position.en_passant) & targets).is_empty() {
+    if ((ep_capture | pos.ep_sq) & filter).is_empty() {
         return;
     };
 
-    let s_1 = position.capture_left_rev(position.en_passant) & (pawns & !no_left_capture);
-    let s_2 = position.capture_right_rev(position.en_passant) & (pawns & !no_right_capture);
+    let s_1 = pos.l_cap_back(pos.ep_sq) & (pawns & !no_left);
+    let s_2 = pos.r_cap_back(pos.ep_sq) & (pawns & !no_right);
 
     for from in s_1 | s_2 {
-        // Check rare case where an ep can reveal a discovered check
-        if (position.us.king & position.rank_5()).is_not_empty() {
-            // Remove ep pawns from occupied squared
-            let occupied = position.occupied & !(from | en_passant_capture_square);
-            // Check if king now has direct line of sight to a rook or queen
-            if (position.us.king.hyp_quint(occupied, Axis::Rank)
-                & (position.them.rook | position.them.queen))
-                .is_not_empty()
-            {
-                continue;
-            }
+        // Check rare case where an ep can reveal a discovered check along the 5th rank
+        if (pos.us.king & pos.rank_5()).is_empty() {
+            movelist.add_ep(from, pos.ep_sq);
+            continue;
         }
-        movelist.add_ep(from, position.en_passant);
+        // Check if removing the captured pawn and ep pawn from their squares will reveal a check
+        let occ = pos.occ & !(from | ep_capture);
+        let king_ray = pos.us.king.hq_rank_attacks(occ);
+        if (king_ray & (pos.them.rook | pos.them.queen)).is_not_empty() {
+            continue;
+        }
+        movelist.add_ep(from, pos.ep_sq);
     }
 }
 
 #[inline(always)]
 fn generate_moves<T: MoveList>(
-    piece_type: Piece,
-    position: &Position,
+    pt: Piece,
+    pos: &Position,
     movelist: &mut T,
     pinned: BitBoard,
-    targets: BitBoard,
+    filter: BitBoard,
 ) {
-    debug_assert!(matches!(
-        piece_type,
-        Piece::Rook | Piece::Knight | Piece::Bishop | Piece::Queen
-    ));
-
     type AttackGenerator = fn(&BitBoard, BitBoard) -> BitBoard;
 
     const ATTACK_GENERATORS: [AttackGenerator; 4] = [
-        BitBoard::magic_rook_attacks,
-        BitBoard::lookup_knight_attacks_,
-        BitBoard::magic_bishop_attacks,
-        BitBoard::magic_queen_attacks,
+        BitBoard::rook_magic_lu,
+        BitBoard::knight_attacks_lu_,
+        BitBoard::bishop_magic_lu,
+        BitBoard::queen_magic_lu,
     ];
 
-    let attack_generator = ATTACK_GENERATORS[piece_type as usize - 2];
+    let attack_generator = ATTACK_GENERATORS[pt as usize - 2];
 
-    for from in position.us[piece_type] {
-        let mut targets = attack_generator(&from, position.occupied) & targets;
-        // Pinned pieces, allow only moves towards or away from king
+    for from in pos.us[pt] {
+        let mut targets = attack_generator(&from, pos.occ) & filter;
+        // For pinned pieces, allow only moves towards or away from king
         if (from & pinned).is_not_empty() {
-            targets &= position.us.king.between_mask(from)
+            targets &= pos.us.king.between_mask(from)
         }
-        // Add quiet moves
-        let quiet = targets & position.free;
-        for to in quiet {
+        for to in targets & pos.free {
             movelist.add_quiet(from, to);
         }
-        // Add captures
-        for to in targets ^ quiet {
+        for to in targets & pos.occ {
             movelist.add_capture(from, to);
         }
     }
 }
 
 #[inline(always)]
-fn generate_castles<T: MoveList>(position: &Position, movelist: &mut T) {
-    let from = position.us.king;
-    let unsafe_squares = position.opponent_attack_squares();
+fn generate_castles<T: MoveList>(pos: &Position, movelist: &mut T) {
+    let from = pos.us.king;
+    let unsafe_squares = pos.unsafe_sq();
 
-    if (position.castling_rights & position.kingside_rook_starting_square()).is_not_empty()
-        && (position.short_castle_mask() & position.occupied).is_empty()
-        && (position.short_castle_mask() & unsafe_squares).is_empty()
+    if (pos.castling_rights & pos.ksr_start_sq()).is_not_empty()
+        && (pos.ksc_mask() & pos.occ).is_empty()
+        && (pos.ksc_mask() & unsafe_squares).is_empty()
     {
-        movelist.add_castle(from, from.east_two(), MoveType::ShortCastle);
+        movelist.add_castle(from, from.east_two(), MoveT::KSCastle);
     }
 
-    if (position.castling_rights & position.queenside_rook_starting_square()).is_not_empty()
-        && (position.queenside_castle_free_mask() & position.occupied).is_empty()
-        && (position.queenside_castle_safety_mask() & unsafe_squares).is_empty()
+    if (pos.castling_rights & pos.qsr_start_sq()).is_not_empty()
+        && (pos.qsc_free_mask() & pos.occ).is_empty()
+        && (pos.qsc_safety_mask() & unsafe_squares).is_empty()
     {
-        movelist.add_castle(from, from.west_two(), MoveType::LongCastle);
+        movelist.add_castle(from, from.west_two(), MoveT::QSCastle);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use test_case::test_case;
+
+    use constants::fen::*;
+    use movelist::MoveVec;
+
+    struct Expected {
+        count: usize,
+        captures: usize,
+        pawn: usize,
+        knight: usize,
+        king: usize,
+        castles: usize,
+    }
+
+    const START_EXPECTED: Expected = Expected {
+        count: 20,
+        captures: 0,
+        pawn: 16,
+        knight: 4,
+        king: 0,
+        castles: 0,
+    };
+
+    const TEST_2_EXPECTED: Expected = Expected {
+        count: 48,
+        captures: 8,
+        pawn: 8,
+        knight: 11,
+        king: 4,
+        castles: 2,
+    };
+
+    #[test_case(START, START_EXPECTED; "start_position")]
+    #[test_case(TEST_2, TEST_2_EXPECTED; "position_two")]
+    fn test_move_generation(fen: &str, expected: Expected) {
+        let pos = Position::from_fen(fen).unwrap();
+        let mut movelist = MoveVec::new();
+        generate_all(&pos, &mut movelist);
+        let count = movelist.len();
+        let mut n_captures = 0;
+        let mut n_pawn = 0;
+        let mut n_knight = 0;
+        let mut n_king = 0;
+        let mut n_castles = 0;
+        for mv in movelist.iter() {
+            let moved_pt = pos.us.pt_at(mv.from()).unwrap();
+            match moved_pt {
+                Piece::Pawn => n_pawn += 1,
+                Piece::Knight => n_knight += 1,
+                Piece::King => n_king += 1,
+                _ => (),
+            }
+            if matches!(mv.mt(), MoveT::KSCastle | MoveT::QSCastle) {
+                n_castles += 1;
+            }
+            if mv.is_capture() {
+                n_captures += 1;
+            }
+        }
+        let mut fails = Vec::new();
+        if count != expected.count {
+            fails.push(format!(
+                "(count: expected {}, found {})",
+                expected.count, count
+            ))
+        }
+        if n_captures != expected.captures {
+            fails.push(format!(
+                "(captures: expected {}, found {})",
+                expected.captures, n_captures
+            ));
+        }
+        if n_pawn != expected.pawn {
+            fails.push(format!(
+                "(pawn: expected {}, found {})",
+                expected.pawn, n_pawn
+            ));
+        }
+        if n_knight != expected.knight {
+            fails.push(format!(
+                "(knight: expected {}, found {})",
+                expected.knight, n_knight
+            ));
+        }
+        if n_king != expected.king {
+            fails.push(format!(
+                "(king: expected {}, found {})",
+                expected.king, n_king
+            ));
+        }
+        if n_castles != expected.castles {
+            fails.push(format!(
+                "(castles: expected {}, found {})",
+                expected.castles, n_castles
+            ));
+        }
+        assert!(fails.len() == 0, "{}", fails.join(" "))
     }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use types::{MoveType, Piece};
+use types::{MoveT, Piece};
 
 /*
     Moves are encoded in an 16 bit integer.
@@ -37,29 +37,29 @@ impl Move {
         return Move(0);
     }
 
-    pub fn from_uint16(word: u16) -> Move {
+    pub fn from_u16(word: u16) -> Move {
         return Move(word);
     }
 
-    pub fn encode(from: BitBoard, to: BitBoard, movetype: MoveType) -> Self {
-        return Self(from.to_square_uint16() | (to.to_square_uint16() << 6) | movetype as u16);
+    pub fn encode(from: BitBoard, to: BitBoard, movetype: MoveT) -> Self {
+        return Self(from.to_sq_u16() | (to.to_sq_u16() << 6) | movetype as u16);
     }
 
     /// Decode the target into a one bit bitmask
     pub fn to(&self) -> BitBoard {
-        BitBoard::from_square(((self.0 & 0x0fc0) >> 6).into())
+        BitBoard::from_sq(((self.0 & 0x0fc0) >> 6).into())
     }
 
     /// Decode the source into a one bit bitmask
     pub fn from(&self) -> BitBoard {
-        BitBoard::from_square((self.0 & 0x003f).into())
+        BitBoard::from_sq((self.0 & 0x003f).into())
     }
 
     /// Decode the type of move
-    pub fn movetype(&self) -> MoveType {
+    pub fn mt(&self) -> MoveT {
         unsafe {
             let flag = self.0 & 0xf000;
-            std::mem::transmute::<u16, MoveType>(flag)
+            std::mem::transmute::<u16, MoveT>(flag)
         }
     }
 
@@ -69,7 +69,7 @@ impl Move {
     }
 
     /// Decode if the move encodes a promotion of any sort
-    pub fn is_promotion(&self) -> bool {
+    pub fn is_promo(&self) -> bool {
         return self.0 & 0x8000 != 0;
     }
 
@@ -79,8 +79,8 @@ impl Move {
     }
 
     /// What kind of promotion is encoded
-    pub fn promotion_piecetype(&self) -> Piece {
-        debug_assert!(self.is_promotion());
+    pub fn promo_pt(&self) -> Piece {
+        debug_assert!(self.is_promo());
         const MAP: [Piece; 4] = [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen];
         MAP[((self.0 & 0x3000) >> 12) as usize]
     }
@@ -89,8 +89,8 @@ impl Move {
         let from = self.from().to_algebraic();
         let to = self.to().to_algebraic();
 
-        let promo_pt = if self.is_promotion() {
-            match self.promotion_piecetype() {
+        let promo_pt = if self.is_promo() {
+            match self.promo_pt() {
                 Piece::Rook => "r",
                 Piece::Knight => "n",
                 Piece::Bishop => "b",

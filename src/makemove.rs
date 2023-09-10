@@ -1,106 +1,107 @@
 /// Make move function for applying a move to a position
 use super::*;
-use move_::Move;
-use types::{MoveType::*, Piece::*};
+
+use mv::Move;
+use types::{MoveT, Piece};
 
 impl position::Position {
     /// Create a new position by applying move data to a position
     pub fn make_move(&self, mv: &Move) -> Self {
-        let mut new_position = *self;
+        let mut new_pos = *self;
         // Unpack move data
         let to = mv.to();
         let from = mv.from();
-        let mt = mv.movetype();
-        let captured_pt = new_position.them.piecetype_at(to);
-        let moved_pt = new_position.us.piecetype_at(from).expect("is occupied");
+        let mt = mv.mt();
+        let captured_pt = new_pos.them.pt_at(to);
+        let moved_pt = new_pos.us.pt_at(from).expect("is occupied");
 
         // Undo current ep key before position is modified
-        new_position.en_passant_key_update();
+        new_pos.ep_key_update();
 
         // Increment clocks
-        new_position.halfmove_clock += 1;
-        new_position.fullmove_clock += new_position.side_to_move as u8;
+        new_pos.halfmove_clock += 1;
+        new_pos.fullmove_clock += new_pos.stm as u8;
 
         // Source squares must be free and target squares must be occupied
-        new_position.free |= from;
-        new_position.free &= !to;
+        new_pos.free |= from;
+        new_pos.free &= !to;
 
         // Our bitboards must be flipped at the target and source
         let move_mask = from | to;
-        new_position.us[moved_pt] ^= move_mask;
-        new_position.us.all ^= move_mask;
-        new_position.move_key_update(moved_pt, from, to, new_position.white_to_move);
+        new_pos.us[moved_pt] ^= move_mask;
+        new_pos.us.all ^= move_mask;
+        new_pos.move_key_update(moved_pt, from, to, new_pos.wtm);
 
         // Reset halfmove clock on pawn moves, remove castle rights on king moves
         match moved_pt {
-            Pawn => new_position.halfmove_clock = 0,
-            King => new_position.castling_rights &= !new_position.rank_1(),
+            Piece::Pawn => new_pos.halfmove_clock = 0,
+            Piece::King => new_pos.castling_rights &= !new_pos.rank_1(),
             _ => (),
         }
 
         // If the rooks have moved, remove right to castle on that side
-        new_position.castling_rights &= !from;
+        new_pos.castling_rights &= !from;
 
         // Set ep target to empty, set later if dbl pawn push
-        new_position.en_passant = constants::bb::EMPTY;
+        new_pos.ep_sq = constants::bb::EMPTY;
 
         // Captures, excluding en passant
         if let Some(pt) = captured_pt {
-            new_position.them[pt] ^= to;
-            new_position.them.all ^= to;
-            new_position.square_key_update(pt, to, !new_position.white_to_move);
+            new_pos.them[pt] ^= to;
+            new_pos.them.all ^= to;
+            new_pos.square_key_update(pt, to, !new_pos.wtm);
             // Remove castling right if rook has been captured
-            new_position.castling_rights &= !to;
-            new_position.halfmove_clock = 0;
+            new_pos.castling_rights &= !to;
+            new_pos.halfmove_clock = 0;
         }
 
         // Promotions
-        if mv.is_promotion() {
-            let promo_pt = mv.promotion_piecetype();
-            new_position.us[promo_pt] ^= to;
-            new_position.us.pawn ^= to;
-            new_position.square_key_update(Pawn, to, new_position.white_to_move);
-            new_position.square_key_update(promo_pt, to, new_position.white_to_move);
+        if mv.is_promo() {
+            let promo_pt = mv.promo_pt();
+            new_pos.us[promo_pt] ^= to;
+            new_pos.us.pawn ^= to;
+            new_pos.square_key_update(Piece::Pawn, to, new_pos.wtm);
+            new_pos.square_key_update(promo_pt, to, new_pos.wtm);
         }
 
         // Execute special actions
         match mt {
-            DoublePawnPush => {
+            MoveT::DoublePawnPush => {
                 // Ep target is one square behind dbl push target
-                new_position.en_passant = new_position.back_one(to);
+                new_pos.ep_sq = new_pos.back_one(to);
             }
 
-            ShortCastle | LongCastle => {
-                let (rook_from, rook_to) = if let ShortCastle = mt {
-                    (to.east_one(), to.west_one())
+            MoveT::KSCastle | MoveT::QSCastle => {
+                let (rook_from, rook_to) = if let MoveT::KSCastle = mt {
+                    (to.east_one(), to.west_one()) // Short Castle
                 } else {
-                    (to.west_two(), to.east_one())
+                    (to.west_two(), to.east_one()) // Long Castle
                 };
                 let mask = rook_from | rook_to;
-                new_position.us.rook ^= mask;
-                new_position.us.all ^= mask;
-                new_position.free ^= mask;
-                new_position.move_key_update(Rook, rook_from, rook_to, new_position.white_to_move);
+                new_pos.us.rook ^= mask;
+                new_pos.us.all ^= mask;
+                new_pos.free ^= mask;
+                new_pos.move_key_update(Piece::Rook, rook_from, rook_to, new_pos.wtm);
             }
 
-            EnPassant => {
-                let ep_sq = new_position.back_one(to);
-                new_position.them.pawn ^= ep_sq;
-                new_position.them.all ^= ep_sq;
-                new_position.free ^= ep_sq;
-                new_position.square_key_update(Pawn, ep_sq, !new_position.white_to_move);
+            MoveT::EnPassant => {
+                let ep_sq = new_pos.back_one(to);
+                new_pos.them.pawn ^= ep_sq;
+                new_pos.them.all ^= ep_sq;
+                new_pos.free ^= ep_sq;
+                new_pos.square_key_update(Piece::Pawn, ep_sq, !new_pos.wtm);
             }
 
             _ => (),
         }
 
-        new_position.occupied = !new_position.free;
+        new_pos.occ = !new_pos.free;
         // Change the turn and state
-        new_position.change_state();
+        new_pos.change_state();
         // Update key
-        new_position.turn_key_update();
-        new_position.en_passant_key_update();
-        new_position.castling_key_update(self.castling_rights);
-        new_position
+        new_pos.turn_key_update();
+        new_pos.ep_key_update();
+        new_pos.castling_key_update(self.castling_rights);
+        new_pos
     }
 }

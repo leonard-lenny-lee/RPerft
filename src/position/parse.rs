@@ -1,6 +1,9 @@
 /// Contains methods for parsing FEN strings into position representation
 /// and serialize the position into other formats.
 use super::*;
+
+use std::iter::zip;
+
 use constants::bb;
 use types::Piece;
 
@@ -22,8 +25,8 @@ impl Position {
         }
 
         // Fill BBSet for white and black. Set 'us' as white for now
-        let mut us = BBSet::default();
-        let mut them = BBSet::default();
+        let mut us = BitBoardSet::default();
+        let mut them = BitBoardSet::default();
         let mut board_tokens: Vec<&str> = tokens[0].split("/").collect();
 
         if board_tokens.len() != 8 {
@@ -39,7 +42,7 @@ impl Position {
             if sq >= 64 {
                 return Err(());
             }
-            let mask = BitBoard::from_square(sq);
+            let mask = BitBoard::from_sq(sq);
 
             // Alphabetic characters represent a piece of the square
             if c.is_alphabetic() {
@@ -72,11 +75,11 @@ impl Position {
             return Err(());
         }
 
-        let occupied = us.all | them.all;
-        let free = !occupied;
+        let occ = us.all | them.all;
+        let free = !occ;
 
         // Set side to move
-        let (white_to_move, side_to_move) = match tokens[1] {
+        let (wtm, stm) = match tokens[1] {
             "w" => (true, Color::White),
             "b" => (false, Color::Black),
             _ => return Err(()),
@@ -96,7 +99,7 @@ impl Position {
         }
 
         // Set en passant target square
-        let en_passant = if tokens[3] == "-" {
+        let ep_sq = if tokens[3] == "-" {
             bb::EMPTY
         } else {
             match BitBoard::from_algebraic(tokens[3]) {
@@ -118,22 +121,22 @@ impl Position {
         };
 
         // Swap us/them pointers if black to move
-        if let Color::Black = side_to_move {
+        if let Color::Black = stm {
             std::mem::swap(&mut us, &mut them)
         }
 
         let mut pos = Self {
             us,
             them,
-            occupied,
+            occ,
             free,
             castling_rights,
-            en_passant,
+            ep_sq,
             halfmove_clock,
             fullmove_clock,
             key: 0,
-            white_to_move,
-            side_to_move,
+            wtm,
+            stm,
             ply: 0,
         };
 
@@ -145,14 +148,14 @@ impl Position {
     }
 
     /// Initialize a new starting position
-    pub fn new_starting_position() -> Self {
+    pub fn new_start_pos() -> Self {
         return Self::from_fen(constants::fen::START).expect("start fen is valid");
     }
 
     /// Convert position into a 8 x 8 array of characters
     fn to_array(&self) -> [[char; 8]; 8] {
         let mut array: [[char; 8]; 8] = [[' '; 8]; 8];
-        let (white, black) = self.white_black_bitboards();
+        let (white, black) = self.white_black();
         let w_array = white.as_array();
         let b_array = black.as_array();
 
@@ -161,10 +164,10 @@ impl Position {
             [' ', 'p', 'r', 'n', 'b', 'q', 'k'],
         );
 
-        for (i, (bb_1, bb_2)) in std::iter::zip(w_array, b_array).enumerate() {
-            for (bb, charset) in std::iter::zip([bb_1, bb_2], [w_charset, b_charset]) {
+        for (i, (bb_1, bb_2)) in zip(w_array, b_array).enumerate() {
+            for (bb, charset) in zip([bb_1, bb_2], [w_charset, b_charset]) {
                 for sq in bb.forward_scan() {
-                    let index = sq.to_square();
+                    let index = sq.to_sq();
                     let (x, y) = (index / 8, index % 8);
                     array[x][y] = charset[i];
                 }
@@ -207,7 +210,7 @@ impl Position {
         tokens.push(board_token);
 
         // Parse side to move
-        match self.side_to_move {
+        match self.stm {
             Color::White => tokens.push("w".to_string()),
             Color::Black => tokens.push("b".to_string()),
         }
@@ -226,8 +229,8 @@ impl Position {
         tokens.push(castling_token);
 
         // Push en passant token
-        if self.en_passant != bb::EMPTY {
-            tokens.push(self.en_passant.to_algebraic());
+        if self.ep_sq != bb::EMPTY {
+            tokens.push(self.ep_sq.to_algebraic());
         } else {
             tokens.push("-".to_string())
         }
@@ -278,7 +281,7 @@ impl std::fmt::Display for Position {
     }
 }
 
-impl BBSet {
+impl BitBoardSet {
     pub fn as_array(&self) -> [&BitBoard; 7] {
         return [
             &self.all,
@@ -292,7 +295,7 @@ impl BBSet {
     }
 }
 
-impl std::ops::Index<Piece> for BBSet {
+impl std::ops::Index<Piece> for BitBoardSet {
     type Output = BitBoard;
 
     fn index(&self, index: Piece) -> &Self::Output {
@@ -308,7 +311,7 @@ impl std::ops::Index<Piece> for BBSet {
     }
 }
 
-impl std::ops::IndexMut<Piece> for BBSet {
+impl std::ops::IndexMut<Piece> for BitBoardSet {
     fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
         match index {
             Piece::Any => &mut self.all,
@@ -328,8 +331,8 @@ mod tests {
     use constants::rank::*;
 
     #[test]
-    fn test_new_starting_position() {
-        let pos = Position::new_starting_position();
+    fn test_start_pos() {
+        let pos = Position::new_start_pos();
 
         // White pieces
         assert_eq!(pos.us.all, RANK_1 | RANK_2, "w.any");
@@ -352,13 +355,13 @@ mod tests {
         // Shared bitboards
         let expected_occ = RANK_1 | RANK_2 | RANK_7 | RANK_8;
         let expected_free = !expected_occ;
-        assert_eq!(pos.occupied, expected_occ, "occ");
+        assert_eq!(pos.occ, expected_occ, "occ");
         assert_eq!(pos.free, expected_free, "free");
 
         // Other token parsing
-        assert!(matches!(pos.side_to_move, Color::White));
+        assert!(matches!(pos.stm, Color::White));
         assert_eq!(pos.castling_rights, bb::A1 | bb::H1 | bb::A8 | bb::H8);
-        assert_eq!(pos.en_passant, bb::EMPTY);
+        assert_eq!(pos.ep_sq, bb::EMPTY);
         assert_eq!(pos.halfmove_clock, 0);
         assert_eq!(pos.fullmove_clock, 1);
     }

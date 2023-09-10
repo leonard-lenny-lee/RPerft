@@ -1,6 +1,5 @@
 /// Compile time generated lookup tables.
 use super::*;
-use types::Axis;
 
 macro_rules! generate_tables_array_64 {
     ($func: ident) => {{
@@ -49,7 +48,7 @@ const DIAGONAL_TABLE: [BitBoard; 64] = {
     generate_tables_array_64!(f)
 };
 
-const ANTIDIAGIONAL_TABLE: [BitBoard; 64] = {
+const ANTIDIAGONAL_TABLE: [BitBoard; 64] = {
     const fn f(sq: usize) -> BitBoard {
         BitBoard(BitBoard(1 << sq).ks_no_we_fill().0 | BitBoard(1 << sq).ks_so_ea_fill().0)
     }
@@ -59,73 +58,68 @@ const ANTIDIAGIONAL_TABLE: [BitBoard; 64] = {
 impl BitBoard {
     #[inline(always)]
     /// Return the attack squares of a single knight by lookup
-    pub fn lookup_knight_attacks(&self) -> BitBoard {
+    pub fn knight_attacks_lu(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return KNIGHT_ATTACKS[self.to_square()];
+        return KNIGHT_ATTACKS[self.to_sq()];
     }
 
-    pub fn lookup_knight_attacks_(&self, _occ: BitBoard) -> BitBoard {
+    pub fn knight_attacks_lu_(&self, _occ: BitBoard) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return KNIGHT_ATTACKS[self.to_square()];
+        return KNIGHT_ATTACKS[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the attack squares of a king by lookup
-    pub fn lookup_king_attacks(&self) -> BitBoard {
+    pub fn king_attacks_lu(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return KING_ATTACKS[self.to_square()];
+        return KING_ATTACKS[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the diagonal mask
     pub fn lookup_diagonal_mask(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return DIAGONAL_TABLE[self.to_square()];
+        return DIAGONAL_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the anti-diagonal mask
     pub fn lookup_antidiagonal_mask(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return ANTIDIAGIONAL_TABLE[self.to_square()];
+        return ANTIDIAGONAL_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the file mask
-    pub fn lookup_file_mask(&self) -> BitBoard {
+    pub fn file_mask_lu(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return FILE_TABLE[self.to_square()];
+        return FILE_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     /// Return the rank mask
-    pub fn lookup_rank_mask(&self) -> BitBoard {
+    pub fn rank_mask_lu(&self) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        return RANK_TABLE[self.to_square()];
+        return RANK_TABLE[self.to_sq()];
     }
 
     #[inline(always)]
     pub fn lookup_axes_array(&self) -> [BitBoard; 4] {
         debug_assert!(self.pop_count() == 1);
-        let sq = self.to_square();
+        let sq = self.to_sq();
         return [
             FILE_TABLE[sq],
             RANK_TABLE[sq],
             DIAGONAL_TABLE[sq],
-            ANTIDIAGIONAL_TABLE[sq],
+            ANTIDIAGONAL_TABLE[sq],
         ];
     }
 
     /// Use the o-2s trick to find valid squares for sliding pieces, taking
     /// into account the occupancy of the current board
-    pub fn hyp_quint(&self, occ: BitBoard, axis: Axis) -> BitBoard {
+    #[inline(always)]
+    fn hyp_quint(&self, occ: BitBoard, mask: BitBoard) -> BitBoard {
         debug_assert!(self.pop_count() == 1);
-        let mask = match axis {
-            Axis::File => FILE_TABLE[self.to_square()],
-            Axis::Rank => RANK_TABLE[self.to_square()],
-            Axis::Diagonal => DIAGONAL_TABLE[self.to_square()],
-            Axis::AntiDiagonal => ANTIDIAGIONAL_TABLE[self.to_square()],
-        };
         let mut forward = occ & mask;
         let mut reverse = forward.reverse_bits();
         forward -= *self * 2;
@@ -133,5 +127,33 @@ impl BitBoard {
         forward ^= reverse.reverse_bits();
         forward &= mask;
         forward
+    }
+
+    /// Use o-2s trick to find valid file attacks
+    #[inline(always)]
+    pub fn hq_file_attacks(&self, occ: BitBoard) -> BitBoard {
+        let mask = FILE_TABLE[self.to_sq()];
+        self.hyp_quint(occ, mask)
+    }
+
+    /// Use o-2s trick to find valid rank attacks
+    #[inline(always)]
+    pub fn hq_rank_attacks(&self, occ: BitBoard) -> BitBoard {
+        let mask = RANK_TABLE[self.to_sq()];
+        self.hyp_quint(occ, mask)
+    }
+
+    /// Use o-2s trick to find valid diagonal attacks
+    #[inline(always)]
+    pub fn hq_diag_attacks(&self, occ: BitBoard) -> BitBoard {
+        let mask = DIAGONAL_TABLE[self.to_sq()];
+        self.hyp_quint(occ, mask)
+    }
+
+    /// Use o-2s trick to find valid anti-diagonal attacks
+    #[inline(always)]
+    pub fn hq_adiag_attacks(&self, occ: BitBoard) -> BitBoard {
+        let mask = ANTIDIAGONAL_TABLE[self.to_sq()];
+        self.hyp_quint(occ, mask)
     }
 }

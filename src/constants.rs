@@ -53,6 +53,7 @@ pub mod file {
     ];
 }
 
+#[allow(dead_code)]
 pub mod bb {
     use super::BitBoard;
 

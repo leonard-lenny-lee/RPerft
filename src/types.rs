@@ -1,5 +1,3 @@
-use super::*;
-
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Piece {
     #[default]
@@ -36,47 +34,30 @@ impl Piece {
 // Bitflags as discriminants
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, Default)]
-pub enum MoveType {
+pub enum MoveT {
     #[default]
     Quiet = 0x0000,
     DoublePawnPush = 0x1000,
-    ShortCastle = 0x2000,
-    LongCastle = 0x3000,
+    KSCastle = 0x2000,
+    QSCastle = 0x3000,
     Capture = 0x4000,
     EnPassant = 0x5000,
-    KnightPromotion = 0x8000,
-    BishopPromotion = 0x9000,
-    RookPromotion = 0xa000,
-    QueenPromotion = 0xb000,
-    KnightPromotionCapture = 0xc000,
-    BishopPromotionCapture = 0xd000,
-    RookPromotionCapture = 0xe000,
-    QueenPromotionCapture = 0xf000,
+    NPromo = 0x8000,
+    BPromo = 0x9000,
+    RPromo = 0xa000,
+    QPromo = 0xb000,
+    NPromoCapture = 0xc000,
+    BPromoCapture = 0xd000,
+    RPromoCapture = 0xe000,
+    QPromoCapture = 0xf000,
 }
 
-pub const PROMOTION_MOVE_TYPES: [MoveType; 4] = [
-    MoveType::KnightPromotion,
-    MoveType::BishopPromotion,
-    MoveType::RookPromotion,
-    MoveType::QueenPromotion,
+pub const PROMOTION_MOVE_TYPES: [MoveT; 4] =
+    [MoveT::NPromo, MoveT::BPromo, MoveT::RPromo, MoveT::QPromo];
+
+pub const PROMOTION_CAPTURE_MOVE_TYPES: [MoveT; 4] = [
+    MoveT::NPromoCapture,
+    MoveT::BPromoCapture,
+    MoveT::RPromoCapture,
+    MoveT::QPromoCapture,
 ];
-
-pub const PROMOTION_CAPTURE_MOVE_TYPES: [MoveType; 4] = [
-    MoveType::KnightPromotionCapture,
-    MoveType::BishopPromotionCapture,
-    MoveType::RookPromotionCapture,
-    MoveType::QueenPromotionCapture,
-];
-
-pub enum GeneratorType {
-    Captures,           // Captures and queen promotions
-    Evasions(BitBoard), // Check evasions when stm is in check
-    NonEvasions,        // All captures and non captures
-}
-
-pub enum Axis {
-    Rank,
-    File,
-    Diagonal,
-    AntiDiagonal,
-}

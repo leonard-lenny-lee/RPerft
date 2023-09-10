@@ -1,21 +1,21 @@
 // Search algorithm
 use super::*;
 
-use hash::HashTable;
+use cache::Cache;
 use movegen::generate_all;
 use position::Position;
 
 pub fn perft(
-    position: &Position,
+    pos: &Position,
     depth: u8,
     num_threads: usize,
-    table_size: usize,
+    cache_size: usize,
     verbose: bool,
 ) -> (u64, f64, f64) {
     let start = std::time::Instant::now();
 
     let mut movelist = movelist::MoveVec::new();
-    generate_all(&position, &mut movelist);
+    generate_all(&pos, &mut movelist);
 
     let mut nodes = 0;
     if depth == 0 {
@@ -27,12 +27,12 @@ pub fn perft(
             let n_jobs = movelist.len();
             let pool = threadpool::ThreadPool::new(num_threads);
             let (tx, rx) = std::sync::mpsc::channel();
-            let table = std::sync::Arc::new(HashTable::new(table_size));
+            let table = std::sync::Arc::new(Cache::new(cache_size));
 
             for i in 0..n_jobs {
                 let tx = tx.clone();
                 let mv = movelist[i];
-                let new_position = position.make_move(&mv);
+                let new_position = pos.make_move(&mv);
                 let table = table.clone();
                 pool.execute(move || {
                     let node_count = perft_inner(&new_position, depth - 1, &table);
@@ -44,9 +44,9 @@ pub fn perft(
             }
             nodes = rx.iter().take(n_jobs).fold(0, |a, b| a + b);
         } else {
-            let table = std::sync::Arc::new(HashTable::new(table_size));
+            let table = std::sync::Arc::new(Cache::new(cache_size));
             for mv in movelist.iter() {
-                let new_position = position.make_move(mv);
+                let new_position = pos.make_move(mv);
                 nodes += perft_inner(&new_position, depth - 1, &table)
             }
         }
@@ -65,7 +65,7 @@ pub fn perft(
     return (nodes, duration, nodes_per_second);
 }
 
-fn perft_inner(position: &Position, depth: u8, table: &std::sync::Arc<HashTable>) -> u64 {
+fn perft_inner(position: &Position, depth: u8, table: &std::sync::Arc<Cache>) -> u64 {
     if let Some(nodes) = table.fetch(position.key, depth) {
         return nodes;
     }

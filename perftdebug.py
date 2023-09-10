@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE
 from re import match
 from typing import List, Dict
 
-ENGINE_PATH = "./target/debug/chess"
+ENGINE_PATH = "./target/debug/rperft"
 STOCKFISH_PATH = "stockfish"
 STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 

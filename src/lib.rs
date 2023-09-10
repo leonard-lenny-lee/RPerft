@@ -1,17 +1,20 @@
 #[macro_use]
 extern crate lazy_static;
 
-pub mod bitboard;
+mod bitboard;
+mod cache;
 #[allow(dead_code)]
-pub mod constants;
-pub mod hash;
-pub mod makemove;
-pub mod move_;
-pub mod movegen;
-pub mod movelist;
+mod constants;
+mod hash;
+mod magics;
+mod makemove;
+mod movegen;
+mod movelist;
+mod mv;
 pub mod perft;
-pub mod position;
-pub mod types;
+mod position;
+mod tables;
+mod types;
 
 pub mod cli;
 
