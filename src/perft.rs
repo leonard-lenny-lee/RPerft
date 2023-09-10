@@ -88,7 +88,7 @@ fn perft_inner(position: &Position, depth: u8, table: &std::sync::Arc<Cache>) ->
 pub fn run_perft_benchmark_suite(num_threads: usize, table_size: usize) {
     use constants::fen::*;
 
-    let positions = [START, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
+    let positions = [STARTING_FEN, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
     let depths = [6, 5, 7, 5, 5, 5];
     let mut results = Vec::new();
     for (i, (pos_fen, depth)) in std::iter::zip(positions, depths).enumerate() {
@@ -120,11 +120,11 @@ pub fn run_perft_benchmark_suite(num_threads: usize, table_size: usize) {
 mod tests {
     use super::*;
     use constants::fen::*;
-    use constants::DEFAULT_TABLE_SIZE_BYTES;
+    use constants::DEFAULT_CACHE_SIZE;
     use test_case::test_case;
 
     /// Standard test suite
-    #[test_case(START, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
+    #[test_case(STARTING_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
     #[test_case(TEST_2, vec![48, 2039, 97862, 4085603, 193690690], 5; "testpos2")]
     #[test_case(TEST_3, vec![14, 191, 2812, 43238, 674624, 11030083, 178633661], 7; "testpos3")]
     #[test_case(TEST_4, vec![6, 264, 9467, 422333, 15833292], 5; "testpos4")]
@@ -133,14 +133,7 @@ mod tests {
     fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
         let node = Position::from_fen(fen).unwrap();
         for (exp_node_count, depth) in std::iter::zip(expected_nodes, 1..=depth) {
-            let node_count = perft(
-                &node,
-                depth,
-                num_cpus::get(),
-                DEFAULT_TABLE_SIZE_BYTES,
-                false,
-            )
-            .0;
+            let node_count = perft(&node, depth, num_cpus::get(), DEFAULT_CACHE_SIZE, false).0;
             assert_eq!(exp_node_count, node_count, "depth {}", depth)
         }
     }
@@ -163,14 +156,7 @@ mod tests {
     fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
         let node = Position::from_fen(fen).unwrap();
         assert_eq!(
-            perft(
-                &node,
-                depth,
-                num_cpus::get(),
-                DEFAULT_TABLE_SIZE_BYTES,
-                false
-            )
-            .0,
+            perft(&node, depth, num_cpus::get(), DEFAULT_CACHE_SIZE, false).0,
             expected_nodes
         );
     }
@@ -178,21 +164,14 @@ mod tests {
     /// Intensive perft tests. Keep ignore flag to prevent from being
     /// run in a normal test suite.
     #[ignore]
-    #[test_case(START, 3195901860, 7; "startpos")]
+    #[test_case(STARTING_FEN, 3195901860, 7; "startpos")]
     #[test_case(TEST_2, 8031647685, 6; "testpos2")]
     #[test_case(TEST_3, 3009794393, 8; "testpos3")]
     #[test_case(TEST_4, 706045033, 6; "testpos4")]
     #[test_case(TEST_6, 6923051137, 6; "testpos5")]
     fn deep_perft_suite(fen: &str, expected_nodes: u64, depth: u8) {
         let node = Position::from_fen(fen).unwrap();
-        let result = perft(
-            &node,
-            depth,
-            num_cpus::get(),
-            DEFAULT_TABLE_SIZE_BYTES,
-            false,
-        )
-        .0;
+        let result = perft(&node, depth, num_cpus::get(), DEFAULT_CACHE_SIZE, false).0;
         assert_eq!(result, expected_nodes)
     }
 }

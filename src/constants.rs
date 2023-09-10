@@ -3,11 +3,17 @@
 use super::*;
 
 pub const MAX_DEPTH: usize = 50;
-pub const DEFAULT_TABLE_SIZE_BYTES: usize = 32_000_000;
+pub const DEFAULT_CACHE_SIZE: usize = 32_000_000;
+
+pub mod cli {
+    pub use super::fen::STARTING_FEN;
+    pub const VERSION: &str = "0.1.0";
+    pub const AUTHOR: &str = "Leonard L.";
+}
 
 // Standard chess positions useful for testing
 pub mod fen {
-    pub const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    pub const STARTING_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     // Test positions
     pub const TEST_2: &str = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
     pub const TEST_3: &str = "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1";

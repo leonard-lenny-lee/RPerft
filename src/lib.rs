@@ -16,6 +16,6 @@ mod position;
 mod tables;
 mod types;
 
-pub mod cli;
-
 use bitboard::BitBoard;
+
+pub use constants::cli::*;

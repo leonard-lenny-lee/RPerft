@@ -46,6 +46,7 @@ impl Cache {
     }
 
     /// Clear all entries
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.entries = vec![Entry::new_empty(); self.size].into();
     }

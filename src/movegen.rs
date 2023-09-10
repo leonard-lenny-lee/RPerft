@@ -243,7 +243,7 @@ mod tests {
         castles: 2,
     };
 
-    #[test_case(START, START_EXPECTED; "start_position")]
+    #[test_case(STARTING_FEN, START_EXPECTED; "start_position")]
     #[test_case(TEST_2, TEST_2_EXPECTED; "position_two")]
     fn test_move_generation(fen: &str, expected: Expected) {
         let pos = Position::from_fen(fen).unwrap();

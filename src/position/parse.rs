@@ -149,7 +149,7 @@ impl Position {
 
     /// Initialize a new starting position
     pub fn new_start_pos() -> Self {
-        return Self::from_fen(constants::fen::START).expect("start fen is valid");
+        return Self::from_fen(constants::fen::STARTING_FEN).expect("start fen is valid");
     }
 
     /// Convert position into a 8 x 8 array of characters
