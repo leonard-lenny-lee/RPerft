@@ -25,12 +25,6 @@ pub enum Color {
     Black,
 }
 
-impl Piece {
-    pub fn is_slider(&self) -> bool {
-        return matches!(self, Self::Bishop | Self::Rook | Self::Queen);
-    }
-}
-
 // Bitflags as discriminants
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, Default)]

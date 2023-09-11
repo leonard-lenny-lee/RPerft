@@ -1,6 +1,7 @@
 use super::*;
 
 use std::iter::zip;
+use std::ops::AddAssign;
 
 use mv::Move;
 use types::MoveT;
@@ -107,7 +108,7 @@ impl std::ops::Index<usize> for MoveVec {
 
 #[derive(Debug, Default)]
 pub struct MoveCounter {
-    pub count: u32,
+    pub count: u64,
     pub captures: u32,
     pub ep: u32,
     pub castles: u32,
@@ -116,26 +117,26 @@ pub struct MoveCounter {
 
 impl MoveList for MoveCounter {
     fn add_quiets(&mut self, _src: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u32;
+        self.count += targets.pop_count() as u64;
     }
 
     fn add_captures(&mut self, _src: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32;
-        self.count += n;
+        self.count += n as u64;
         self.captures += n;
     }
 
     fn add_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u32;
+        self.count += targets.pop_count() as u64;
     }
 
     fn add_double_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u32;
+        self.count += targets.pop_count() as u64;
     }
 
     fn add_pawn_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32;
-        self.count += n;
+        self.count += n as u64;
         self.captures += n;
     }
 
@@ -151,14 +152,24 @@ impl MoveList for MoveCounter {
 
     fn add_promos(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32 * 4;
-        self.count += n;
+        self.count += n as u64;
         self.promotions += n;
     }
 
     fn add_promo_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32 * 4;
-        self.count += n;
+        self.count += n as u64;
         self.promotions += n;
         self.captures += n;
+    }
+}
+
+impl AddAssign for MoveCounter {
+    fn add_assign(&mut self, rhs: Self) {
+        self.count += 1;
+        self.captures += rhs.captures;
+        self.ep += rhs.ep;
+        self.castles += rhs.castles;
+        self.promotions += rhs.promotions;
     }
 }

@@ -48,13 +48,6 @@ fn generate_king_moves<T: MoveList>(pos: &Position, movelist: &mut T) {
     let quiet_targets = targets & pos.free;
     movelist.add_quiets(from, targets & quiet_targets);
     movelist.add_captures(from, targets ^ quiet_targets);
-    // for to in targets & quiet_targets {
-    //     movelist.add_quiets(from, to);
-    // }
-    // // Add captures
-    // for to in targets ^ quiet_targets {
-    //     movelist.add_captures(from, to);
-    // }
 }
 
 #[inline(always)]
