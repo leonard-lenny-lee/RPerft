@@ -41,6 +41,26 @@ fn main() {
         .help("Use only a single thread")
         .next_line_help(true);
 
+    let bench_flag = Arg::new("bench")
+        .short('b')
+        .long("bench")
+        .action(ArgAction::SetTrue)
+        .help(
+            "Run the standard suite of perft tests. \n\
+             Ignores fen and depth arguments",
+        )
+        .next_line_help(true);
+
+    let deep_flag = Arg::new("deep")
+        .short('p')
+        .long("deep")
+        .action(ArgAction::SetTrue)
+        .help(
+            "Run the standard suite to a higher depth. \n\
+             Ignored if -b is not set",
+        )
+        .next_line_help(true);
+
     let matches = Command::new("RPerft")
         .version(VERSION)
         .author(AUTHOR)
@@ -49,6 +69,8 @@ fn main() {
         .arg(depth_arg)
         .arg(cache_size_arg)
         .arg(singlethread_flag)
+        .arg(bench_flag)
+        .arg(deep_flag)
         .get_matches();
 
     let fen = matches
@@ -63,7 +85,12 @@ fn main() {
     let depth = matches.get_one::<u8>("depth").expect("default arg");
     let cache_size = matches.get_one::<usize>("cache").expect("default arg");
     let multithreading = !matches.get_flag("singlethread");
+    let bench = matches.get_flag("bench");
+    let deep = matches.get_flag("deep");
 
-    // perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading);
-    perft::run_perft_benchmark_suite(*cache_size, multithreading, false);
+    if bench {
+        perft::run_perft_benchmark_suite(*cache_size, multithreading, deep);
+        return;
+    }
+    perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading);
 }

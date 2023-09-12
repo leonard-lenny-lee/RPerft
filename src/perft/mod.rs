@@ -32,14 +32,16 @@ pub fn perft_wrapper(fen: &str, depth: u8, cache_size: usize, multithreading: bo
         }
     };
 
+    println!("{pos}");
+
     let cfg = cfg::Config::new(multithreading, cache_size);
+    cfg.report().printstd();
 
     for d in 1..=depth {
         let stats = perft(&pos, d, &cfg);
         table.add_row(stats.to_row());
     }
 
-    cfg.report().printstd();
     println!();
     table.printstd();
 }
@@ -100,32 +102,32 @@ fn perft_inner(pos: &Position, depth: u8) -> MoveCounter {
 
     let mut movelist = MoveVec::new();
     generate_all(pos, &mut movelist);
-    let mut nodes = MoveCounter::default();
+    let mut count = MoveCounter::default();
     for mv in movelist.iter() {
         let new_pos = pos.make_move(mv);
-        nodes += perft_inner(&new_pos, depth - 1);
+        count += perft_inner(&new_pos, depth - 1);
     }
-    return nodes;
+    return count;
 }
 
 fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> MoveCounter {
-    if let Some(nodes) = cache.fetch(pos.key, depth) {
-        return nodes;
+    if let Some(count) = cache.fetch(pos.key, depth) {
+        return count;
     }
     if depth == 1 {
-        let mut movelist = MoveCounter::default();
-        generate_all(pos, &mut movelist);
-        return movelist;
+        let mut count = MoveCounter::default();
+        generate_all(pos, &mut count);
+        return count;
     }
-    let mut movelist = MoveVec::new();
-    generate_all(&pos, &mut movelist);
-    let mut nodes = MoveCounter::default();
-    for mv in movelist.iter() {
+    let mut moves = MoveVec::new();
+    generate_all(&pos, &mut moves);
+    let mut count = MoveCounter::default();
+    for mv in moves.iter() {
         let new_position = pos.make_move(mv);
-        nodes += perft_inner_cache(&new_position, depth - 1, cache);
+        count += perft_inner_cache(&new_position, depth - 1, cache);
     }
-    cache.store(pos.key, depth, &nodes);
-    return nodes;
+    cache.store(pos.key, depth, &count);
+    return count;
 }
 
 pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: bool) {
