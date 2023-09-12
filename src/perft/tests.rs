@@ -3,7 +3,6 @@ use super::*;
 use test_case::test_case;
 
 use constants::fen::*;
-use constants::DEFAULT_CACHE_SIZE;
 
 /// Standard test suite
 #[test_case(STARTING_FEN, vec![20, 400, 8902, 197281, 4865609, 119060324], 6; "startpos")]
@@ -15,7 +14,7 @@ use constants::DEFAULT_CACHE_SIZE;
 fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
     for (exp_node_count, depth) in zip(expected_nodes, 1..=depth) {
         let pos = Position::from_fen(fen).unwrap();
-        let result = perft(&pos, depth, DEFAULT_CACHE_SIZE, true);
+        let result = perft(&pos, depth, &cfg::Config::test_cfg());
         assert_eq!(exp_node_count, result.count.nodes, "depth {}", depth)
     }
 }
@@ -38,7 +37,7 @@ fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
 fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
     let pos = Position::from_fen(fen).unwrap();
     assert_eq!(
-        perft(&pos, depth, DEFAULT_CACHE_SIZE, true).count.nodes,
+        perft(&pos, depth, &cfg::Config::test_cfg()).count.nodes,
         expected_nodes
     );
 }
@@ -53,6 +52,6 @@ fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
 #[test_case(TEST_6, 6923051137, 6; "testpos5")]
 fn deep_perft_suite(fen: &str, expected_nodes: u64, depth: u8) {
     let pos = Position::from_fen(fen).unwrap();
-    let result = perft(&pos, depth, DEFAULT_CACHE_SIZE, true);
+    let result = perft(&pos, depth, &cfg::Config::test_cfg());
     assert_eq!(result.count.nodes, expected_nodes)
 }

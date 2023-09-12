@@ -13,6 +13,7 @@ use movelist::*;
 use position::Position;
 use stats::Stats;
 
+mod cfg;
 mod stats;
 
 #[cfg(test)]
@@ -31,20 +32,24 @@ pub fn perft_wrapper(fen: &str, depth: u8, cache_size: usize, multithreading: bo
         }
     };
 
+    let cfg = cfg::Config::new(multithreading, cache_size);
+
     for d in 1..=depth {
-        let stats = perft(&pos, d, cache_size, multithreading);
+        let stats = perft(&pos, d, &cfg);
         table.add_row(stats.to_row());
     }
 
+    cfg.report().printstd();
+    println!();
     table.printstd();
 }
 
-fn perft(pos: &Position, depth: u8, cache_size: usize, multithreading: bool) -> Stats {
-    let caching = cache_size > 0;
+fn perft(pos: &Position, depth: u8, cfg: &cfg::Config) -> Stats {
+    let caching = cfg.cache_size > 0;
     let num_threads;
 
-    if multithreading && depth > 3 {
-        num_threads = num_cpus::get()
+    if cfg.multithreading && depth > 3 {
+        num_threads = cfg.num_threads
     } else {
         num_threads = 1
     };
@@ -60,7 +65,7 @@ fn perft(pos: &Position, depth: u8, cache_size: usize, multithreading: bool) -> 
             let n_jobs = moves.len();
             let pool = ThreadPool::new(num_threads);
             let (tx, rx) = channel();
-            let cache = Arc::new(Cache::new(cache_size));
+            let cache = Arc::new(Cache::new(cfg.cache_size));
 
             for i in 0..n_jobs {
                 let tx = tx.clone();
@@ -126,6 +131,8 @@ fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> MoveCount
 pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: bool) {
     use constants::fen::*;
 
+    let cfg = cfg::Config::new(multithreading, cache_size);
+
     let tests = [STARTING_FEN, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
     let depths;
     if deep {
@@ -140,24 +147,11 @@ pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: 
 
     for (fen, depth) in zip(tests, depths) {
         let pos = Position::from_fen(fen).expect("valid fen");
-        let stats = perft(&pos, depth, cache_size, multithreading);
+        let stats = perft(&pos, depth, &cfg);
         table.add_row(stats.to_row());
     }
 
-    if multithreading {
-        println!("Multi-threading ENABLED... {} threads", num_cpus::get())
-    } else {
-        println!("Multi-threading DISABLED")
-    }
-
-    if cache_size > 0 {
-        println!(
-            "Caching ENABLED... {:.2} Mb",
-            cache_size as f64 / 1_000_000.0
-        );
-    } else {
-        println!("Caching DISABLED")
-    }
-
+    cfg.report().printstd();
+    println!();
     table.printstd();
 }

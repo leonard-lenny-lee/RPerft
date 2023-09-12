@@ -64,6 +64,6 @@ fn main() {
     let cache_size = matches.get_one::<usize>("cache").expect("default arg");
     let multithreading = !matches.get_flag("singlethread");
 
-    perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading);
-    // perft::run_perft_benchmark_suite(*cache_size, multithreading, false);
+    // perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading);
+    perft::run_perft_benchmark_suite(*cache_size, multithreading, false);
 }
