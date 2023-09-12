@@ -18,20 +18,45 @@ mod stats;
 #[cfg(test)]
 mod tests;
 
-pub fn perft(fen: &str, depth: u8, cache_size: usize, multithreading: bool) -> Result<Stats, ()> {
-    let pos = Position::from_fen(fen)?;
+pub fn perft_wrapper(fen: &str, depth: u8, cache_size: usize, multithreading: bool) {
+    let mut table = prettytable::Table::new();
 
+    table.add_row(Stats::start_row());
+
+    let pos = match Position::from_fen(fen) {
+        Ok(p) => p,
+        Err(_) => {
+            log::error!("Invalid FEN: {fen}");
+            return;
+        }
+    };
+
+    for d in 1..=depth {
+        let stats = perft(&pos, d, cache_size, multithreading);
+        table.add_row(stats.to_row());
+    }
+
+    table.printstd();
+}
+
+fn perft(pos: &Position, depth: u8, cache_size: usize, multithreading: bool) -> Stats {
     let caching = cache_size > 0;
-    let num_threads = if multithreading { num_cpus::get() } else { 1 };
+    let num_threads;
 
-    let mut stats = stats::Stats::new(fen, depth, cache_size, num_threads);
-    let mut moves = MoveVec::new();
-    generate_all(&pos, &mut moves);
+    if multithreading && depth > 3 {
+        num_threads = num_cpus::get()
+    } else {
+        num_threads = 1
+    };
 
-    let nodes = match depth.cmp(&1) {
-        Ordering::Less => 1,
-        Ordering::Equal => moves.len() as u64,
+    let mut stats = Stats::new(depth);
+
+    match depth.cmp(&1) {
+        Ordering::Less => stats.count.nodes += 1,
+        Ordering::Equal => generate_all(&pos, &mut stats.count),
         Ordering::Greater => {
+            let mut moves = MoveVec::new();
+            generate_all(&pos, &mut moves);
             let n_jobs = moves.len();
             let pool = ThreadPool::new(num_threads);
             let (tx, rx) = channel();
@@ -51,23 +76,26 @@ pub fn perft(fen: &str, depth: u8, cache_size: usize, multithreading: bool) -> R
                     tx.send(node_count).unwrap()
                 })
             }
-            rx.iter().take(n_jobs).fold(0, |a, b| a + b)
+            stats.count += rx
+                .iter()
+                .take(n_jobs)
+                .fold(MoveCounter::default(), |a, b| a + b)
         }
     };
-    stats.end(nodes);
-    Ok(stats)
+    stats.end();
+    stats
 }
 
-fn perft_inner(pos: &Position, depth: u8) -> u64 {
+fn perft_inner(pos: &Position, depth: u8) -> MoveCounter {
     if depth == 1 {
         let mut movelist = MoveCounter::default();
         generate_all(pos, &mut movelist);
-        return movelist.count;
+        return movelist;
     }
 
     let mut movelist = MoveVec::new();
     generate_all(pos, &mut movelist);
-    let mut nodes = 0;
+    let mut nodes = MoveCounter::default();
     for mv in movelist.iter() {
         let new_pos = pos.make_move(mv);
         nodes += perft_inner(&new_pos, depth - 1);
@@ -75,23 +103,23 @@ fn perft_inner(pos: &Position, depth: u8) -> u64 {
     return nodes;
 }
 
-fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> u64 {
+fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> MoveCounter {
     if let Some(nodes) = cache.fetch(pos.key, depth) {
         return nodes;
     }
     if depth == 1 {
         let mut movelist = MoveCounter::default();
         generate_all(pos, &mut movelist);
-        return movelist.count;
+        return movelist;
     }
     let mut movelist = MoveVec::new();
     generate_all(&pos, &mut movelist);
-    let mut nodes = 0;
+    let mut nodes = MoveCounter::default();
     for mv in movelist.iter() {
         let new_position = pos.make_move(mv);
         nodes += perft_inner_cache(&new_position, depth - 1, cache);
     }
-    cache.store(pos.key, depth, nodes);
+    cache.store(pos.key, depth, &nodes);
     return nodes;
 }
 
@@ -105,9 +133,15 @@ pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: 
     } else {
         depths = [6, 5, 7, 5, 5, 5]
     }
-    let mut results = Vec::new();
+
+    let mut table = prettytable::Table::new();
+
+    table.add_row(Stats::start_row());
+
     for (fen, depth) in zip(tests, depths) {
-        results.push(perft(fen, depth, cache_size, multithreading).expect("valid fen"));
+        let pos = Position::from_fen(fen).expect("valid fen");
+        let stats = perft(&pos, depth, cache_size, multithreading);
+        table.add_row(stats.to_row());
     }
 
     if multithreading {
@@ -125,21 +159,5 @@ pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: 
         println!("Caching DISABLED")
     }
 
-    // Report results
-    println!("+{}+", "-".repeat(35));
-    println!(
-        "|{:>3} |{:>11} |{:>6} |{:>8} |",
-        "#", "Nodes", "sec", "MN/s"
-    );
-    println!("+{}+", "-".repeat(35));
-    for (n, stats) in results.iter().enumerate() {
-        println!(
-            "|{:>3} |{:>11} |{:>6} |{:>8} |",
-            n,
-            stats.node_count,
-            format!("{:.2}", stats.duration_sec),
-            format!("{:.2}", stats.m_nodes_per_sec)
-        )
-    }
-    println!("+{}+", "-".repeat(35))
+    table.printstd();
 }

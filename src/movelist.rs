@@ -1,7 +1,7 @@
 use super::*;
 
 use std::iter::zip;
-use std::ops::AddAssign;
+use std::ops::{Add, AddAssign};
 
 use mv::Move;
 use types::MoveT;
@@ -108,7 +108,7 @@ impl std::ops::Index<usize> for MoveVec {
 
 #[derive(Debug, Default)]
 pub struct MoveCounter {
-    pub count: u64,
+    pub nodes: u64,
     pub captures: u32,
     pub ep: u32,
     pub castles: u32,
@@ -117,48 +117,49 @@ pub struct MoveCounter {
 
 impl MoveList for MoveCounter {
     fn add_quiets(&mut self, _src: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u64;
+        self.nodes += targets.pop_count() as u64;
     }
 
     fn add_captures(&mut self, _src: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32;
-        self.count += n as u64;
+        self.nodes += n as u64;
         self.captures += n;
     }
 
     fn add_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u64;
+        self.nodes += targets.pop_count() as u64;
     }
 
     fn add_double_pawn_pushes(&mut self, _srcs: BitBoard, targets: BitBoard) {
-        self.count += targets.pop_count() as u64;
+        self.nodes += targets.pop_count() as u64;
     }
 
     fn add_pawn_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32;
-        self.count += n as u64;
+        self.nodes += n as u64;
         self.captures += n;
     }
 
     fn add_ep(&mut self, _from: BitBoard, _to: BitBoard) {
-        self.count += 1;
+        self.nodes += 1;
+        self.captures += 1;
         self.ep += 1;
     }
 
     fn add_castle(&mut self, _from: BitBoard, _to: BitBoard, _mt: MoveT) {
-        self.count += 1;
+        self.nodes += 1;
         self.castles += 1;
     }
 
     fn add_promos(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32 * 4;
-        self.count += n as u64;
+        self.nodes += n as u64;
         self.promotions += n;
     }
 
     fn add_promo_captures(&mut self, _srcs: BitBoard, targets: BitBoard) {
         let n = targets.pop_count() as u32 * 4;
-        self.count += n as u64;
+        self.nodes += n as u64;
         self.promotions += n;
         self.captures += n;
     }
@@ -166,10 +167,24 @@ impl MoveList for MoveCounter {
 
 impl AddAssign for MoveCounter {
     fn add_assign(&mut self, rhs: Self) {
-        self.count += 1;
+        self.nodes += rhs.nodes;
         self.captures += rhs.captures;
         self.ep += rhs.ep;
         self.castles += rhs.castles;
         self.promotions += rhs.promotions;
+    }
+}
+
+impl Add for MoveCounter {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            nodes: self.nodes + rhs.nodes,
+            captures: self.captures + rhs.captures,
+            ep: self.ep + rhs.ep,
+            castles: self.castles + rhs.castles,
+            promotions: self.promotions + rhs.promotions,
+        }
     }
 }
