@@ -7,7 +7,7 @@ use std::sync::{mpsc::channel, Arc};
 
 use threadpool::ThreadPool;
 
-use cache::Cache;
+use cache::*;
 use movegen::generate_all;
 use movelist::*;
 use position::Position;
@@ -19,10 +19,16 @@ mod stats;
 #[cfg(test)]
 mod tests;
 
-pub fn perft_wrapper(fen: &str, depth: u8, cache_size: usize, multithreading: bool) {
+pub fn perft_wrapper(
+    fen: &str,
+    depth: u8,
+    cache_size: usize,
+    multithreading: bool,
+    detailed: bool,
+) {
     let mut table = prettytable::Table::new();
 
-    table.add_row(Stats::start_row());
+    table.add_row(Stats::start_row(detailed));
 
     let pos = match Position::from_fen(fen) {
         Ok(p) => p,
@@ -34,19 +40,64 @@ pub fn perft_wrapper(fen: &str, depth: u8, cache_size: usize, multithreading: bo
 
     println!("{pos}");
 
-    let cfg = cfg::Config::new(multithreading, cache_size);
+    let cfg = cfg::Config::new(multithreading, cache_size, detailed);
     cfg.report().printstd();
 
     for d in 1..=depth {
-        let stats = perft(&pos, d, &cfg);
-        table.add_row(stats.to_row());
+        let stats = if cfg.detailed {
+            perft::<Entry4xU64>(&pos, d, &cfg)
+        } else {
+            perft::<Entry2xU64>(&pos, d, &cfg)
+        };
+        table.add_row(stats.to_row(detailed));
     }
 
     println!();
     table.printstd();
 }
 
-fn perft(pos: &Position, depth: u8, cfg: &cfg::Config) -> Stats {
+pub fn run_perft_benchmark_suite(
+    cache_size: usize,
+    multithreading: bool,
+    deep: bool,
+    detailed: bool,
+) {
+    use constants::fen::*;
+
+    let cfg = cfg::Config::new(multithreading, cache_size, detailed);
+
+    let tests = [STARTING_FEN, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
+    let depths;
+    if deep {
+        depths = [7, 6, 8, 6, 6, 6]
+    } else {
+        depths = [6, 5, 7, 5, 5, 5]
+    }
+
+    let mut table = prettytable::Table::new();
+
+    let mut start_row = Stats::start_row(detailed);
+    start_row.insert_cell(0, cell!("Bench #"));
+    table.add_row(start_row);
+
+    for (i, (fen, depth)) in zip(tests, depths).enumerate() {
+        let pos = Position::from_fen(fen).expect("valid fen");
+        let stats = if cfg.detailed {
+            perft::<Entry4xU64>(&pos, depth, &cfg)
+        } else {
+            perft::<Entry2xU64>(&pos, depth, &cfg)
+        };
+        let mut row = stats.to_row(detailed);
+        row.insert_cell(0, cell!(i));
+        table.add_row(row);
+    }
+
+    cfg.report().printstd();
+    println!();
+    table.printstd();
+}
+
+fn perft<T: SizedEntry + 'static>(pos: &Position, depth: u8, cfg: &cfg::Config) -> Stats {
     let caching = cfg.cache_size > 0;
     let num_threads;
 
@@ -67,7 +118,7 @@ fn perft(pos: &Position, depth: u8, cfg: &cfg::Config) -> Stats {
             let n_jobs = moves.len();
             let pool = ThreadPool::new(num_threads);
             let (tx, rx) = channel();
-            let cache = Arc::new(Cache::new(cfg.cache_size));
+            let cache = Arc::new(Cache::<T>::new(cfg.cache_size));
 
             for i in 0..n_jobs {
                 let tx = tx.clone();
@@ -83,6 +134,7 @@ fn perft(pos: &Position, depth: u8, cfg: &cfg::Config) -> Stats {
                     tx.send(node_count).unwrap()
                 })
             }
+
             stats.count += rx
                 .iter()
                 .take(n_jobs)
@@ -110,8 +162,12 @@ fn perft_inner(pos: &Position, depth: u8) -> MoveCounter {
     return count;
 }
 
-fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> MoveCounter {
-    if let Some(count) = cache.fetch(pos.key, depth) {
+fn perft_inner_cache<T: SizedEntry>(
+    pos: &Position,
+    depth: u8,
+    cache: &Arc<Cache<T>>,
+) -> MoveCounter {
+    if let Some(count) = cache.read(pos.key, depth) {
         return count;
     }
     if depth == 1 {
@@ -126,34 +182,6 @@ fn perft_inner_cache(pos: &Position, depth: u8, cache: &Arc<Cache>) -> MoveCount
         let new_position = pos.make_move(mv);
         count += perft_inner_cache(&new_position, depth - 1, cache);
     }
-    cache.store(pos.key, depth, &count);
+    cache.write(pos.key, depth, &count);
     return count;
-}
-
-pub fn run_perft_benchmark_suite(cache_size: usize, multithreading: bool, deep: bool) {
-    use constants::fen::*;
-
-    let cfg = cfg::Config::new(multithreading, cache_size);
-
-    let tests = [STARTING_FEN, TEST_2, TEST_3, TEST_4, TEST_5, TEST_6];
-    let depths;
-    if deep {
-        depths = [7, 6, 8, 6, 6, 6]
-    } else {
-        depths = [6, 5, 7, 5, 5, 5]
-    }
-
-    let mut table = prettytable::Table::new();
-
-    table.add_row(Stats::start_row());
-
-    for (fen, depth) in zip(tests, depths) {
-        let pos = Position::from_fen(fen).expect("valid fen");
-        let stats = perft(&pos, depth, &cfg);
-        table.add_row(stats.to_row());
-    }
-
-    cfg.report().printstd();
-    println!();
-    table.printstd();
 }

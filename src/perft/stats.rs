@@ -26,29 +26,47 @@ impl Stats {
         self.m_nodes_per_sec = self.count.nodes as f64 / (self.duration_sec * 1_000_000.0);
     }
 
-    pub fn start_row() -> prettytable::Row {
-        row![
-            br->"depth",
-            br->"nodes",
-            br->"capt.",
-            br->"ep",
-            br->"castles",
-            br->"promo.",
-            br->"sec",
-            br->"Mn/s"
-        ]
+    pub fn start_row(detailed: bool) -> prettytable::Row {
+        if detailed {
+            row![
+                br->"depth",
+                br->"nodes",
+                br->"capt.",
+                br->"ep",
+                br->"castles",
+                br->"promo.",
+                br->"sec",
+                br->"Mn/s"
+            ]
+        } else {
+            row![
+                br->"depth",
+                br->"nodes",
+                br->"sec",
+                br->"Mn/s"
+            ]
+        }
     }
 
-    pub fn to_row(&self) -> prettytable::Row {
-        row![
-            r->self.depth,
-            r->self.count.nodes,
-            r->self.count.captures,
-            r->self.count.ep,
-            r->self.count.castles,
-            r->self.count.promotions,
-            r->format!("{:.3}", self.duration_sec),
-            r->format!("{:.3}", self.m_nodes_per_sec),
-        ]
+    pub fn to_row(&self, detailed: bool) -> prettytable::Row {
+        if detailed {
+            row![
+                r->self.depth,
+                r->self.count.nodes,
+                r->self.count.captures,
+                r->self.count.ep,
+                r->self.count.castles,
+                r->self.count.promotions,
+                r->format!("{:.3}", self.duration_sec),
+                r->format!("{:.3}", self.m_nodes_per_sec),
+            ]
+        } else {
+            row![
+                r->self.depth,
+                r->self.count.nodes,
+                r->format!("{:.3}", self.duration_sec),
+                r->format!("{:.3}", self.m_nodes_per_sec),
+            ]
+        }
     }
 }

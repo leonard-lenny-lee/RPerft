@@ -1,26 +1,28 @@
 use super::*;
 
-use prettytable::{row, Table};
+use prettytable::Table;
 
 pub struct Config {
     pub multithreading: bool,
     pub caching: bool,
     pub num_threads: usize,
     pub cache_size: usize,
+    pub detailed: bool,
 }
 
 impl Config {
-    pub fn new(multithreading: bool, cache_size: usize) -> Self {
+    pub fn new(multithreading: bool, cache_size: usize, detailed: bool) -> Self {
         Self {
             multithreading,
             caching: cache_size > 0,
             num_threads: if multithreading { num_cpus::get() } else { 1 },
             cache_size,
+            detailed,
         }
     }
 
     pub fn report(&self) -> Table {
-        let mut table = prettytable::Table::new();
+        let mut table = Table::new();
         table.add_row(row![b->"feature", "enabled", "info"]);
 
         let m = if self.multithreading {
@@ -39,6 +41,7 @@ impl Config {
 
         table.add_row(row![b->"multithreading", self.multithreading, m]);
         table.add_row(row![b->"cache", self.caching, c]);
+        table.add_row(row![b->"detailed count", self.detailed]);
         table
     }
 
@@ -48,6 +51,7 @@ impl Config {
             caching: true,
             num_threads: num_cpus::get(),
             cache_size: constants::DEFAULT_CACHE_SIZE,
+            detailed: false,
         }
     }
 }

@@ -14,7 +14,7 @@ use constants::fen::*;
 fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
     for (exp_node_count, depth) in zip(expected_nodes, 1..=depth) {
         let pos = Position::from_fen(fen).unwrap();
-        let result = perft(&pos, depth, &cfg::Config::test_cfg());
+        let result = perft::<Entry2xU64>(&pos, depth, &cfg::Config::test_cfg());
         assert_eq!(exp_node_count, result.count.nodes, "depth {}", depth)
     }
 }
@@ -37,7 +37,9 @@ fn perft_suite(fen: &str, expected_nodes: Vec<u64>, depth: u8) {
 fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
     let pos = Position::from_fen(fen).unwrap();
     assert_eq!(
-        perft(&pos, depth, &cfg::Config::test_cfg()).count.nodes,
+        perft::<Entry2xU64>(&pos, depth, &cfg::Config::test_cfg())
+            .count
+            .nodes,
         expected_nodes
     );
 }
@@ -52,6 +54,6 @@ fn talk_chess_perft_tests(fen: &str, depth: u8, expected_nodes: u64) {
 #[test_case(TEST_6, 6923051137, 6; "testpos5")]
 fn deep_perft_suite(fen: &str, expected_nodes: u64, depth: u8) {
     let pos = Position::from_fen(fen).unwrap();
-    let result = perft(&pos, depth, &cfg::Config::test_cfg());
+    let result = perft::<Entry2xU64>(&pos, depth, &cfg::Config::test_cfg());
     assert_eq!(result.count.nodes, expected_nodes)
 }

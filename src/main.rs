@@ -34,15 +34,19 @@ fn main() {
         )
         .next_line_help(true);
 
+    let detailed_flag = Arg::new("detailed")
+        .long("full")
+        .action(ArgAction::SetTrue)
+        .help("Count additional features like captures, ep etc. Impacts perft speed")
+        .next_line_help(true);
+
     let singlethread_flag = Arg::new("singlethread")
-        .short('s')
-        .long("singlethread")
+        .long("single")
         .action(ArgAction::SetTrue)
         .help("Use only a single thread")
         .next_line_help(true);
 
     let bench_flag = Arg::new("bench")
-        .short('b')
         .long("bench")
         .action(ArgAction::SetTrue)
         .help(
@@ -52,7 +56,6 @@ fn main() {
         .next_line_help(true);
 
     let deep_flag = Arg::new("deep")
-        .short('p')
         .long("deep")
         .action(ArgAction::SetTrue)
         .help(
@@ -68,6 +71,7 @@ fn main() {
         .arg(fen_arg)
         .arg(depth_arg)
         .arg(cache_size_arg)
+        .arg(detailed_flag)
         .arg(singlethread_flag)
         .arg(bench_flag)
         .arg(deep_flag)
@@ -87,10 +91,11 @@ fn main() {
     let multithreading = !matches.get_flag("singlethread");
     let bench = matches.get_flag("bench");
     let deep = matches.get_flag("deep");
+    let detailed = matches.get_flag("detailed");
 
     if bench {
-        perft::run_perft_benchmark_suite(*cache_size, multithreading, deep);
+        perft::run_perft_benchmark_suite(*cache_size, multithreading, deep, detailed);
         return;
     }
-    perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading);
+    perft::perft_wrapper(fen.as_str(), *depth, *cache_size, multithreading, detailed);
 }
