@@ -8,10 +8,11 @@ use std::sync::{mpsc::channel, Arc};
 use threadpool::ThreadPool;
 
 use cache::*;
+use cfg::Config;
 use movegen::generate_all;
 use movelist::*;
 use position::Position;
-use stats::Stats;
+use stats::*;
 
 mod cfg;
 mod stats;
@@ -26,9 +27,9 @@ pub fn perft_wrapper(
     multithreading: bool,
     detailed: bool,
 ) {
+    let cfg = Config::new(multithreading, cache_size, detailed);
     let mut table = prettytable::Table::new();
-
-    table.add_row(Stats::start_row(detailed));
+    table.add_row(Stats::start_row(&cfg));
 
     let pos = match Position::from_fen(fen) {
         Ok(p) => p,
@@ -39,8 +40,6 @@ pub fn perft_wrapper(
     };
 
     println!("{pos}");
-
-    let cfg = cfg::Config::new(multithreading, cache_size, detailed);
     cfg.report().printstd();
 
     for d in 1..=depth {
@@ -49,7 +48,7 @@ pub fn perft_wrapper(
         } else {
             perft::<Entry2xU64>(&pos, d, &cfg)
         };
-        table.add_row(stats.to_row(detailed));
+        table.add_row(stats.to_row(&cfg));
     }
 
     println!();
@@ -76,7 +75,7 @@ pub fn run_perft_benchmark_suite(
 
     let mut table = prettytable::Table::new();
 
-    let mut start_row = Stats::start_row(detailed);
+    let mut start_row = Stats::start_row(&cfg);
     start_row.insert_cell(0, cell!("Bench #"));
     table.add_row(start_row);
 
@@ -87,7 +86,7 @@ pub fn run_perft_benchmark_suite(
         } else {
             perft::<Entry2xU64>(&pos, depth, &cfg)
         };
-        let mut row = stats.to_row(detailed);
+        let mut row = stats.to_row(&cfg);
         row.insert_cell(0, cell!(i));
         table.add_row(row);
     }
@@ -126,19 +125,24 @@ fn perft<T: SizedEntry + 'static>(pos: &Position, depth: u8, cfg: &cfg::Config) 
                 let new_pos = pos.make_move(&mv);
                 let cache = cache.clone();
                 pool.execute(move || {
+                    let mut cache_stats = CacheStats::default();
                     let node_count = if caching {
-                        perft_inner_cache(&new_pos, depth - 1, &cache)
+                        perft_inner_cache(&new_pos, depth - 1, &cache, &mut cache_stats)
                     } else {
                         perft_inner(&new_pos, depth - 1)
                     };
-                    tx.send(node_count).unwrap()
+                    tx.send((node_count, cache_stats)).unwrap()
                 })
             }
 
-            stats.count += rx
+            let (count, cache_stats) = rx
                 .iter()
                 .take(n_jobs)
-                .fold(MoveCounter::default(), |a, b| a + b)
+                .fold((MoveCounter::default(), CacheStats::default()), |a, b| {
+                    ((a.0 + b.0), (a.1 + b.1))
+                });
+            stats.count += count;
+            stats.cache_stats += cache_stats;
         }
     };
     stats.end();
@@ -166,10 +170,19 @@ fn perft_inner_cache<T: SizedEntry>(
     pos: &Position,
     depth: u8,
     cache: &Arc<Cache<T>>,
+    stats: &mut CacheStats,
 ) -> MoveCounter {
-    if let Some(count) = cache.read(pos.key, depth) {
-        return count;
+    let access_result = cache.read(pos.key, depth);
+    match access_result {
+        Access::Hit(count) => {
+            stats.hits += 1;
+            stats.hit_nodes += count.nodes;
+            return count;
+        }
+        Access::Miss => stats.misses += 1,
+        Access::Collision => stats.collisions += 1,
     }
+
     if depth == 1 {
         let mut count = MoveCounter::default();
         generate_all(pos, &mut count);
@@ -180,7 +193,7 @@ fn perft_inner_cache<T: SizedEntry>(
     let mut count = MoveCounter::default();
     for mv in moves.iter() {
         let new_position = pos.make_move(mv);
-        count += perft_inner_cache(&new_position, depth - 1, cache);
+        count += perft_inner_cache(&new_position, depth - 1, cache, stats);
     }
     cache.write(pos.key, depth, &count);
     return count;

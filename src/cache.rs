@@ -6,6 +6,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use movelist::*;
 
+pub enum Access {
+    Hit(MoveCounter),
+    Miss,
+    Collision,
+}
+
 pub struct Cache<T: SizedEntry> {
     entries: Box<[T]>,
     size: usize,
@@ -22,18 +28,19 @@ impl<T: SizedEntry> Cache<T> {
         };
     }
 
-    /// Retrieve stored count information from the cache, if it exists. Else, return None
-    pub fn read(&self, key: u64, depth: u8) -> Option<MoveCounter> {
+    /// Retrieve stored count information from the cache
+    pub fn read(&self, key: u64, depth: u8) -> Access {
         let index = key as usize % self.size;
         let entry = unsafe { self.entries.get_unchecked(index) };
 
         if key == entry.key() {
             let (entry_depth, count) = entry.load();
             if depth == entry_depth {
-                return Some(count);
+                return Access::Hit(count);
             }
+            return Access::Collision;
         }
-        return None;
+        return Access::Miss;
     }
 
     /// Write a perft entry into the cache
