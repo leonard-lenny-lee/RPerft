@@ -63,11 +63,6 @@ impl BitBoard {
         return KNIGHT_ATTACKS[self.to_sq()];
     }
 
-    pub fn knight_attacks_lu_(&self, _occ: BitBoard) -> BitBoard {
-        debug_assert!(self.pop_count() == 1);
-        return KNIGHT_ATTACKS[self.to_sq()];
-    }
-
     #[inline(always)]
     /// Return the attack squares of a king by lookup
     pub fn king_attacks_lu(&self) -> BitBoard {

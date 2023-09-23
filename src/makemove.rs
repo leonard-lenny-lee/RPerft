@@ -2,11 +2,20 @@
 use super::*;
 
 use mv::Move;
-use types::{MoveT, Piece};
+use position::states::*;
+use types::{Color, MoveT, Piece};
 
 impl position::Position {
     /// Create a new position by applying move data to a position
     pub fn make_move(&self, mv: &Move) -> Self {
+        match self.stm {
+            Color::White => self.make_move_inner::<White, Black>(mv),
+            Color::Black => self.make_move_inner::<Black, White>(mv),
+        }
+    }
+
+    #[inline(always)]
+    fn make_move_inner<T: State, U: State>(&self, mv: &Move) -> Self {
         let mut new_pos = *self;
         // Unpack move data
         let to = mv.to();
@@ -16,7 +25,7 @@ impl position::Position {
         let moved_pt = new_pos.us.pt_at(from).expect("is occupied");
 
         // Undo current ep key before position is modified
-        new_pos.ep_key_update();
+        new_pos.ep_key_update::<T>();
 
         // Increment clocks
         new_pos.halfmove_clock += 1;
@@ -35,7 +44,7 @@ impl position::Position {
         // Reset halfmove clock on pawn moves, remove castle rights on king moves
         match moved_pt {
             Piece::Pawn => new_pos.halfmove_clock = 0,
-            Piece::King => new_pos.castling_rights &= !new_pos.rank_1(),
+            Piece::King => new_pos.castling_rights &= !T::rank_1(),
             _ => (),
         }
 
@@ -68,7 +77,7 @@ impl position::Position {
         match mt {
             MoveT::DoublePawnPush => {
                 // Ep target is one square behind dbl push target
-                new_pos.ep_sq = new_pos.back_one(to);
+                new_pos.ep_sq = T::back_one(to);
             }
 
             MoveT::KSCastle | MoveT::QSCastle => {
@@ -85,7 +94,7 @@ impl position::Position {
             }
 
             MoveT::EnPassant => {
-                let ep_sq = new_pos.back_one(to);
+                let ep_sq = T::back_one(to);
                 new_pos.them.pawn ^= ep_sq;
                 new_pos.them.all ^= ep_sq;
                 new_pos.free ^= ep_sq;
@@ -100,7 +109,7 @@ impl position::Position {
         new_pos.change_state();
         // Update key
         new_pos.turn_key_update();
-        new_pos.ep_key_update();
+        new_pos.ep_key_update::<U>();
         new_pos.castling_key_update(self.castling_rights);
         new_pos
     }

@@ -2,6 +2,7 @@
 /// http://hgm.nubati.net/book_format.html
 use super::*;
 use constants::bb;
+use position::states::State;
 use position::Position;
 use types::{Color, Piece};
 
@@ -55,15 +56,11 @@ impl Position {
     }
 
     /// Generate the en passant contribution of the zobrist hash
-    fn ep_hash(&self) -> u64 {
+    fn ep_hash<T: State>(&self) -> u64 {
         let mut key = 0;
 
         if self.ep_sq.is_not_empty() {
-            let (white, black) = self.white_black();
-            let pawns = match self.stm {
-                Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & white.pawn,
-                Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & black.pawn,
-            };
+            let pawns = T::cap_back(self.ep_sq) & self.us.pawn;
 
             if pawns.is_not_empty() {
                 key ^= HASH_KEYS[772 + self.ep_sq.to_sq() % 8];
@@ -92,8 +89,8 @@ impl Position {
     }
 
     /// Update hash for an en passant square update
-    pub fn ep_key_update(&mut self) {
-        self.key ^= self.ep_hash();
+    pub fn ep_key_update<T: State>(&mut self) {
+        self.key ^= self.ep_hash::<T>();
     }
 
     /// Update hash for an update to castling rights

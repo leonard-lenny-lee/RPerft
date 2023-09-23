@@ -4,7 +4,7 @@ use types::Color;
 
 mod analysis;
 mod parse;
-mod states;
+pub mod states;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Position {
