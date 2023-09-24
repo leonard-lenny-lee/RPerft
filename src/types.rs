@@ -1,5 +1,5 @@
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum Piece {
+pub enum PieceT {
     #[default]
     Any = 0,
     Pawn,
@@ -10,17 +10,17 @@ pub enum Piece {
     King,
 }
 
-pub const PIECES: [Piece; 6] = [
-    Piece::Pawn,
-    Piece::Rook,
-    Piece::Knight,
-    Piece::Bishop,
-    Piece::Queen,
-    Piece::King,
+pub const PIECES: [PieceT; 6] = [
+    PieceT::Pawn,
+    PieceT::Rook,
+    PieceT::Knight,
+    PieceT::Bishop,
+    PieceT::Queen,
+    PieceT::King,
 ];
 
 #[derive(Debug, Clone, Copy)]
-pub enum Color {
+pub enum ColorT {
     White = 0,
     Black,
 }

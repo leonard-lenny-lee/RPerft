@@ -1,6 +1,6 @@
 /// Contains the internal representation of a chess position
 use super::*;
-use types::Color;
+use types::ColorT;
 
 mod analysis;
 mod parse;
@@ -18,7 +18,7 @@ pub struct Position {
     pub fullmove_clock: u8,
     pub key: u64,
     pub wtm: bool,
-    pub stm: Color,
+    pub stm: ColorT,
     pub ply: u8,
 }
 

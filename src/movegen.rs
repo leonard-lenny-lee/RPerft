@@ -3,29 +3,29 @@ use super::*;
 use std::cmp::Ordering;
 
 use movelist::MoveList;
+use pieces::*;
 use position::states::*;
 use position::Position;
-use pt::*;
-use types::{Color, MoveT};
+use types::{ColorT, MoveT};
 
 /// Generate all legal moves in a position
-pub fn generate_all<T: MoveList>(pos: &Position, movelist: &mut T) {
+pub fn generate_all<M: MoveList>(pos: &Position, movelist: &mut M) {
     match pos.stm {
-        Color::White => generate_all_inner::<T, White>(pos, movelist),
-        Color::Black => generate_all_inner::<T, Black>(pos, movelist),
+        ColorT::White => generate_all_inner::<M, White>(pos, movelist),
+        ColorT::Black => generate_all_inner::<M, Black>(pos, movelist),
     }
 }
 
 #[inline(always)]
-fn generate_all_inner<T: MoveList, U: State>(pos: &Position, movelist: &mut T) {
-    let checkers = pos.checkers::<U>();
+fn generate_all_inner<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
+    let checkers = pos.checkers::<C>();
     let n_checkers = checkers.pop_count();
     let filter;
 
     match n_checkers.cmp(&1) {
         Ordering::Greater => {
             // In double check, only king moves are valid
-            generate_king_moves::<T, U>(pos, movelist);
+            generate_king_moves::<M, C>(pos, movelist);
             return;
         }
         Ordering::Equal => {
@@ -36,34 +36,34 @@ fn generate_all_inner<T: MoveList, U: State>(pos: &Position, movelist: &mut T) {
             // Not in check so all squares that are not occupied by our pieces are valid targets
             filter = !pos.us.all;
             // Castling is allowed only when not in check
-            generate_castles::<T, U>(pos, movelist);
+            generate_castles::<M, C>(pos, movelist);
         }
     }
 
     let pinned = pos.pinned();
 
-    generate_moves::<T, Rook>(pos, movelist, pinned, filter);
-    generate_moves::<T, Knight>(pos, movelist, pinned, filter);
-    generate_moves::<T, Bishop>(pos, movelist, pinned, filter);
-    generate_moves::<T, Queen>(pos, movelist, pinned, filter);
+    generate_moves::<M, Rook>(pos, movelist, pinned, filter);
+    generate_moves::<M, Knight>(pos, movelist, pinned, filter);
+    generate_moves::<M, Bishop>(pos, movelist, pinned, filter);
+    generate_moves::<M, Queen>(pos, movelist, pinned, filter);
 
-    generate_pawn_moves::<T, U>(pos, movelist, pinned, filter);
-    generate_king_moves::<T, U>(pos, movelist);
+    generate_pawn_moves::<M, C>(pos, movelist, pinned, filter);
+    generate_king_moves::<M, C>(pos, movelist);
 }
 
 #[inline(always)]
-fn generate_king_moves<T: MoveList, U: State>(pos: &Position, movelist: &mut T) {
+fn generate_king_moves<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
     let from = pos.us.king;
-    let targets = from.king_attacks_lu() & !pos.us.all & !pos.unsafe_sq::<U>();
+    let targets = from.king_attacks_lu() & !pos.us.all & !pos.unsafe_sq::<C>();
     let quiet_targets = targets & pos.free;
     movelist.add_quiets(from, targets & quiet_targets);
     movelist.add_captures(from, targets ^ quiet_targets);
 }
 
 #[inline(always)]
-fn generate_pawn_moves<T: MoveList, U: State>(
+fn generate_pawn_moves<M: MoveList, C: Color>(
     pos: &Position,
-    movelist: &mut T,
+    movelist: &mut M,
     pinned: BitBoard,
     filter: BitBoard,
 ) {
@@ -75,8 +75,8 @@ fn generate_pawn_moves<T: MoveList, U: State>(
 
     // Pawns pinned along a file or diagonal can only move along those axes
     let push_only = pinned & pos.us.king.file_mask_lu();
-    let left_only = pinned & U::l_cap_axis(pos.us.king);
-    let right_only = pinned & U::r_cap_axis(pos.us.king);
+    let left_only = pinned & C::l_cap_axis(pos.us.king);
+    let right_only = pinned & C::r_cap_axis(pos.us.king);
 
     // Separate pawns according to direction of movement
     let no_push = left_only | right_only;
@@ -84,52 +84,52 @@ fn generate_pawn_moves<T: MoveList, U: State>(
     let no_right = left_only | push_only;
 
     // Separate pawns on whether they can promote
-    let on_7 = pawns & U::rank_7();
+    let on_7 = pawns & C::rank_7();
     let not_on_7 = pawns ^ on_7;
 
     // Add single and double pushes
-    let mut bb_1 = U::push_one(not_on_7 & !no_push) & pos.free;
-    let mut bb_2 = U::push_one(bb_1 & U::rank_3()) & pos.free;
+    let mut bb_1 = C::push_one(not_on_7 & !no_push) & pos.free;
+    let mut bb_2 = C::push_one(bb_1 & C::rank_3()) & pos.free;
 
     bb_1 &= filter;
     bb_2 &= filter;
 
-    movelist.add_pawn_pushes(U::back_one(bb_1), bb_1);
-    movelist.add_double_pawn_pushes(U::back_two(bb_2), bb_2);
+    movelist.add_pawn_pushes(C::back_one(bb_1), bb_1);
+    movelist.add_double_pawn_pushes(C::back_two(bb_2), bb_2);
 
     // Add promotions
-    let bb_1 = U::push_one(on_7 & !no_push) & pos.free & filter;
-    let bb_2 = U::l_cap(on_7 & !no_left) & pos.occ & filter;
-    let bb_3 = U::r_cap(on_7 & !no_right) & pos.occ & filter;
+    let bb_1 = C::push_one(on_7 & !no_push) & pos.free & filter;
+    let bb_2 = C::l_cap(on_7 & !no_left) & pos.occ & filter;
+    let bb_3 = C::r_cap(on_7 & !no_right) & pos.occ & filter;
 
-    movelist.add_promos(U::back_one(bb_1), bb_1);
-    movelist.add_promo_captures(U::l_cap_back(bb_2), bb_2);
-    movelist.add_promo_captures(U::r_cap_back(bb_3), bb_3);
+    movelist.add_promos(C::back_one(bb_1), bb_1);
+    movelist.add_promo_captures(C::l_cap_back(bb_2), bb_2);
+    movelist.add_promo_captures(C::r_cap_back(bb_3), bb_3);
 
     // Add captures
-    let bb_1 = U::l_cap(not_on_7 & !no_left) & pos.occ & filter;
-    let bb_2 = U::r_cap(not_on_7 & !no_right) & pos.occ & filter;
+    let bb_1 = C::l_cap(not_on_7 & !no_left) & pos.occ & filter;
+    let bb_2 = C::r_cap(not_on_7 & !no_right) & pos.occ & filter;
 
-    movelist.add_pawn_captures(U::l_cap_back(bb_1), bb_1);
-    movelist.add_pawn_captures(U::r_cap_back(bb_2), bb_2);
+    movelist.add_pawn_captures(C::l_cap_back(bb_1), bb_1);
+    movelist.add_pawn_captures(C::r_cap_back(bb_2), bb_2);
 
     // Enpassant
     if pos.ep_sq.is_empty() {
         return;
     };
 
-    let ep_capture_sq = U::back_one(pos.ep_sq);
+    let ep_capture_sq = C::back_one(pos.ep_sq);
 
     if ((ep_capture_sq | pos.ep_sq) & filter).is_empty() {
         return;
     };
 
-    let s_1 = U::l_cap_back(pos.ep_sq) & (pawns & !no_left);
-    let s_2 = U::r_cap_back(pos.ep_sq) & (pawns & !no_right);
+    let s_1 = C::l_cap_back(pos.ep_sq) & (pawns & !no_left);
+    let s_2 = C::r_cap_back(pos.ep_sq) & (pawns & !no_right);
 
     for from in s_1 | s_2 {
         // Check rare case where an ep can reveal a discovered check along the 5th rank
-        if (pos.us.king & U::rank_5()).is_empty() {
+        if (pos.us.king & C::rank_5()).is_empty() {
             movelist.add_ep(from, pos.ep_sq);
             continue;
         }
@@ -144,14 +144,14 @@ fn generate_pawn_moves<T: MoveList, U: State>(
 }
 
 #[inline(always)]
-fn generate_moves<T: MoveList, U: Piece>(
+fn generate_moves<M: MoveList, P: Piece>(
     pos: &Position,
-    movelist: &mut T,
+    movelist: &mut M,
     pinned: BitBoard,
     filter: BitBoard,
 ) {
-    for from in pos.us[U::pt()] {
-        let mut targets = U::generate_attacks(from, pos.occ) & filter;
+    for from in pos.us[P::pt()] {
+        let mut targets = P::generate_attacks(from, pos.occ) & filter;
         // For pinned pieces, allow only moves towards or away from king
         if (from & pinned).is_not_empty() {
             targets &= pos.us.king.between_mask(from)
@@ -162,31 +162,32 @@ fn generate_moves<T: MoveList, U: Piece>(
 }
 
 #[inline(always)]
-fn generate_castles<T: MoveList, U: State>(pos: &Position, movelist: &mut T) {
+fn generate_castles<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
     let from = pos.us.king;
-    let unsafe_squares = pos.unsafe_sq::<U>();
+    let unsafe_squares = pos.unsafe_sq::<C>();
 
-    if (pos.castling_rights & U::ksr_start_sq()).is_not_empty()
-        && (U::ksc_mask() & pos.occ).is_empty()
-        && (U::ksc_mask() & unsafe_squares).is_empty()
+    if (pos.castling_rights & C::ksr_start_sq()).is_not_empty()
+        && (C::ksc_mask() & pos.occ).is_empty()
+        && (C::ksc_mask() & unsafe_squares).is_empty()
     {
         movelist.add_castle(from, from.east_two(), MoveT::KSCastle);
     }
 
-    if (pos.castling_rights & U::qsr_start_sq()).is_not_empty()
-        && (U::qsc_free_mask() & pos.occ).is_empty()
-        && (U::qsc_safety_mask() & unsafe_squares).is_empty()
+    if (pos.castling_rights & C::qsr_start_sq()).is_not_empty()
+        && (C::qsc_free_mask() & pos.occ).is_empty()
+        && (C::qsc_safety_mask() & unsafe_squares).is_empty()
     {
         movelist.add_castle(from, from.west_two(), MoveT::QSCastle);
     }
 }
 
-mod pt {
-    use super::{types, BitBoard};
+mod pieces {
+    use super::*;
+    use types::PieceT;
 
     pub trait Piece {
         fn generate_attacks(from: BitBoard, occ: BitBoard) -> BitBoard;
-        fn pt() -> types::Piece;
+        fn pt() -> PieceT;
     }
 
     pub struct Rook;
@@ -198,8 +199,8 @@ mod pt {
         fn generate_attacks(from: BitBoard, occ: BitBoard) -> BitBoard {
             from.rook_magic_lu(occ)
         }
-        fn pt() -> types::Piece {
-            types::Piece::Rook
+        fn pt() -> PieceT {
+            PieceT::Rook
         }
     }
 
@@ -207,8 +208,8 @@ mod pt {
         fn generate_attacks(from: BitBoard, _occ: BitBoard) -> BitBoard {
             from.knight_attacks_lu()
         }
-        fn pt() -> types::Piece {
-            types::Piece::Knight
+        fn pt() -> PieceT {
+            PieceT::Knight
         }
     }
 
@@ -216,8 +217,8 @@ mod pt {
         fn generate_attacks(from: BitBoard, occ: BitBoard) -> BitBoard {
             from.bishop_magic_lu(occ)
         }
-        fn pt() -> types::Piece {
-            types::Piece::Bishop
+        fn pt() -> PieceT {
+            PieceT::Bishop
         }
     }
 
@@ -225,8 +226,8 @@ mod pt {
         fn generate_attacks(from: BitBoard, occ: BitBoard) -> BitBoard {
             from.queen_magic_lu(occ)
         }
-        fn pt() -> types::Piece {
-            types::Piece::Queen
+        fn pt() -> PieceT {
+            PieceT::Queen
         }
     }
 }
@@ -282,9 +283,9 @@ mod tests {
         for mv in movelist.iter() {
             let moved_pt = pos.us.pt_at(mv.from()).unwrap();
             match moved_pt {
-                types::Piece::Pawn => n_pawn += 1,
-                types::Piece::Knight => n_knight += 1,
-                types::Piece::King => n_king += 1,
+                types::PieceT::Pawn => n_pawn += 1,
+                types::PieceT::Knight => n_knight += 1,
+                types::PieceT::King => n_king += 1,
                 _ => (),
             }
             if matches!(mv.mt(), MoveT::KSCastle | MoveT::QSCastle) {

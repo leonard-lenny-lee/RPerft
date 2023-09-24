@@ -2,9 +2,9 @@
 /// http://hgm.nubati.net/book_format.html
 use super::*;
 use constants::bb;
-use position::states::State;
+use position::states::Color;
 use position::Position;
-use types::{Color, Piece};
+use types::{ColorT, PieceT};
 
 impl Position {
     /// Generate a Zobrist key, call during position initialization and use update methods during .makemove
@@ -39,8 +39,8 @@ impl Position {
         // Hash ep
         // Find pawns that are able to move to the target square
         let pawns = match self.stm {
-            Color::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & w.pawn,
-            Color::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & b.pawn,
+            ColorT::White => (self.ep_sq.sout_west() | self.ep_sq.sout_east()) & w.pawn,
+            ColorT::Black => (self.ep_sq.nort_west() | self.ep_sq.nort_east()) & b.pawn,
         };
 
         if pawns.is_not_empty() {
@@ -48,7 +48,7 @@ impl Position {
         }
 
         // Hash turn
-        if matches!(self.stm, Color::White) {
+        if matches!(self.stm, ColorT::White) {
             key ^= HASH_KEYS[780]
         }
 
@@ -56,7 +56,7 @@ impl Position {
     }
 
     /// Generate the en passant contribution of the zobrist hash
-    fn ep_hash<T: State>(&self) -> u64 {
+    fn ep_hash<T: Color>(&self) -> u64 {
         let mut key = 0;
 
         if self.ep_sq.is_not_empty() {
@@ -76,20 +76,20 @@ impl Position {
     }
 
     /// Update at both source and target squares for the piece
-    pub fn move_key_update(&mut self, moved_pt: Piece, from: BitBoard, to: BitBoard, wtm: bool) {
+    pub fn move_key_update(&mut self, moved_pt: PieceT, from: BitBoard, to: BitBoard, wtm: bool) {
         let idx = PT_TO_KEY_INDEX_MAP[moved_pt as usize] * 2 + wtm as usize;
         self.key ^= HASH_KEYS[64 * idx + from.to_sq()];
         self.key ^= HASH_KEYS[64 * idx + to.to_sq()];
     }
 
     /// Update hash for a single bitflip
-    pub fn square_key_update(&mut self, pt: Piece, sq: BitBoard, wtm: bool) {
+    pub fn square_key_update(&mut self, pt: PieceT, sq: BitBoard, wtm: bool) {
         let idx = PT_TO_KEY_INDEX_MAP[pt as usize] * 2 + wtm as usize;
         self.key ^= HASH_KEYS[64 * idx + sq.to_sq()];
     }
 
     /// Update hash for an en passant square update
-    pub fn ep_key_update<T: State>(&mut self) {
+    pub fn ep_key_update<T: Color>(&mut self) {
         self.key ^= self.ep_hash::<T>();
     }
 

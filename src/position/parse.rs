@@ -5,7 +5,7 @@ use super::*;
 use std::iter::zip;
 
 use constants::bb;
-use types::Piece;
+use types::PieceT;
 
 impl Position {
     /// Parse a FEN string into a position representation
@@ -80,8 +80,8 @@ impl Position {
 
         // Set side to move
         let (wtm, stm) = match tokens[1] {
-            "w" => (true, Color::White),
-            "b" => (false, Color::Black),
+            "w" => (true, ColorT::White),
+            "b" => (false, ColorT::Black),
             _ => return Err(()),
         };
 
@@ -121,7 +121,7 @@ impl Position {
         };
 
         // Swap us/them pointers if black to move
-        if let Color::Black = stm {
+        if let ColorT::Black = stm {
             std::mem::swap(&mut us, &mut them)
         }
 
@@ -211,8 +211,8 @@ impl Position {
 
         // Parse side to move
         match self.stm {
-            Color::White => tokens.push("w".to_string()),
-            Color::Black => tokens.push("b".to_string()),
+            ColorT::White => tokens.push("w".to_string()),
+            ColorT::Black => tokens.push("b".to_string()),
         }
 
         // Build castling token
@@ -295,32 +295,32 @@ impl BitBoardSet {
     }
 }
 
-impl std::ops::Index<Piece> for BitBoardSet {
+impl std::ops::Index<PieceT> for BitBoardSet {
     type Output = BitBoard;
 
-    fn index(&self, index: Piece) -> &Self::Output {
+    fn index(&self, index: PieceT) -> &Self::Output {
         match index {
-            Piece::Any => &self.all,
-            Piece::Pawn => &self.pawn,
-            Piece::Rook => &self.rook,
-            Piece::Knight => &self.knight,
-            Piece::Bishop => &self.bishop,
-            Piece::Queen => &self.queen,
-            Piece::King => &self.king,
+            PieceT::Any => &self.all,
+            PieceT::Pawn => &self.pawn,
+            PieceT::Rook => &self.rook,
+            PieceT::Knight => &self.knight,
+            PieceT::Bishop => &self.bishop,
+            PieceT::Queen => &self.queen,
+            PieceT::King => &self.king,
         }
     }
 }
 
-impl std::ops::IndexMut<Piece> for BitBoardSet {
-    fn index_mut(&mut self, index: Piece) -> &mut Self::Output {
+impl std::ops::IndexMut<PieceT> for BitBoardSet {
+    fn index_mut(&mut self, index: PieceT) -> &mut Self::Output {
         match index {
-            Piece::Any => &mut self.all,
-            Piece::Pawn => &mut self.pawn,
-            Piece::Rook => &mut self.rook,
-            Piece::Knight => &mut self.knight,
-            Piece::Bishop => &mut self.bishop,
-            Piece::Queen => &mut self.queen,
-            Piece::King => &mut self.king,
+            PieceT::Any => &mut self.all,
+            PieceT::Pawn => &mut self.pawn,
+            PieceT::Rook => &mut self.rook,
+            PieceT::Knight => &mut self.knight,
+            PieceT::Bishop => &mut self.bishop,
+            PieceT::Queen => &mut self.queen,
+            PieceT::King => &mut self.king,
         }
     }
 }
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(pos.free, expected_free, "free");
 
         // Other token parsing
-        assert!(matches!(pos.stm, Color::White));
+        assert!(matches!(pos.stm, ColorT::White));
         assert_eq!(pos.castling_rights, bb::A1 | bb::H1 | bb::A8 | bb::H8);
         assert_eq!(pos.ep_sq, bb::EMPTY);
         assert_eq!(pos.halfmove_clock, 0);

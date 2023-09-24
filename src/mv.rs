@@ -1,5 +1,5 @@
 use super::*;
-use types::{MoveT, Piece};
+use types::{MoveT, PieceT};
 
 /*
     Moves are encoded in an 16 bit integer.
@@ -79,9 +79,9 @@ impl Move {
     }
 
     /// What kind of promotion is encoded
-    pub fn promo_pt(&self) -> Piece {
+    pub fn promo_pt(&self) -> PieceT {
         debug_assert!(self.is_promo());
-        const MAP: [Piece; 4] = [Piece::Knight, Piece::Bishop, Piece::Rook, Piece::Queen];
+        const MAP: [PieceT; 4] = [PieceT::Knight, PieceT::Bishop, PieceT::Rook, PieceT::Queen];
         MAP[((self.0 & 0x3000) >> 12) as usize]
     }
 
@@ -91,10 +91,10 @@ impl Move {
 
         let promo_pt = if self.is_promo() {
             match self.promo_pt() {
-                Piece::Rook => "r",
-                Piece::Knight => "n",
-                Piece::Bishop => "b",
-                Piece::Queen => "q",
+                PieceT::Rook => "r",
+                PieceT::Knight => "n",
+                PieceT::Bishop => "b",
+                PieceT::Queen => "q",
                 _ => "",
             }
         } else {

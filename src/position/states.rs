@@ -10,7 +10,7 @@ const B_QSC_SAFETY_MASK: BitBoard = BitBoard(bb::C8.0 | bb::D8.0);
 const W_QSC_FREE_MASK: BitBoard = BitBoard(bb::B1.0 | bb::C1.0 | bb::D1.0);
 const B_QSC_FREE_MASK: BitBoard = BitBoard(bb::B8.0 | bb::C8.0 | bb::D8.0);
 
-pub trait State {
+pub trait Color {
     fn rank_7() -> BitBoard;
     fn rank_2() -> BitBoard;
     fn rank_3() -> BitBoard;
@@ -36,7 +36,7 @@ pub trait State {
 pub struct White;
 pub struct Black;
 
-impl State for White {
+impl Color for White {
     fn rank_7() -> BitBoard {
         RANK_7
     }
@@ -118,7 +118,7 @@ impl State for White {
     }
 }
 
-impl State for Black {
+impl Color for Black {
     fn rank_7() -> BitBoard {
         RANK_2
     }
@@ -203,15 +203,15 @@ impl State for Black {
 impl Position {
     /// Reverse the side to move
     pub fn change_state(&mut self) {
-        unsafe { self.stm = std::mem::transmute::<u8, Color>((self.stm as u8) ^ 1) }
+        unsafe { self.stm = std::mem::transmute::<u8, ColorT>((self.stm as u8) ^ 1) }
         self.wtm = !self.wtm;
         std::mem::swap(&mut self.us, &mut self.them)
     }
 
     pub fn white_black(&self) -> (&BitBoardSet, &BitBoardSet) {
         match self.stm {
-            Color::White => (&self.us, &self.them),
-            Color::Black => (&self.them, &self.us),
+            ColorT::White => (&self.us, &self.them),
+            ColorT::Black => (&self.them, &self.us),
         }
     }
 }

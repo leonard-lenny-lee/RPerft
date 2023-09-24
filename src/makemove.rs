@@ -3,19 +3,20 @@ use super::*;
 
 use mv::Move;
 use position::states::*;
-use types::{Color, MoveT, Piece};
+use position::Position;
+use types::{ColorT, MoveT, PieceT};
 
-impl position::Position {
+impl Position {
     /// Create a new position by applying move data to a position
     pub fn make_move(&self, mv: &Move) -> Self {
         match self.stm {
-            Color::White => self.make_move_inner::<White, Black>(mv),
-            Color::Black => self.make_move_inner::<Black, White>(mv),
+            ColorT::White => self.make_move_inner::<White, Black>(mv),
+            ColorT::Black => self.make_move_inner::<Black, White>(mv),
         }
     }
 
     #[inline(always)]
-    fn make_move_inner<T: State, U: State>(&self, mv: &Move) -> Self {
+    fn make_move_inner<C1: Color, C2: Color>(&self, mv: &Move) -> Self {
         let mut new_pos = *self;
         // Unpack move data
         let to = mv.to();
@@ -25,7 +26,7 @@ impl position::Position {
         let moved_pt = new_pos.us.pt_at(from).expect("is occupied");
 
         // Undo current ep key before position is modified
-        new_pos.ep_key_update::<T>();
+        new_pos.ep_key_update::<C1>();
 
         // Increment clocks
         new_pos.halfmove_clock += 1;
@@ -43,8 +44,8 @@ impl position::Position {
 
         // Reset halfmove clock on pawn moves, remove castle rights on king moves
         match moved_pt {
-            Piece::Pawn => new_pos.halfmove_clock = 0,
-            Piece::King => new_pos.castling_rights &= !T::rank_1(),
+            PieceT::Pawn => new_pos.halfmove_clock = 0,
+            PieceT::King => new_pos.castling_rights &= !C1::rank_1(),
             _ => (),
         }
 
@@ -69,7 +70,7 @@ impl position::Position {
             let promo_pt = mv.promo_pt();
             new_pos.us[promo_pt] ^= to;
             new_pos.us.pawn ^= to;
-            new_pos.square_key_update(Piece::Pawn, to, new_pos.wtm);
+            new_pos.square_key_update(PieceT::Pawn, to, new_pos.wtm);
             new_pos.square_key_update(promo_pt, to, new_pos.wtm);
         }
 
@@ -77,7 +78,7 @@ impl position::Position {
         match mt {
             MoveT::DoublePawnPush => {
                 // Ep target is one square behind dbl push target
-                new_pos.ep_sq = T::back_one(to);
+                new_pos.ep_sq = C1::back_one(to);
             }
 
             MoveT::KSCastle | MoveT::QSCastle => {
@@ -90,15 +91,15 @@ impl position::Position {
                 new_pos.us.rook ^= mask;
                 new_pos.us.all ^= mask;
                 new_pos.free ^= mask;
-                new_pos.move_key_update(Piece::Rook, rook_from, rook_to, new_pos.wtm);
+                new_pos.move_key_update(PieceT::Rook, rook_from, rook_to, new_pos.wtm);
             }
 
             MoveT::EnPassant => {
-                let ep_sq = T::back_one(to);
+                let ep_sq = C1::back_one(to);
                 new_pos.them.pawn ^= ep_sq;
                 new_pos.them.all ^= ep_sq;
                 new_pos.free ^= ep_sq;
-                new_pos.square_key_update(Piece::Pawn, ep_sq, !new_pos.wtm);
+                new_pos.square_key_update(PieceT::Pawn, ep_sq, !new_pos.wtm);
             }
 
             _ => (),
@@ -109,7 +110,7 @@ impl position::Position {
         new_pos.change_state();
         // Update key
         new_pos.turn_key_update();
-        new_pos.ep_key_update::<U>();
+        new_pos.ep_key_update::<C2>();
         new_pos.castling_key_update(self.castling_rights);
         new_pos
     }
