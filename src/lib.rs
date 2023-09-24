@@ -25,3 +25,4 @@ mod types;
 use bitboard::BitBoard;
 
 pub use constants::cli::*;
+pub use magics::initialize;

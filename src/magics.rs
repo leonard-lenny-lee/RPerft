@@ -1,54 +1,31 @@
 /// Implementation of magic bitboards
 use super::*;
 
-enum Table {
-    Rook,
-    Bishop,
+pub fn initialize() {
+    ROOK_ATTACKS.lookup(constants::bb::A1, constants::bb::EMPTY);
+    BISHOP_ATTACKS.lookup(constants::bb::A1, constants::bb::EMPTY);
 }
 
-struct MagicTable {
-    tables: Box<[[BitBoard; 4096]; 64]>,
-    table_type: Table,
-    magic_factors: &'static [u64; 64],
-    masks: &'static [u64; 64],
-    shifts: &'static [u64; 64],
-}
-
-impl MagicTable {
-    fn new(table_type: Table) -> Self {
-        let mut table = match table_type {
-            Table::Rook => Self {
-                tables: Box::new([[BitBoard(0); 4096]; 64]),
-                table_type,
-                magic_factors: &factors::ROOK_MAGICS,
-                masks: &factors::ROOK_MASKS,
-                shifts: &factors::ROOK_SHIFTS,
-            },
-            Table::Bishop => Self {
-                tables: Box::new([[BitBoard(0); 4096]; 64]),
-                table_type,
-                magic_factors: &factors::BISHOP_MAGICS,
-                masks: &factors::BISHOP_MASKS,
-                shifts: &factors::BISHOP_SHIFTS,
-            },
-        };
-        table.init();
-        return table;
-    }
+trait Magic {
+    fn new() -> Self;
+    fn magic(index: usize) -> u64;
+    fn mask(index: usize) -> u64;
+    fn shift(index: usize) -> u64;
+    fn write(&mut self, sq: usize, key: usize, occ: u64);
+    fn lookup_table(&self, sq: usize, key: usize) -> BitBoard;
 
     fn init(&mut self) {
-        use std::iter::zip;
+        for sq in 0..64 {
+            let magic = Self::magic(sq);
+            let mask = Self::mask(sq);
+            let shift = Self::shift(sq);
 
-        for (sq, ((magic_factor, mask), shift)) in
-            zip(zip(self.magic_factors, self.masks), self.shifts).enumerate()
-        {
             let n_bits = mask.count_ones();
             let n_permutations = 1 << n_bits;
-            // Enumerate through all the possible combinations of 0 and 1
-            // for a given mask, with 2 ** n_bits possible combinations
+
             for sq_table_idx in 0..n_permutations {
                 // Build occupancy mask
-                let mut mask_copy = *mask;
+                let mut mask_copy = mask;
                 let mut occ = 0u64;
                 for mask_idx in 0..n_bits {
                     let bit = 1 << mask_copy.trailing_zeros();
@@ -57,8 +34,7 @@ impl MagicTable {
                         occ |= bit
                     }
                 }
-                // Hash the occupancy config and use it to store the
-                // attacks in that config, as calculated by hyp quint
+                // Hash the occupancy and use it to store precomputed attacks
                 let key;
                 #[cfg(USE_PEXT)]
                 {
@@ -66,36 +42,97 @@ impl MagicTable {
                 };
                 #[cfg(not(USE_PEXT))]
                 {
-                    key = (occ.wrapping_mul(*magic_factor) >> shift) as usize
+                    key = (occ.wrapping_mul(magic) >> shift) as usize
                 };
-                self.tables[sq][key] = match self.table_type {
-                    Table::Bishop => BitBoard::from_sq(sq).hq_bishop_attacks(BitBoard(occ)),
-                    Table::Rook => BitBoard::from_sq(sq).hq_rook_attacks(BitBoard(occ)),
-                };
+                self.write(sq, key, occ);
             }
         }
     }
 
     #[cfg(USE_PEXT)]
-    fn lu(&self, sq: BitBoard, occ: BitBoard) -> BitBoard {
-        let sq_key = sq.ils1b();
-        let key = unsafe { std::arch::x86_64::_pext_u64(occ.0, self.masks[sq_key]) };
-        self.tables[sq_key][key as usize]
+    fn lookup(&self, sq: BitBoard, occ: BitBoard) -> BitBoard {
+        let sq = sq.get_ls1b_index();
+        let key = unsafe { std::arch::x86_64::_pext_u64(occ.0, Self::mask(sq)) };
+        self.lookup(sq, key as usize)
     }
 
     #[cfg(not(USE_PEXT))]
-    fn lu(&self, sq: BitBoard, occ: BitBoard) -> BitBoard {
-        assert!(sq.0.count_ones() == 1);
-        let sq_key = sq.get_ls1b_index();
-        let key = (occ.0 & self.masks[sq_key]).wrapping_mul(self.magic_factors[sq_key])
-            >> self.shifts[sq_key];
-        self.tables[sq_key][key as usize]
+    fn lookup(&self, sq: BitBoard, occ: BitBoard) -> BitBoard {
+        let sq = sq.get_ls1b_index();
+        let key = (occ.0 & Self::mask(sq)).wrapping_mul(Self::magic(sq)) >> Self::shift(sq);
+        self.lookup_table(sq, key as usize)
+    }
+}
+
+struct RookTable([[BitBoard; 4096]; 64]);
+
+impl Magic for RookTable {
+    fn new() -> Self {
+        Self([[BitBoard::default(); 4096]; 64])
+    }
+
+    fn magic(index: usize) -> u64 {
+        factors::ROOK_MAGICS[index]
+    }
+
+    fn mask(index: usize) -> u64 {
+        factors::ROOK_MASKS[index]
+    }
+
+    fn shift(index: usize) -> u64 {
+        factors::ROOK_SHIFTS[index]
+    }
+
+    fn write(&mut self, sq: usize, key: usize, occ: u64) {
+        let attacks = BitBoard::from_sq(sq).hq_rook_attacks(BitBoard(occ));
+        self.0[sq][key] = attacks;
+    }
+
+    fn lookup_table(&self, sq: usize, key: usize) -> BitBoard {
+        self.0[sq][key]
+    }
+}
+
+struct BishopTable([[BitBoard; 512]; 64]);
+
+impl Magic for BishopTable {
+    fn new() -> Self {
+        Self([[BitBoard::default(); 512]; 64])
+    }
+
+    fn magic(index: usize) -> u64 {
+        factors::BISHOP_MAGICS[index]
+    }
+
+    fn mask(index: usize) -> u64 {
+        factors::BISHOP_MASKS[index]
+    }
+
+    fn shift(index: usize) -> u64 {
+        factors::BISHOP_SHIFTS[index]
+    }
+
+    fn write(&mut self, sq: usize, key: usize, occ: u64) {
+        let attacks = BitBoard::from_sq(sq).hq_bishop_attacks(BitBoard(occ));
+        self.0[sq][key] = attacks;
+    }
+
+    fn lookup_table(&self, sq: usize, key: usize) -> BitBoard {
+        self.0[sq][key]
     }
 }
 
 lazy_static! {
-    static ref ROOK_ATTACKS: MagicTable = MagicTable::new(Table::Rook);
-    static ref BISHOP_ATTACKS: MagicTable = MagicTable::new(Table::Bishop);
+    static ref ROOK_ATTACKS: RookTable = {
+        let mut t = Box::new(RookTable::new());
+        t.init();
+        *t
+    };
+    static ref BISHOP_ATTACKS: BishopTable = {
+        let mut t = Box::new(BishopTable::new());
+        t.init();
+        *t
+    };
     static ref BETWEEN_TABLES: [[BitBoard; 64]; 64] = {
         let mut tables = [[BitBoard(0); 64]; 64];
         for sq_1 in 0..64 {
@@ -110,12 +147,12 @@ lazy_static! {
 impl BitBoard {
     /// Find the rook attack squares by looking up the magic tables
     pub fn rook_magic_lu(&self, occ: BitBoard) -> BitBoard {
-        return ROOK_ATTACKS.lu(*self, occ);
+        return ROOK_ATTACKS.lookup(*self, occ);
     }
 
     /// Find the bishop attack squares by looking up the magic tables
     pub fn bishop_magic_lu(&self, occ: BitBoard) -> BitBoard {
-        return BISHOP_ATTACKS.lu(*self, occ);
+        return BISHOP_ATTACKS.lookup(*self, occ);
     }
 
     /// Find the queen attack squares by lookup up the magic tables
@@ -257,6 +294,11 @@ mod tests {
 
     use super::*;
     use test_case::test_case;
+
+    enum Table {
+        Bishop,
+        Rook,
+    }
 
     /// Test that magic factor hashing is free from collisions.
     #[test_case(Table::Bishop; "bishop")]

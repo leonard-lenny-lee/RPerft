@@ -3,6 +3,7 @@ use rperft::*;
 
 fn main() {
     env_logger::init();
+    initialize();
 
     // Config Parser
     let fen_arg = Arg::new("fen")
