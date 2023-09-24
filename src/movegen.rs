@@ -20,12 +20,13 @@ pub fn generate_all<M: MoveList>(pos: &Position, movelist: &mut M) {
 fn generate_all_inner<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
     let checkers = pos.checkers::<C>();
     let n_checkers = checkers.pop_count();
+    let unsafe_sq = pos.unsafe_sq::<C>();
     let filter;
 
     match n_checkers.cmp(&1) {
         Ordering::Greater => {
             // In double check, only king moves are valid
-            generate_king_moves::<M, C>(pos, movelist);
+            generate_king_moves::<M>(pos, movelist, unsafe_sq);
             return;
         }
         Ordering::Equal => {
@@ -36,7 +37,7 @@ fn generate_all_inner<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
             // Not in check so all squares that are not occupied by our pieces are valid targets
             filter = !pos.us.all;
             // Castling is allowed only when not in check
-            generate_castles::<M, C>(pos, movelist);
+            generate_castles::<M, C>(pos, movelist, unsafe_sq);
         }
     }
 
@@ -48,13 +49,13 @@ fn generate_all_inner<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
     generate_moves::<M, Queen>(pos, movelist, pinned, filter);
 
     generate_pawn_moves::<M, C>(pos, movelist, pinned, filter);
-    generate_king_moves::<M, C>(pos, movelist);
+    generate_king_moves::<M>(pos, movelist, unsafe_sq);
 }
 
 #[inline(always)]
-fn generate_king_moves<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
+fn generate_king_moves<M: MoveList>(pos: &Position, movelist: &mut M, unsafe_sq: BitBoard) {
     let from = pos.us.king;
-    let targets = from.king_attacks_lu() & !pos.us.all & !pos.unsafe_sq::<C>();
+    let targets = from.king_attacks_lu() & !pos.us.all & !unsafe_sq;
     let quiet_targets = targets & pos.free;
     movelist.add_quiets(from, targets & quiet_targets);
     movelist.add_captures(from, targets ^ quiet_targets);
@@ -162,20 +163,19 @@ fn generate_moves<M: MoveList, P: Piece>(
 }
 
 #[inline(always)]
-fn generate_castles<M: MoveList, C: Color>(pos: &Position, movelist: &mut M) {
+fn generate_castles<M: MoveList, C: Color>(pos: &Position, movelist: &mut M, unsafe_sq: BitBoard) {
     let from = pos.us.king;
-    let unsafe_squares = pos.unsafe_sq::<C>();
 
     if (pos.castling_rights & C::ksr_start_sq()).is_not_empty()
         && (C::ksc_mask() & pos.occ).is_empty()
-        && (C::ksc_mask() & unsafe_squares).is_empty()
+        && (C::ksc_mask() & unsafe_sq).is_empty()
     {
         movelist.add_castle(from, from.east_two(), MoveT::KSCastle);
     }
 
     if (pos.castling_rights & C::qsr_start_sq()).is_not_empty()
         && (C::qsc_free_mask() & pos.occ).is_empty()
-        && (C::qsc_safety_mask() & unsafe_squares).is_empty()
+        && (C::qsc_safety_mask() & unsafe_sq).is_empty()
     {
         movelist.add_castle(from, from.west_two(), MoveT::QSCastle);
     }
